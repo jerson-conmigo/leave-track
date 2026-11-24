@@ -141,6 +141,21 @@ export type OrgStats = {
   employeeCount: number;
 };
 
-/** Result shape for mutations invoked from the UI (server actions on Day 1). */
+/** Non-blocking issue returned with a successful submission (US-01 AC3). */
+export type SubmitWarning = {
+  code: "EXCEEDS_BALANCE";
+  message: string;
+  requestedDays: number;
+  availableDays: number;
+};
+
+/** `data` of a successful POST /api/leave-requests (201). */
+export type SubmitLeaveRequestResult = {
+  request: LeaveRequestView;
+  warnings: SubmitWarning[];
+};
+
+/** Result shape for mutations invoked from the UI (server actions). */
 export type ActionResult =
-  { success: true } | { success: false; error: { code: string; message: string } };
+  | { success: true; warnings?: SubmitWarning[] }
+  | { success: false; error: { code: string; message: string } };

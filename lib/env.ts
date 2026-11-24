@@ -17,8 +17,14 @@ const EnvSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.url().default("http://localhost:3000"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
 
-  // Supabase Postgres — DATABASE_URL must be the POOLED (pgbouncer, port 6543) URL.
-  DATABASE_URL: optionalUrl,
+  // Supabase Postgres — DATABASE_URL must be the POOLED (Supavisor, port 6543) URL.
+  // When set, writes go to Postgres (lib/db/postgres.ts); unset → in-memory store.
+  DATABASE_URL: z
+    .url()
+    .refine((u) => /^postgres(ql)?:\/\//.test(u), {
+      error: "DATABASE_URL must be a postgres:// URL",
+    })
+    .optional(),
   // Direct connection — migrations only, never used by the running app.
   DIRECT_URL: optionalUrl,
   NEXT_PUBLIC_SUPABASE_URL: optionalUrl,

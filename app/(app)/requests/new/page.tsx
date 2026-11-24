@@ -4,6 +4,7 @@ import { RequestForm } from "@/components/leave/request-form";
 import { Card, CardContent } from "@/components/ui/card";
 import { requireSession } from "@/lib/auth/session";
 import { repository } from "@/lib/data/repositories";
+import { submitLeaveRequestAction } from "./actions";
 
 export const metadata: Metadata = { title: "New request" };
 
@@ -22,7 +23,11 @@ export default async function NewRequestPage() {
       />
       <Card className="py-6">
         <CardContent className="px-4 sm:px-6">
-          <RequestForm leaveTypes={leaveTypes} balances={balances} />
+          <RequestForm
+            leaveTypes={leaveTypes}
+            balances={balances}
+            onSubmit={submitLeaveRequestAction}
+          />
         </CardContent>
       </Card>
     </div>

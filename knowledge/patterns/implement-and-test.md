@@ -48,3 +48,25 @@ that test** fails with a non-zero exit — then restore the original byte-for-by
   inside one `it`. Verify with `vitest --sequence.shuffle` and a single `-t` filtered run.
 - Never hand-list inputs the suite must cover (e.g. migration files) — discover them, or a new
   file is silently skipped while the suite stays green.
+
+### Running mutation probes safely (from TASK-011)
+
+- Drive probes from a **script with guaranteed restore** — back up each file, apply one change,
+  run, restore in `finally`, then assert the file hash matches the original. Never chain shell
+  `cp`/`sed` loops: in zsh, an unquoted `$FILES` is _not_ word-split, so backups silently fail and
+  mutations accumulate across probes (happened in TASK-011 VALIDATE; caught and reverted).
+- Anchor every probe on a string that occurs exactly once, and fail the probe if it doesn't.
+
+### Verifying the real DB driver without Docker
+
+`@electric-sql/pglite-socket` serves PGlite over the Postgres wire protocol, so the production
+postgres.js adapter (`lib/db/postgres.ts`) can be exercised for real: start
+`new PGLiteSocketServer({ db, port, maxConnections: 10 })`, set `DATABASE_URL` to it **before**
+importing `lib/db/postgres`, and run the store against it (done one-off for TASK-011).
+
+### Headless browser tests with Radix overlays
+
+Headless Chrome never fires the exit-animation end for Radix Select/Dialog, so `<body>` keeps
+`pointer-events: none` and every later click silently misses. Emulate
+`prefers-reduced-motion: reduce` (puppeteer `emulateMediaFeatures`) — real browsers are unaffected.
+Also assert on the _toast_ element, not page text: pre-submit alerts can contain the same words.

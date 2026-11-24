@@ -2,7 +2,7 @@
   "name": "leave-track",
   "version": "0.1.0",
   "private": true,
-  "description": "LeaveTrack \u2014 self-service leave requests, scoped manager approvals, and an auditable HR record.",
+  "description": "LeaveTrack — self-service leave requests, scoped manager approvals, and an auditable HR record.",
   "engines": {
     "node": ">=24"
   },
@@ -30,6 +30,7 @@
     "lucide-react": "1.78.0",
     "next": "16.4.6",
     "pino": "10.4.0",
+    "postgres": "4.1.1",
     "radix-ui": "1.8.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",

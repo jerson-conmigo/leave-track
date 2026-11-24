@@ -35,7 +35,11 @@ Traceability: `docs/brd/BRD-LeaveTrack-v1.0.md` → `docs/prd/PRD-LeaveTrack-v1.
 
 - `app/(public)/` unauthenticated routes · `app/(app)/` authenticated routes · `app/api/` route handlers
 - `components/ui/` shadcn primitives (generated; edit sparingly) · `components/<domain>/` feature components
-- `lib/data/repositories.ts` — the **only** data-access contract pages may use
+- `lib/data/repositories.ts` — the **only** data-access contract pages may use for **reads**
+- `lib/<domain>/` (e.g. `lib/leave-requests/`) — mutation services: business rules + a store port;
+  route handlers and server actions are thin transports over them (pattern: TASK-011)
+- `lib/db/` — `SqlClient` port + postgres.js adapter (pooled URL); stores use the port, never a
+  driver (ADR-LeaveTrack-E003). Process-wide state lives on `globalThis` (see coding-standards)
 - `lib/auth/roles.ts` — the **only** route→role matrix (proxy, `requireRole`, and nav all read it)
 - `lib/api/` — response envelope, `AppError`, `withErrorHandler`
 - `lib/validation/` — zod schemas shared by client and server

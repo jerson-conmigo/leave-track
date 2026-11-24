@@ -6,7 +6,7 @@ import { z } from "zod";
  */
 export const LeaveRequestSchema = z
   .object({
-    leaveTypeId: z.string().min(1, { error: "Choose a leave type." }),
+    leaveTypeId: z.uuid({ error: "Choose a leave type." }),
     startDate: z.iso.date({ error: "Enter a valid start date." }),
     endDate: z.iso.date({ error: "Enter a valid end date." }),
     reason: z

@@ -1,15 +1,11 @@
 import { countDays } from "@/lib/format";
-import {
-  auditLog,
-  LAST_ACCRUAL_AT,
-  leaveBalances,
-  leavePolicies,
-  leaveRequests,
-  leaveTypes,
-  users,
-} from "@/lib/data/mock/fixtures";
+import { LAST_ACCRUAL_AT } from "@/lib/data/mock/fixtures";
+import { mockDb } from "@/lib/data/mock/store";
 import type { LeaveRepository } from "@/lib/data/repositories";
 import type { LeaveRequest, LeaveRequestView, LeaveType, User } from "@/lib/data/types";
+
+// Same array instances as mockDb, so in-memory writes are visible to every read.
+const { auditLog, leaveBalances, leavePolicies, leaveRequests, leaveTypes, users } = mockDb;
 
 const byId = <T extends { id: string }>(rows: T[], id: string) => rows.find((r) => r.id === id);
 const active = () => leaveRequests.filter((r) => !r.isDeleted);

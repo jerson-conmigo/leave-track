@@ -1,6 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
-import path from "node:path";
-import { PGlite } from "@electric-sql/pglite";
+import type { PGlite } from "@electric-sql/pglite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   auditLog,
@@ -11,6 +9,7 @@ import {
   users,
 } from "@/lib/data/mock/fixtures";
 import { AUDIT_ACTIONS, LEAVE_TYPE_NAMES, REQUEST_STATUSES, ROLES } from "@/lib/data/types";
+import { MIGRATION_FILES, migratedDb, SEED } from "./helpers";
 
 /**
  * TASK-010 — schema contract, run against real Postgres 17 (PGlite, in-process).
@@ -21,15 +20,6 @@ import { AUDIT_ACTIONS, LEAVE_TYPE_NAMES, REQUEST_STATUSES, ROLES } from "@/lib/
  * migration that references them (e.g. RLS policies using auth.uid()) needs a
  * shim in `beforeAll` before it can be applied here.
  */
-
-const root = path.resolve(import.meta.dirname, "../..");
-const migrationsDir = path.join(root, "supabase/migrations");
-/** Every migration, in filename (timestamp) order — new files are picked up automatically. */
-const MIGRATION_FILES = readdirSync(migrationsDir)
-  .filter((f) => f.endsWith(".sql"))
-  .sort();
-const MIGRATIONS = MIGRATION_FILES.map((f) => readFileSync(path.join(migrationsDir, f), "utf8"));
-const SEED = readFileSync(path.join(root, "supabase/seed.sql"), "utf8");
 
 const ARCH_TABLES = [
   "users",
@@ -138,8 +128,7 @@ let afterMigrations: Awaited<ReturnType<typeof counts>>;
 let afterSeed: Awaited<ReturnType<typeof counts>>;
 
 beforeAll(async () => {
-  db = new PGlite();
-  for (const sql of MIGRATIONS) await db.exec(sql);
+  db = await migratedDb();
   afterMigrations = await counts();
   await db.exec(SEED);
   afterSeed = await counts();

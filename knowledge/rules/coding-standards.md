@@ -110,6 +110,10 @@ These each caused a real defect during the scaffold. Keep them.
   cast explicitly (`'…'::timestamptz`). Validate migrations + seed (run twice) before committing.
 - **"Available for this request" excludes the request itself.** Pending deductions must not
   count the request being evaluated, or every in-balance request is flagged as over.
+- **Process-wide state goes on `globalThis`.** Next bundles route handlers and pages into separate
+  module graphs, so a module-level singleton (in-memory store, DB pool) exists once _per bundle_.
+  TASK-011: an API write was invisible to pages until the mock store moved to `globalThis`. Unit
+  tests can't catch this (one module graph) — verify cross-transport flows on a real build.
 - **Measure, don't eyeball, responsiveness.** Check `scrollWidth === clientWidth` and target
   heights ≥ 44px at 320/375px for every page and role; inline text links need
   `min-h-11 md:min-h-0` to meet the touch-target rule.

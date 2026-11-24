@@ -35,8 +35,9 @@ type RequestFormProps = {
   /** Current balances — drive the non-blocking over-balance warning (US-01 AC3). */
   balances: BalanceSummary[];
   /**
-   * Submit handler. Day 0 default persists nothing. Day 1 passes the real
-   * server action (TASK-011), which MUST re-validate with LeaveRequestSchema.
+   * Submit handler — the page passes `submitLeaveRequestAction` (TASK-011), which
+   * re-validates server-side. The default (`mockSubmit`) persists nothing and
+   * exists only for isolated rendering.
    */
   onSubmit?: (values: LeaveRequestInput) => Promise<ActionResult>;
 };
@@ -67,8 +68,11 @@ export function RequestForm({ leaveTypes, balances, onSubmit = mockSubmit }: Req
       form.setError("root", { message: result.error.message });
       return;
     }
+    const overBalance = result.warnings?.some((w) => w.code === "EXCEEDS_BALANCE");
     toast.success("Request sent to your manager", {
-      description: "Demo mode — nothing was saved. Submission is wired up in TASK-011.",
+      description: overBalance
+        ? "It's more than your available balance, so HR will review it for an override."
+        : "You'll see the decision under My requests.",
     });
     form.reset(EMPTY);
   }
