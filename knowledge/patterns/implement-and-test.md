@@ -64,6 +64,16 @@ postgres.js adapter (`lib/db/postgres.ts`) can be exercised for real: start
 `new PGLiteSocketServer({ db, port, maxConnections: 10 })`, set `DATABASE_URL` to it **before**
 importing `lib/db/postgres`, and run the store against it (done one-off for TASK-011).
 
+**Use `DATABASE_POOL_MAX=1` against pglite-socket.** It multiplexes every client connection
+onto ONE PGlite session, so concurrent parameterised queries from different connections
+clobber each other's _unnamed_ prepared statement — sometimes an error ("unnamed prepared
+statement does not exist"), sometimes a silently **wrong result** (TASK-012: pending showed 0).
+Real Postgres/Supavisor give each connection its own session, so this is a harness limit, not
+an app bug — but any parallel-query path must be verified with a single connection there.
+Full-app recipe (TASK-012): serve a seeded PGlite on a port, then
+`DATABASE_URL=postgres://postgres:postgres@127.0.0.1:<port>/postgres DATABASE_POOL_MAX=1 npx next start`,
+and prove reads hit Postgres by writing to the DB directly and watching the page change.
+
 ### Headless browser tests with Radix overlays
 
 Headless Chrome never fires the exit-animation end for Radix Select/Dialog, so `<body>` keeps

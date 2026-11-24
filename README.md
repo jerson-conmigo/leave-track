@@ -61,15 +61,17 @@ Environments are selected with `APP_ENV` (`development` / `staging` / `productio
 - Hard deletes on `leave_requests` / `audit_log` are blocked by triggers (3-year retention).
 - The app connects with the **pooled** `DATABASE_URL` (port 6543); `DIRECT_URL` is for migrations.
 
-### Where writes go (TASK-011+)
+### Where data goes
 
-| `DATABASE_URL` | Writes (submit request)                   | Reads (lists, balances)  |
-| -------------- | ----------------------------------------- | ------------------------ |
-| unset          | In-memory mock DB (per process, dev only) | Same in-memory mock DB   |
-| set            | Postgres via postgres.js (`lib/db/`)      | Still mock (backlog B13) |
+One switch (`getSql()` in `lib/db/postgres.ts`) picks the store for reads **and** writes.
 
-Until TASK-012/013/015 move reads to Postgres, **leave `DATABASE_URL` unset** — otherwise new
-requests are saved but won't appear in the lists. Data access design: ADR-LeaveTrack-E003.
+| `DATABASE_URL` | Submit request | Users · balances · my requests (TASK-012) | Team queue · audit · policies · stats |
+| -------------- | -------------- | ----------------------------------------- | ------------------------------------- |
+| unset          | In-memory mock | In-memory mock                            | In-memory mock                        |
+| set            | Postgres       | Postgres                                  | Still mock — backlog B13              |
+
+With `DATABASE_URL` set, a manager's queue and the HR audit won't show Postgres data until
+TASK-013/015 — keep it unset for demos until then. Design: ADR-LeaveTrack-E003.
 
 ## Project layout
 

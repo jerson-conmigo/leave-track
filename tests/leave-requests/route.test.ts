@@ -4,14 +4,14 @@ import { LEAVE_TYPE_IDS, USER_IDS } from "@/lib/data/mock/fixtures";
 import { mockDb } from "@/lib/data/mock/store";
 
 /**
- * TASK-011 — POST /api/leave-requests: HTTP contract and envelope (ARCH).
+ * TASK-011 / TASK-012 — POST and GET /api/leave-requests: HTTP contract and envelope (ARCH).
  * The session is mocked; with no DATABASE_URL the route uses the in-memory store,
  * which also proves the store selection.
  */
 const getSession = vi.fn();
 vi.mock("@/lib/auth/session", () => ({ getSession: () => getSession() }));
 
-const { POST } = await import("@/app/api/leave-requests/route");
+const { GET, POST } = await import("@/app/api/leave-requests/route");
 
 const ANA_SESSION = {
   userId: USER_IDS.ana,
@@ -102,5 +102,58 @@ describe("POST /api/leave-requests", () => {
     );
     expect(res.status).toBe(201);
     expect((await res.json()).data.warnings[0]).toMatchObject({ code: "EXCEEDS_BALANCE" });
+  });
+});
+
+const get = (query: string) =>
+  GET(new NextRequest(`http://localhost/api/leave-requests${query}`), undefined);
+
+describe("GET /api/leave-requests?scope=mine (TASK-012)", () => {
+  it("200 with the session user's balances and own requests", async () => {
+    const res = await get("?scope=mine");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("private, no-store");
+    const json = await res.json();
+    expect(json.success).toBe(true);
+    expect(
+      json.data.balances.map((b: { leaveType: { name: string } }) => b.leaveType.name),
+    ).toEqual(["Vacation", "Sick", "Unpaid"]);
+    // AC1/AC2 shape: confirmed and pending reported separately, dated by the accrual run.
+    expect(json.data.balances[0]).toMatchObject({
+      confirmed: 11.25,
+      asOf: "2026-11-01T02:00:00.000Z",
+    });
+    expect(json.data.balances[0].pending).toBeGreaterThanOrEqual(11);
+    const anasIds = new Set(
+      mockDb.leaveRequests.filter((r) => r.userId === USER_IDS.ana).map((r) => r.id),
+    );
+    expect(json.data.requests.length).toBeGreaterThan(0);
+    expect(json.data.requests.every((r: { id: string }) => anasIds.has(r.id))).toBe(true);
+  });
+
+  it("ignores a userId in the query — always the session user", async () => {
+    const own = await (await get("?scope=mine")).json();
+    const spoofed = await (await get(`?scope=mine&userId=${USER_IDS.jordan}`)).json();
+    expect(spoofed.data).toEqual(own.data);
+  });
+
+  it("401 UNAUTHENTICATED without a session", async () => {
+    getSession.mockResolvedValue(null);
+    const res = await get("?scope=mine");
+    expect(res.status).toBe(401);
+    expect((await res.json()).error.code).toBe("UNAUTHENTICATED");
+  });
+
+  it.each([
+    ["missing scope", ""],
+    ["unknown scope", "?scope=everyone"],
+    ["team (TASK-013)", "?scope=team"],
+  ])("400 VALIDATION_ERROR for %s", async (_label, query) => {
+    const res = await get(query);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      success: false,
+      error: { code: "VALIDATION_ERROR", message: "Unsupported scope." },
+    });
   });
 });

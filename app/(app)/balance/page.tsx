@@ -5,16 +5,26 @@ import { BalanceCard } from "@/components/leave/balance-card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { requireSession } from "@/lib/auth/session";
 import { repository } from "@/lib/data/repositories";
+import { formatDate } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Balance" };
 
 export default async function BalancePage() {
   const session = await requireSession();
   const balances = await repository.getBalances(session.userId);
+  // One accrual run covers every tracked type (US-02 AC1).
+  const asOf = balances.find((b) => b.asOf)?.asOf ?? null;
 
   return (
     <>
-      <PageHeader title="Your leave balance" description="Each leave type is tracked separately." />
+      <PageHeader
+        title="Your leave balance"
+        description={
+          asOf
+            ? `As of the last monthly accrual on ${formatDate(asOf)}. Each leave type is tracked separately.`
+            : "No monthly accrual has run yet. Each leave type is tracked separately."
+        }
+      />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {balances.map((b) => (
           <BalanceCard key={b.leaveType.id} balance={b} />

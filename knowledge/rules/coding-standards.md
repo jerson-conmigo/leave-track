@@ -54,6 +54,10 @@ export const POST = withErrorHandler(async (req) => {
 - **Every migration keeps `tests/db/schema.test.ts` green.** A new table, column, FK, enum value,
   or invariant gets an assertion there in the same PR (migration files are auto-discovered).
   The suite runs real Postgres 17 in-process (PGlite) under `npm test` — no Docker needed.
+- Pool size comes from `DATABASE_POOL_MAX` (default 5). On Vercel serverless with the Supavisor
+  transaction pooler use 1–2 — every function instance opens its own pool.
+- Read paths may run independent queries in parallel (`Promise.all`); with a pool of 1 they
+  serialise. Measure p95 against the 500 ms NFR on real Supabase before adding more round trips.
 - PGlite has no Supabase `auth` schema or `anon`/`authenticated` roles. A migration that uses
   them (e.g. RLS policies with `auth.uid()`) needs a shim in the test's `beforeAll`.
 - Decisions: `decision_reason` is required when `status = 'rejected'`, optional on approve, and

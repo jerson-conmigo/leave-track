@@ -24,7 +24,9 @@ export async function submitLeaveRequestAction(values: LeaveRequestInput): Promi
 
   try {
     const { warnings } = await submitLeaveRequest(session, values, getSubmitDeps());
-    for (const path of ["/requests", "/dashboard", "/balance", "/approvals"]) revalidatePath(path);
+    for (const path of ["/requests", "/requests/new", "/dashboard", "/balance", "/approvals"]) {
+      revalidatePath(path);
+    }
     return { success: true, warnings };
   } catch (error) {
     if (isAppError(error) && error.status < 500) {

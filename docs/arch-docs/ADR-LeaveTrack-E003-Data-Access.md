@@ -47,5 +47,8 @@ Option 3.
   connects as a privileged role, so **authorization is enforced in application SQL**
   (e.g. `manager_id` scoping in the query) until RLS policies exist — consistent with ARCH ›
   Security.
-- Transitional (backlog B13): list reads remain on the mock repository until
-  TASK-012/013/015; `DATABASE_URL` should stay unset until then.
+- Transitional (backlog B13): `createPostgresRepository(sql, fallback)` implements reads
+  incrementally and delegates the rest to the mock repository, each delegation marked with
+  its task. TASK-012 moved users, leave types, balances and my-requests; team queue
+  (TASK-013) and audit/policies/stats (TASK-015) remain. A parity test asserts the Postgres
+  and mock implementations agree on the seed.

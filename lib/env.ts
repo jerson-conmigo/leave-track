@@ -25,6 +25,9 @@ const EnvSchema = z.object({
       error: "DATABASE_URL must be a postgres:// URL",
     })
     .optional(),
+  // Connections per server instance. Serverless + Supavisor transaction mode: keep
+  // this low (1–2) — each function instance holds its own pool.
+  DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(20).default(5),
   // Direct connection — migrations only, never used by the running app.
   DIRECT_URL: optionalUrl,
   NEXT_PUBLIC_SUPABASE_URL: optionalUrl,

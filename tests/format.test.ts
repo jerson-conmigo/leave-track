@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { countDays, formatDateRange, formatDateTime, formatDays, initials } from "@/lib/format";
+import {
+  countDays,
+  formatDateRange,
+  formatDateTime,
+  formatDayNumber,
+  formatDays,
+  initials,
+} from "@/lib/format";
 
 describe("countDays", () => {
   it("counts inclusive calendar days", () => {
@@ -45,5 +52,14 @@ describe("hydration-safe date formatting", () => {
     const out = formatDateTime("2026-11-18T09:12:00.000Z");
     expect(out).toBe("Nov 18, 2026, 9:12 AM UTC");
     expect(out).not.toMatch(unicodeSpace);
+  });
+});
+
+describe("formatDayNumber", () => {
+  it("uses the same rounding as formatDays (no trailing zero)", () => {
+    expect(formatDayNumber(1.5)).toBe("1.5");
+    expect(formatDayNumber(0.25)).toBe("0.25");
+    expect(formatDayNumber(11)).toBe("11");
+    expect(formatDays(1.5)).toBe(`${formatDayNumber(1.5)} days`);
   });
 });

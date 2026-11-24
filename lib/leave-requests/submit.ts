@@ -1,6 +1,7 @@
 import { AppError } from "@/lib/api/errors";
 import type { Session } from "@/lib/auth/session";
 import type { SubmitLeaveRequestResult, SubmitWarning } from "@/lib/data/types";
+import { toRequestView } from "@/lib/data/views";
 import { countDays, formatDays } from "@/lib/format";
 import type { Notifier } from "@/lib/leave-requests/notifier";
 import type { SubmitStore } from "@/lib/leave-requests/store";
@@ -85,19 +86,5 @@ export async function submitLeaveRequest(
     "leave request submitted",
   );
 
-  return {
-    request: {
-      id: request.id,
-      leaveType: leaveType.name,
-      startDate: request.startDate,
-      endDate: request.endDate,
-      days,
-      reason: request.reason,
-      status: request.status,
-      createdAt: request.createdAt,
-      decidedAt: null,
-      decidedByName: null,
-    },
-    warnings,
-  };
+  return { request: toRequestView(request, leaveType.name, null), warnings };
 }

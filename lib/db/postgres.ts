@@ -29,7 +29,7 @@ export function getSql(): SqlClient | null {
   if (!env.DATABASE_URL) return null;
   globalForDb.__leaveTrackSql ??= postgres(env.DATABASE_URL, {
     prepare: false, // transaction-mode poolers can't hold prepared statements
-    max: 5,
+    max: env.DATABASE_POOL_MAX,
     idle_timeout: 20,
     connect_timeout: 10,
   });

@@ -1,8 +1,10 @@
-import { countDays } from "@/lib/format";
+import { buildBalanceSummaries } from "@/lib/data/balance";
 import { LAST_ACCRUAL_AT } from "@/lib/data/mock/fixtures";
 import { mockDb } from "@/lib/data/mock/store";
 import type { LeaveRepository } from "@/lib/data/repositories";
 import type { LeaveRequest, LeaveRequestView, LeaveType, User } from "@/lib/data/types";
+import { toRequestView } from "@/lib/data/views";
+import { countDays } from "@/lib/format";
 
 // Same array instances as mockDb, so in-memory writes are visible to every read.
 const { auditLog, leaveBalances, leavePolicies, leaveRequests, leaveTypes, users } = mockDb;
@@ -21,18 +23,7 @@ function userName(id: string | null): string | null {
 }
 
 function toView(r: LeaveRequest): LeaveRequestView {
-  return {
-    id: r.id,
-    leaveType: typeOf(r.leaveTypeId).name,
-    startDate: r.startDate,
-    endDate: r.endDate,
-    days: countDays(r.startDate, r.endDate),
-    reason: r.reason,
-    status: r.status,
-    createdAt: r.createdAt,
-    decidedAt: r.decidedAt,
-    decidedByName: userName(r.decidedBy),
-  };
+  return toRequestView(r, typeOf(r.leaveTypeId).name, userName(r.decidedBy));
 }
 
 function pendingDays(userId: string, leaveTypeId: string): number {
@@ -65,21 +56,14 @@ export const mockRepository: LeaveRepository = {
   },
 
   async getBalances(userId) {
-    return leaveTypes.map((leaveType) => {
-      const policy = leavePolicies.find(
-        (p) => p.userId === userId && p.leaveTypeId === leaveType.id,
-      );
-      const bal = leaveBalances.find((b) => b.userId === userId && b.leaveTypeId === leaveType.id);
-      const pending = pendingDays(userId, leaveType.id);
-      const confirmed = leaveType.tracksBalance ? (bal?.balance ?? 0) : null;
-      return {
-        leaveType,
-        confirmed,
-        pending,
-        available: confirmed === null ? null : confirmed - pending,
-        accrualPerMonth: policy?.accrualPerMonth ?? null,
-        asOf: leaveType.tracksBalance ? (bal?.updatedAt ?? LAST_ACCRUAL_AT) : null,
-      };
+    return buildBalanceSummaries({
+      leaveTypes,
+      balances: leaveBalances.filter((b) => b.userId === userId),
+      policies: leavePolicies.filter((p) => p.userId === userId),
+      pendingRanges: active().filter((r) => r.userId === userId && r.status === "pending"),
+      // The seeded accrual run (accrual_runs) — not balance.updatedAt, which
+      // approvals will also bump (TASK-014).
+      lastAccrualAt: LAST_ACCRUAL_AT,
     });
   },
 

@@ -155,6 +155,12 @@ export type SubmitLeaveRequestResult = {
   warnings: SubmitWarning[];
 };
 
+/** `data` of GET /api/leave-requests?scope=mine — US-02 balance context. */
+export type MyLeaveContext = {
+  balances: BalanceSummary[];
+  requests: LeaveRequestView[];
+};
+
 /** Result shape for mutations invoked from the UI (server actions). */
 export type ActionResult =
   | { success: true; warnings?: SubmitWarning[] }

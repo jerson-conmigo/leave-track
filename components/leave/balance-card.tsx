@@ -2,7 +2,7 @@ import { LEAVE_TYPE_META } from "@/components/leave/leave-type-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { BalanceSummary } from "@/lib/data/types";
-import { formatDate, formatDays } from "@/lib/format";
+import { formatDate, formatDayNumber, formatDays } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type BalanceCardProps = {
@@ -66,7 +66,7 @@ export function BalanceCard({ balance, variant = "full" }: BalanceCardProps) {
         ) : (
           <>
             <p className="text-3xl font-semibold tracking-tight tabular-nums">
-              {Number.isInteger(available) ? available : available.toFixed(2)}
+              {formatDayNumber(available)}
               <span className="ml-1 text-base font-normal text-muted-foreground">
                 days available
               </span>
@@ -94,9 +94,9 @@ export function BalanceCard({ balance, variant = "full" }: BalanceCardProps) {
                 {formatDays(pending)} pending approval
               </p>
             ) : null}
-            {variant === "full" && asOf ? (
+            {variant === "full" ? (
               <p className="mt-3 text-xs text-muted-foreground">
-                As of last accrual on {formatDate(asOf)}
+                {asOf ? `As of last accrual on ${formatDate(asOf)}` : "No accrual has run yet"}
               </p>
             ) : null}
           </>

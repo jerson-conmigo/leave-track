@@ -1,5 +1,8 @@
 import "server-only";
+import { getSql } from "@/lib/db/postgres";
+import { logger } from "@/lib/logger";
 import { mockRepository } from "@/lib/data/mock/repository";
+import { createPostgresRepository } from "@/lib/data/postgres-repository";
 import type {
   AuditEntryView,
   AuditFilter,
@@ -15,8 +18,12 @@ import type {
 /**
  * Data-access contract for the whole app. Pages depend ONLY on this interface.
  *
- * Day 0: backed by in-memory fixtures (`mockRepository`).
- * Day 1: replace with a Supabase-backed implementation. Rules for it:
+ * Source is chosen by the SAME switch as the write path (lib/db/postgres.ts →
+ * getSql()), so reads and writes can never point at different stores:
+ *   DATABASE_URL set   → Postgres (createPostgresRepository; some methods still
+ *                        delegate to mock until TASK-013/015 — backlog B13)
+ *   DATABASE_URL unset → in-memory mock (`mockRepository`)
+ * Rules for the Postgres implementation:
  *   - `listTeamRequests` MUST filter `WHERE manager_id = :managerId` in SQL (BR-02).
  *   - Every leave_requests read MUST exclude `is_deleted = true`; never hard-delete.
  */
@@ -32,4 +39,10 @@ export interface LeaveRepository {
   getOrgStats(): Promise<OrgStats>;
 }
 
-export const repository: LeaveRepository = mockRepository;
+function selectRepository(): LeaveRepository {
+  const sql = getSql();
+  logger.info({ reads: sql ? "postgres" : "memory" }, "repository source selected");
+  return sql ? createPostgresRepository(sql, mockRepository) : mockRepository;
+}
+
+export const repository: LeaveRepository = selectRepository();

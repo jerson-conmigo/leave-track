@@ -59,8 +59,13 @@ export function formatDateRange(startDate: string, endDate: string): string {
   return plain(dateFmt.formatRange(new Date(toUtc(startDate)), new Date(toUtc(endDate))));
 }
 
+/** Day count without unit: 11 · 1.5 · 0.25 (max two decimals, no trailing zero). */
+export function formatDayNumber(days: number): string {
+  return Number.isInteger(days) ? String(days) : days.toFixed(2).replace(/0$/, "");
+}
+
 export function formatDays(days: number): string {
-  const n = Number.isInteger(days) ? String(days) : days.toFixed(2).replace(/0$/, "");
+  const n = formatDayNumber(days);
   return `${n} ${days === 1 ? "day" : "days"}`;
 }
 
