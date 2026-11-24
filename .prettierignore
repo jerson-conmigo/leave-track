@@ -1,0 +1,8 @@
+node_modules
+.next
+coverage
+package-lock.json
+graphify-out
+supabase/.temp
+docs
+.claude

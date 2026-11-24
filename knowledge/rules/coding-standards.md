@@ -1,0 +1,115 @@
+# Coding Standards — LeaveTrack
+
+Expands `AGENTS.md`. When the two disagree, fix whichever is wrong in the same PR.
+
+## TypeScript
+
+- `strict` + `noUncheckedIndexedAccess`. No `any`; use `unknown` and narrow.
+- Domain types live in `lib/data/types.ts` and mirror the SQL schema 1:1 (camelCase in TS,
+  snake_case in SQL). View models (`…View`, `…Summary`) are what components consume.
+- Prefer `type` aliases; export prop types for every component (`XxxProps`).
+- Path alias `@/` for everything outside the current folder.
+- Server-only modules start with `import "server-only"` (env, logger, session, repositories).
+
+## Next.js 16
+
+- Route guard is `proxy.ts` exporting `proxy` (not `middleware`).
+- `params` / `searchParams` / `cookies()` are async — always `await` them. Use the generated
+  `PageProps<"/route">` helper for page props.
+- Server components by default; `"use client"` only at the leaf that needs interactivity.
+- Mutations from the UI are **server actions** (Day 1) passed in as props; route handlers in
+  `app/api/` are for external callers (cron, integrations) and the documented REST surface.
+- Every page exports `metadata` with a `title`.
+
+## API route handlers
+
+```ts
+export const POST = withErrorHandler(async (req) => {
+  const session = await requireApiSession(); // Day 1 helper → AppError("UNAUTHENTICATED")
+  const input = LeaveRequestSchema.safeParse(await req.json());
+  if (!input.success) throw new AppError("VALIDATION_ERROR", input.error.issues[0]!.message);
+  const created = await repository.createRequest(session.userId, input.data);
+  return ok(created, { status: 201 });
+});
+```
+
+- Always `withErrorHandler`; always zod; always the envelope.
+- Status codes: 200/201 success · 400 validation · 401 no session · 403 wrong role or not a direct
+  report · 404 missing (or soft-deleted) · 409 conflict (e.g. accrual already ran) · 500 unknown.
+- Authorize **before** reading the resource; for manager actions the ownership check is part of
+  the SQL `WHERE` clause.
+
+## Database
+
+- One migration per change: `supabase/migrations/<UTC timestamp>_<snake_name>.sql`. Never edit an
+  applied migration.
+- Every FK is indexed; every FK is `on delete restrict` (retention).
+- Business invariants that can be constraints **are** constraints (`end_date >= start_date`,
+  decision consistency, unique balance per user+type).
+- Soft delete: filter `is_deleted = false` in every read. `DELETE` is blocked by trigger.
+- Money-like quantities (days) are `numeric`, never `float`.
+- Keep `supabase/seed.sql` idempotent (`on conflict do nothing`) and in sync with
+  `lib/data/mock/fixtures.ts`.
+- Write the decision + balance change + audit row in **one transaction**.
+- **Every migration keeps `tests/db/schema.test.ts` green.** A new table, column, FK, enum value,
+  or invariant gets an assertion there in the same PR (migration files are auto-discovered).
+  The suite runs real Postgres 17 in-process (PGlite) under `npm test` — no Docker needed.
+- PGlite has no Supabase `auth` schema or `anon`/`authenticated` roles. A migration that uses
+  them (e.g. RLS policies with `auth.uid()`) needs a shim in the test's `beforeAll`.
+- Decisions: `decision_reason` is required when `status = 'rejected'`, optional on approve, and
+  must be NULL while pending (DB-enforced).
+- **CHECK constraints pass on NULL.** `check (x ~ '\S')` accepts `x IS NULL` — wrap nullable
+  inputs in `coalesce(...)` (or add `NOT NULL`) when NULL must fail.
+- **Postgres `trim()` strips spaces only**, not tabs/newlines. For "non-blank" use
+  `coalesce(col, '') ~ '\S'`, which matches zod's `.trim().min(1)` semantics.
+
+## Logging
+
+- `logger` from `lib/logger.ts`. Structured: `logger.info({ requestId, userId }, "request approved")`.
+- Levels: `error` (needs action), `warn` (unexpected but handled), `info` (business events),
+  `debug` (dev detail). Never log cookies, tokens, passwords, or full request bodies.
+
+## UI
+
+- Compose shadcn primitives; don't restyle them per-page. Variants go in the primitive via `cva`.
+- Colors only via tokens (see `knowledge/design-system.md`). Never `text-[#…]` or inline styles.
+- Each component handles: default, hover, focus-visible, disabled, loading, empty, error.
+- Lists of records: cards below `md`, `Table` from `md`.
+- Forms: react-hook-form + `zodResolver(schema)`; the same schema is re-used server-side.
+- Accessibility checklist: label every control; `aria-invalid` + described error; icon-only
+  buttons have `aria-label`; dialogs have title + description; status = icon + text.
+
+## Testing
+
+- vitest, files in `tests/**/*.test.ts`.
+- Test pure logic directly (validation, role matrix, formatting, repository contracts).
+- Every security rule gets a test: scoping (manager sees only reports), 403 on non-reports,
+  no hard delete, accrual idempotency.
+- A bug fix lands with the test that would have caught it.
+
+## Dependencies
+
+- Exact versions only (no `^`/`~`/`latest`); resolve from the registry, never from memory.
+- No beta/RC/canary, no deprecated packages. Justify every new dependency in the PR.
+
+## Hard-won rules (from Day 0 VALIDATE)
+
+These each caused a real defect during the scaffold. Keep them.
+
+- **Format dates hydration-safely.** Node's ICU emits U+2009/U+202F where browsers emit U+0020
+  (`formatRange`, AM/PM). Any date string rendered by a client component must go through
+  `lib/format.ts`, which normalises Unicode spaces. Never call `Intl.DateTimeFormat` directly in
+  a component. Symptom when violated: React error #418 in production only.
+- **`dark:` is class-scoped.** Tailwind v4 defaults `dark:` to `prefers-color-scheme`; the app
+  is light-only, so `globals.css` declares `@custom-variant dark (&:where(.dark, .dark *))`.
+  Don't remove it, or OS dark mode half-themes the UI (shadcn primitives ship `dark:` classes).
+- **After `npx shadcn add`, re-check `package.json`.** The CLI writes `^` ranges and may add
+  dependencies (it added `next-themes`, and once rewrote imports to a bogus `cn` npm package).
+  Restore exact pins, remove unused deps, and grep for `from "cn"`.
+- **Type literals in `UNION ALL` seeds.** Untyped literals resolve to `text` across a union;
+  cast explicitly (`'…'::timestamptz`). Validate migrations + seed (run twice) before committing.
+- **"Available for this request" excludes the request itself.** Pending deductions must not
+  count the request being evaluated, or every in-balance request is flagged as over.
+- **Measure, don't eyeball, responsiveness.** Check `scrollWidth === clientWidth` and target
+  heights ≥ 44px at 320/375px for every page and role; inline text links need
+  `min-h-11 md:min-h-0` to meet the touch-target rule.
