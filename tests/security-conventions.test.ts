@@ -53,17 +53,29 @@ describe("security conventions", () => {
       expect(code, `unsafe compare: ${pattern}`).not.toMatch(pattern);
   });
 
-  it("SUPABASE_SERVICE_ROLE_KEY is read only by the operator invite script (TASK-024)", () => {
+  it("SUPABASE_SERVICE_ROLE_KEY is read from the environment only by the invite script (TASK-024/054)", () => {
     const all = ["app", "lib", "components", "scripts"].flatMap((d) =>
       readdirSync(path.join(root, d), { recursive: true })
         .map((f) => path.join(root, d, String(f)))
         .filter((f) => /\.(ts|tsx|mjs|js)$/.test(f)),
     );
-    const readers = [...all, path.join(root, "proxy.ts")]
+    const files = [...all, path.join(root, "proxy.ts")];
+    const rel = (f: string) => path.relative(root, f);
+    // Reads of the env var: only the operator invite script.
+    const readers = files
+      .filter((f) => /process\.env\.SUPABASE_SERVICE_ROLE_KEY/.test(readFileSync(f, "utf8")))
+      .map(rel);
+    expect(readers.sort()).toEqual(["scripts/invite-user.mjs"]);
+    // Any mention at all, reviewed: lib/env.ts declares it optional (never hands it to a
+    // client); scripts/local-env.mjs WRITES the local stack's key into .env.local (TASK-054).
+    const mentions = files
       .filter((f) => /SUPABASE_SERVICE_ROLE_KEY/.test(readFileSync(f, "utf8")))
-      .map((f) => path.relative(root, f));
-    // lib/env.ts only declares it as optional; it never hands it to a client.
-    expect(readers.sort()).toEqual(["lib/env.ts", "scripts/invite-user.mjs"]);
+      .map(rel);
+    expect(mentions.sort()).toEqual([
+      "lib/env.ts",
+      "scripts/invite-user.mjs",
+      "scripts/local-env.mjs",
+    ]);
     expect(readFileSync(path.join(root, "lib/env.ts"), "utf8")).not.toMatch(
       /createClient|createServerClient/,
     );

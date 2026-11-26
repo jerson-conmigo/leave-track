@@ -12,7 +12,11 @@ import { z } from "zod";
  *   - every variable in REQUIRED_WHEN_DEPLOYED must be set (no silent in-memory store),
  *   - E2E_RESET_TOKEN must NOT be set,
  *   - AUTH_PROVIDER must not be "mock" (ADR-LeaveTrack-E004; TASK-023).
- * AUTH_PROVIDER=supabase needs its project URL and anon key in ANY environment (TASK-024).
+ * AUTH_PROVIDER=supabase needs its project URL, anon key and DATABASE_URL in ANY
+ * environment (TASK-024; TASK-054: no silent in-memory store behind real sign-in).
+ * Not deployed (local development, CI, local e2e): DATABASE_URL, DIRECT_URL and
+ * NEXT_PUBLIC_SUPABASE_URL must be LOCAL addresses unless ALLOW_REMOTE_DATABASE=true
+ * (TASK-054) — so pasted hosted values can't be used or modified by accident.
  * Everything else stays optional for local development, tests, CI and local e2e.
  */
 const optionalUrl = z.url().optional();
@@ -30,11 +34,32 @@ export const REQUIRED_WHEN_DEPLOYED = [
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
 ] as const;
 
-/** What the Supabase sign-in adapter needs wherever it runs (TASK-024). */
+/** What the Supabase sign-in adapter needs wherever it runs (TASK-024, TASK-054). */
 export const REQUIRED_FOR_SUPABASE_AUTH = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  "DATABASE_URL",
 ] as const;
+
+/** Must point at the local stack when not deployed, unless ALLOW_REMOTE_DATABASE=true. */
+export const LOCAL_ONLY_WHEN_NOT_DEPLOYED = [
+  "DATABASE_URL",
+  "DIRECT_URL",
+  "NEXT_PUBLIC_SUPABASE_URL",
+] as const;
+
+/** Loopback host names (keep identical to scripts/lib/local-only.mjs). */
+export const LOCAL_HOSTS = ["localhost", "127.0.0.1", "::1", "[::1]"];
+
+/** True only for a parseable URL whose host is exactly a loopback name. */
+export function isLocalUrl(value: string | undefined): boolean {
+  if (!value) return false;
+  try {
+    return LOCAL_HOSTS.includes(new URL(value).hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
 
 const DEPLOYED_APP_ENVS = ["production", "staging"];
 const DEPLOYED_VERCEL_ENVS = ["production", "preview"];
@@ -88,6 +113,9 @@ const EnvSchema = z.object({
     .optional(),
   // Test-only reset hook (playwright.config.ts). Refused in deployed environments.
   E2E_RESET_TOKEN: optionalSecret,
+  // Local development only: allow a NON-local database / Supabase URL (TASK-054). Leave
+  // unset: by default development refuses hosted URLs so they can't be used by accident.
+  ALLOW_REMOTE_DATABASE: z.enum(["true", "false"]).optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -112,6 +140,19 @@ export function parseEnv(input: RawEnv): Env {
     if (missing.length > 0) {
       throw new Error(
         `Invalid environment configuration — AUTH_PROVIDER=supabase needs ${missing.join(", ")}`,
+      );
+    }
+  }
+
+  if (!isDeployedEnv(raw) && raw.ALLOW_REMOTE_DATABASE !== "true") {
+    const remote = LOCAL_ONLY_WHEN_NOT_DEPLOYED.filter(
+      (name) => raw[name] && !isLocalUrl(raw[name]),
+    );
+    if (remote.length > 0) {
+      throw new Error(
+        `Invalid environment configuration for local development — ${remote.join(", ")} ` +
+          `${remote.length === 1 ? "points" : "point"} to a non-local host. Use the local Supabase stack (npm run env:local), or set ` +
+          `ALLOW_REMOTE_DATABASE=true if you really mean to use a hosted database.`,
       );
     }
   }

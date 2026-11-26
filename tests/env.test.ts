@@ -133,24 +133,102 @@ describe("deployed: required configuration (AC1, AC2)", () => {
   });
 });
 
-describe("AUTH_PROVIDER=supabase needs its project settings in any environment (TASK-024)", () => {
+// The local Supabase stack's values (npm run env:local writes these).
+const LOCAL = {
+  NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321",
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: "local-anon-key",
+  DATABASE_URL: "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
+};
+
+describe("AUTH_PROVIDER=supabase needs its project settings in any environment (TASK-024/054)", () => {
   it.each([
-    ["no URL or key", {}, /needs NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY/],
+    ["nothing", {}, /needs NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, DATABASE_URL/],
     [
-      "no key",
-      { NEXT_PUBLIC_SUPABASE_URL: SUPABASE.NEXT_PUBLIC_SUPABASE_URL },
-      /needs NEXT_PUBLIC_SUPABASE_ANON_KEY$/,
+      "no key and no database",
+      { NEXT_PUBLIC_SUPABASE_URL: LOCAL.NEXT_PUBLIC_SUPABASE_URL },
+      /needs NEXT_PUBLIC_SUPABASE_ANON_KEY, DATABASE_URL$/,
+    ],
+    [
+      "no database (no silent in-memory store behind real sign-in)",
+      {
+        NEXT_PUBLIC_SUPABASE_URL: LOCAL.NEXT_PUBLIC_SUPABASE_URL,
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: "k",
+      },
+      /needs DATABASE_URL$/,
     ],
   ])("locally with %s → refuses", (_l, extra, message) => {
     expect(() => parseEnv({ AUTH_PROVIDER: "supabase", ...extra })).toThrow(message);
   });
 
-  it("locally with both → starts (local Supabase: supabase start)", () => {
-    expect(parseEnv({ AUTH_PROVIDER: "supabase", ...SUPABASE }).AUTH_PROVIDER).toBe("supabase");
+  it("locally with the local stack's URL, key and database → starts", () => {
+    expect(parseEnv({ AUTH_PROVIDER: "supabase", ...LOCAL }).AUTH_PROVIDER).toBe("supabase");
+  });
+
+  it("mock sign-in still needs nothing (zero-config npm run dev, CI, mock e2e)", () => {
+    expect(parseEnv({}).AUTH_PROVIDER).toBe("mock");
+    expect(parseEnv({ AUTH_PROVIDER: "mock", DATABASE_URL: LOCAL.DATABASE_URL }).DATABASE_URL).toBe(
+      LOCAL.DATABASE_URL,
+    );
   });
 
   it("rejects an unknown provider", () => {
     expect(() => parseEnv({ AUTH_PROVIDER: "firebase" })).toThrow(/AUTH_PROVIDER/);
+  });
+});
+
+describe("local development refuses remote database/Supabase URLs (TASK-054, C2)", () => {
+  const REMOTE = {
+    DATABASE_URL: "postgresql://user:s3cret-remote@db.abc.supabase.co:6543/postgres",
+    DIRECT_URL: "postgresql://user:s3cret-remote@db.abc.supabase.co:5432/postgres",
+    NEXT_PUBLIC_SUPABASE_URL: "https://abc.supabase.co",
+  };
+
+  it.each(Object.entries(REMOTE))(
+    "%s pointing to a hosted project → refuses, naming it",
+    (name, value) => {
+      let message = "";
+      try {
+        parseEnv({ [name]: value });
+      } catch (e) {
+        message = (e as Error).message;
+      }
+      expect(message).toMatch(
+        new RegExp(`local development — ${name} points? to a non-local host`),
+      );
+      expect(message).toMatch(/ALLOW_REMOTE_DATABASE=true/);
+      expect(message).not.toContain("s3cret-remote");
+      expect(message).not.toContain("abc.supabase.co");
+    },
+  );
+
+  it.each([
+    ["127.0.0.1", "postgresql://postgres:postgres@127.0.0.1:54322/postgres"],
+    ["localhost", "postgresql://postgres:postgres@localhost:54322/postgres"],
+    ["[::1]", "postgresql://postgres:postgres@[::1]:54322/postgres"],
+  ])("a local %s database → starts", (_l, url) => {
+    expect(parseEnv({ DATABASE_URL: url }).DATABASE_URL).toBe(url);
+  });
+
+  it.each([
+    ["a lookalike host", "postgresql://u:p@127.0.0.1.nip.io:5432/postgres"],
+    ["a private network host", "postgresql://u:p@192.168.1.10:5432/postgres"],
+  ])("%s is not local → refuses", (_l, url) => {
+    expect(() => parseEnv({ DATABASE_URL: url })).toThrow(
+      /DATABASE_URL points? to a non-local host/,
+    );
+  });
+
+  it("ALLOW_REMOTE_DATABASE=true is an explicit opt-in", () => {
+    expect(parseEnv({ ...REMOTE, ALLOW_REMOTE_DATABASE: "true" }).DATABASE_URL).toBe(
+      REMOTE.DATABASE_URL,
+    );
+    expect(() => parseEnv({ ...REMOTE, ALLOW_REMOTE_DATABASE: "false" })).toThrow(/non-local host/);
+  });
+
+  it("deployed environments are unaffected (they must use the hosted project)", () => {
+    expect(() =>
+      parseEnv({ APP_ENV: "production", ...full, AUTH_PROVIDER: "supabase" }),
+    ).not.toThrow();
   });
 });
 

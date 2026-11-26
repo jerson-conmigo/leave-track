@@ -33,46 +33,88 @@ cookie; without `SESSION_SECRET` a random key is used, so restarting the dev ser
 
 The session lasts 8 hours; sign out from the account menu (top right).
 
-### Real sign-in locally (Supabase Auth, TASK-024)
+### Local Supabase development (Docker, TASK-054)
 
-Needs Docker. People are **invited**; there is no self-registration.
+Run the app against a real local Postgres and real Supabase Auth instead of mock data.
+Everything runs on your machine in Docker; nothing touches the hosted project.
+
+**Once:** install and start [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+(the Supabase CLI comes with `npm install`, pinned to 3.3.0).
 
 ```bash
-npx supabase start && npm run db:reset    # local Supabase + schema + seed
-npx supabase status                        # API URL, anon + service-role keys, Mailpit URL
-# .env.local: AUTH_PROVIDER=supabase, NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
-#             DATABASE_URL (the local DB URL), SUPABASE_SERVICE_ROLE_KEY (invite script only)
-npm run user:invite -- carla.diaz@leavetrack.test
+npm run local:start     # start local Postgres, Auth, email (Mailpit) and the API
+npm run env:local       # write the local settings into .env.local (secrets generated, never shown)
+npm run db:seed:auth    # first time: create sign-ins for the seeded people
+npm run dev             # http://localhost:3000
 ```
 
-Open the invite in Mailpit (http://localhost:54324), choose a password, and you are signed
-in with the role from the `users` table. The app must run on port 3000 (the email links use
-`site_url` from `supabase/config.toml`). Forgot-password works the same way.
+Sign in as any seeded person (e.g. `carla.diaz@leavetrack.test` — HR Admin, or
+`ana.reyes@leavetrack.test` — Employee) with the local development password
+**`leavetrack-local-dev`**, and let your browser remember it. Sign-in goes through the real
+Supabase Auth; your role comes from the `users` table. Emails (invites, password resets)
+appear in Mailpit at http://localhost:54324.
 
-How it fits together: the Supabase session proves who you are; the app then finds your
-`users` row by `users.auth_user_id` (set only by the invite — never matched by email) and
-issues its signed `lt-session` cookie. Every request re-checks both, and signing out revokes
-the Supabase session.
+| Command                           | What it does                                                         |
+| --------------------------------- | -------------------------------------------------------------------- |
+| `npm run local:start`             | Start the local stack (skips services the app doesn't use)           |
+| `npm run local:status`            | URLs and the pgAdmin connection settings (keys hidden)               |
+| `npm run local:stop`              | Stop the stack — **your data is kept**                               |
+| `npm run env:local`               | Fill `.env.local` from the running stack (keeps your other settings) |
+| `npm run db:seed:auth`            | Create/link local sign-ins for seeded people (safe to re-run)        |
+| `npm run db:migrate:local`        | Apply new migrations, **keeping data**                               |
+| `npm run db:check:local`          | Row counts of the app tables                                         |
+| `npm run db:reset:local -- --yes` | **Destructive:** rebuild the database, re-seed, recreate sign-ins    |
+
+**pgAdmin:** _Register → Server_, then on the _Connection_ tab: Host `127.0.0.1`, Port
+`54322`, Maintenance database `postgres`, Username `postgres`, Password `postgres` (the
+local default), and on the _Parameters_ tab SSL mode `disable`. Check it works: run
+`select count(*) from public.users;` — it should match `npm run db:check:local` (9 users
+after the seed). App tables are in the `public` schema; treat `auth.*` as read-only.
+Changes made in pgAdmin skip the app's rules (the database triggers, e.g. "never delete",
+still apply).
+
+**Protection against the hosted project:** the local scripts only work with the local stack
+(they read `supabase status` and refuse non-local URLs); in development the app refuses a
+non-local `DATABASE_URL`, `DIRECT_URL` or `NEXT_PUBLIC_SUPABASE_URL` unless
+`ALLOW_REMOTE_DATABASE=true`; `env:local` won't overwrite hosted values in `.env.local`
+(`-- --replace-remote` backs the file up first); `npm run user:invite` refuses a non-local
+target unless you add `--remote`; migrations reach the hosted project only via CI or
+`npm run db:push:hosted -- --hosted`.
+
+**Back to mock data:** set `AUTH_PROVIDER=mock` and clear `DATABASE_URL` in `.env.local`.
+
+**Troubleshooting:** _"local Supabase stack is not running"_ → start Docker Desktop, then
+`npm run local:start`. _Port 3000 in use_ → stop the other `npm run dev`. _Changed
+`.env.local` but nothing changed_ → restart `npm run dev` (`NEXT_PUBLIC_*` values are read at
+start-up). _Sign-in fails after `db:reset:local`_ → it recreates sign-ins; run
+`npm run db:seed:auth` if you reset another way.
+
+How sign-in fits together: the Supabase session proves who you are; the app then finds your
+`users` row by `users.auth_user_id` (set by an invite, or locally by `db:seed:auth` — never
+matched at sign-in) and issues its signed `lt-session` cookie. Every request re-checks both,
+and signing out revokes the Supabase session. To invite someone locally:
+`npm run user:invite -- <email>` (reads `.env.local`), then open the email in Mailpit.
 
 ## Scripts
 
-| Command                                | What it does                                      |
-| -------------------------------------- | ------------------------------------------------- |
-| `npm run dev`                          | Start the dev server                              |
-| `npm run build`                        | Production build (the CI/merge gate)              |
-| `npm start`                            | Serve the production build                        |
-| `npm run lint`                         | ESLint (includes `no-console`)                    |
-| `npm run format`                       | Prettier write (`format:check` to verify)         |
-| `npm run typecheck`                    | Generate route types and run `tsc --noEmit`       |
-| `npm test`                             | vitest unit tests                                 |
-| `npm run test:coverage`                | Unit tests + V8 coverage and thresholds (CI)      |
-| `npm run test:e2e`                     | Playwright mobile e2e (builds + runs the app)     |
-| `npm run test:e2e:install`             | Download Playwright Chromium (CI / no Chrome)     |
-| `npm run test:e2e:supabase`            | Real sign-in e2e against local Supabase (Docker)  |
-| `npm run user:invite -- <email>`       | Invite an existing user to Supabase Auth          |
-| `npm run db:push`                      | Apply `supabase/migrations` to the linked project |
-| `npm run db:reset`                     | Reset a **local** Supabase DB and run `seed.sql`  |
-| `npm run task:status -- TASK-010 Done` | Set a dev task's status in `docs/dev-tasks/*.csv` |
+| Command                                      | What it does                                                     |
+| -------------------------------------------- | ---------------------------------------------------------------- |
+| `npm run dev`                                | Start the dev server                                             |
+| `npm run build`                              | Production build (the CI/merge gate)                             |
+| `npm start`                                  | Serve the production build                                       |
+| `npm run lint`                               | ESLint (includes `no-console`)                                   |
+| `npm run format`                             | Prettier write (`format:check` to verify)                        |
+| `npm run typecheck`                          | Generate route types and run `tsc --noEmit`                      |
+| `npm test`                                   | vitest unit tests                                                |
+| `npm run test:coverage`                      | Unit tests + V8 coverage and thresholds (CI)                     |
+| `npm run test:e2e`                           | Playwright mobile e2e (builds + runs the app)                    |
+| `npm run test:e2e:install`                   | Download Playwright Chromium (CI / no Chrome)                    |
+| `npm run test:e2e:supabase`                  | Real sign-in e2e against local Supabase (Docker)                 |
+| `npm run user:invite -- <email>`             | Invite a user (local stack; `--remote` for hosted)               |
+| `npm run db:push:hosted -- --hosted`         | Push migrations to the **hosted** project (CI does this on main) |
+| `npm run db:reset`                           | Same as `db:reset:local` (destructive, needs `-- --yes`)         |
+| `npm run local:*`, `env:local`, `db:*:local` | Local Supabase workflow — see above                              |
+| `npm run task:status -- TASK-010 Done`       | Set a dev task's status in `docs/dev-tasks/*.csv`                |
 
 ## Environment
 
@@ -87,11 +129,15 @@ must not set `E2E_RESET_TOKEN`. Otherwise `next build` fails, or `next start` ex
 serving any request, naming the missing variables (never their values). Preview deployments
 need a database too; there is no silent in-memory fallback once deployed.
 
+**Local development (TASK-054):** `AUTH_PROVIDER=supabase` needs `DATABASE_URL`, and a
+non-deployed run refuses non-local database/Supabase URLs unless `ALLOW_REMOTE_DATABASE=true`.
+`npm run env:local` writes the local values for you.
+
 ## Database
 
 - Schema: `supabase/migrations/20261124000000_init.sql` (6 arch-doc tables + `accrual_runs`).
 - Seed: `supabase/seed.sql` — idempotent; IDs match `lib/data/mock/fixtures.ts`.
-- Local DB (needs Docker): `npx supabase start && npm run db:reset`.
+- Local DB (needs Docker): `npm run local:start` — see _Local Supabase development_ above.
 - `npm test` includes schema tests (`tests/db/`) that apply the migration + seed to an
   in-process Postgres 17 (PGlite) — no Docker or credentials needed.
 - Hard deletes on `leave_requests` / `audit_log` are blocked by triggers (3-year retention).

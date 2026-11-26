@@ -111,7 +111,18 @@ document's "Revision v1.1" section and `docs/dev-tasks/epic-2-hardening-and-reso
   matching emails at sign-in. No self-registration. `proxy.ts` refreshes the provider session
   and `getSession()` re-checks it with the Auth server (signed-out sessions are rejected);
   every provider failure fails closed. The mock picker refuses to run unless
-  `AUTH_PROVIDER=mock`. `SUPABASE_SERVICE_ROLE_KEY` is read only by the invite script.
+  `AUTH_PROVIDER=mock`. `SUPABASE_SERVICE_ROLE_KEY` is read from the environment only by the
+  invite script. **Local-only exception (TASK-054):** `npm run db:seed:auth` creates sign-ins
+  for seeded people on the LOCAL stack (credentials from `supabase status`, never `.env.local`),
+  linking by id only while unlinked; it has no remote mode.
+- **Local development stays local (TASK-054):** scripts under `scripts/` that serve local
+  development (`local:*`, `env:local`, `db:*:local`, `db:seed:auth`) go through
+  `scripts/lib/local-only.mjs` and refuse non-local URLs. Anything that targets the hosted
+  project needs an explicit flag (`user:invite -- --remote`, `db:push:hosted -- --hosted`,
+  which always passes `--remote` — Supabase CLI 3.x defaults to the local database). In
+  development `lib/env.ts` refuses non-local `DATABASE_URL` / `DIRECT_URL` /
+  `NEXT_PUBLIC_SUPABASE_URL` unless `ALLOW_REMOTE_DATABASE=true`. Never pass `--no-backup` to
+  `supabase stop`.
 - `proxy.ts` guards every non-public route; role-gated pages **also** call `requireRole()`.
 - Redirect targets go through `safeRedirectPath()` (no open redirects); emailed-link routes
   use a fixed destination and ignore any target in the URL.

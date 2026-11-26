@@ -2,7 +2,8 @@
 /**
  * Invite an existing LeaveTrack user to sign in with Supabase Auth (TASK-024).
  *
- *   npm run user:invite -- ana@example.com
+ *   npm run user:invite -- ana@example.com              # the LOCAL stack (from .env.local)
+ *   npm run user:invite -- ana@example.com --remote     # a hosted project, deliberately
  *
  * Operator CLI until the admin UI (TASK-043). It:
  *   1. finds the users row by email (case-insensitive) and refuses if there is none or
@@ -12,12 +13,18 @@
  *      linked. Sign-in never matches by email (ADR-LeaveTrack-E004).
  *
  * Needs: DIRECT_URL or DATABASE_URL, NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
- * (server-only; this script is the only code that reads it), NEXT_PUBLIC_APP_URL.
+ * (server-only; this script is the only code that reads it), NEXT_PUBLIC_APP_URL. The npm
+ * script loads them from .env.local (node --env-file-if-exists; TASK-054).
+ *
+ * TASK-054: a non-local database or Supabase URL is refused unless --remote is passed, so
+ * an invite can never reach a hosted project by accident. With --remote the target host is
+ * printed (never keys) before anything happens.
  */
 import { pathToFileURL } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import postgres from "postgres";
 import { z } from "zod";
+import { hostOf, isLocalUrl } from "./lib/local-only.mjs";
 
 const Email = z.email().max(320);
 
@@ -50,12 +57,14 @@ const MESSAGES = {
 };
 
 async function main() {
-  const [email] = process.argv.slice(2);
+  const args = process.argv.slice(2);
+  const remote = args.includes("--remote");
+  const [email, ...extra] = args.filter((a) => a !== "--remote");
   const fail = (msg) => {
     process.stderr.write(`invite-user: ${msg}\n`);
     process.exit(1);
   };
-  if (!email) fail("usage: npm run user:invite -- <email>");
+  if (!email || extra.length > 0) fail("usage: npm run user:invite -- <email> [--remote]");
 
   const dbUrl = process.env.DIRECT_URL || process.env.DATABASE_URL;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -69,6 +78,22 @@ async function main() {
     .filter(([, v]) => !v)
     .map(([k]) => k);
   if (missing.length > 0) fail(`missing ${missing.join(", ")}`);
+
+  const nonLocal = [
+    ["database URL", dbUrl],
+    ["NEXT_PUBLIC_SUPABASE_URL", supabaseUrl],
+  ].filter(([, url]) => !isLocalUrl(url));
+  if (nonLocal.length > 0 && !remote) {
+    fail(
+      `${nonLocal.map(([n, u]) => `${n} (${hostOf(u)})`).join(" and ")} is not the local stack. ` +
+        "Nothing was sent. To invite on a hosted project on purpose, add --remote.",
+    );
+  }
+  if (nonLocal.length > 0) {
+    process.stdout.write(
+      `invite-user: --remote: targeting ${nonLocal.map(([, u]) => hostOf(u)).join(" / ")}\n`,
+    );
+  }
 
   const sql = postgres(dbUrl, { max: 1, prepare: false });
   const admin = createClient(supabaseUrl, serviceKey, {

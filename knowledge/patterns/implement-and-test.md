@@ -290,3 +290,24 @@ stays green and proves nothing.
   helper call misses it.
 - "The operation was canceled." in Actions is the runner cancelling the job, not a test failure.
   Read the annotation (timeout vs. concurrency) before changing timeouts or concurrency.
+
+### Local dev tooling: local-only by construction, hosted only by explicit flag (from TASK-054)
+
+- Dev scripts take their credentials from `supabase status` of the running local stack, never
+  from `.env.local`. A hosted value pasted into `.env.local` then can't reach a dev script at all.
+- Any script that can reach the hosted project needs a flag (`--remote`, `--hosted`) and prints
+  the target host first. Supabase CLI 3.x defaults `db push` / `db reset` / `migration up` to
+  the LOCAL database, so pass `--remote` explicitly and never rely on the default.
+- A script that writes the user's `.env.local`:
+  - preserves unrelated lines
+  - refuses (writing nothing) when hosted values are present, unless an explicit override
+    backs up first
+  - keeps existing secrets, writes atomically with mode 0600, prints names only
+  - is idempotent
+- Node 24 treats `--env-file` as its OWN option even after the script name
+  (`node x.mjs --env-file f` exits 9). Use another name for a script flag
+  (`--target`); use `node --env-file-if-exists=.env.local` to load one.
+- Test CLIs with a stub binary through an env override (`SUPABASE_BIN`). The stub records its
+  arguments, so tests prove a refused command never reached the real tool.
+- When `.env.local` can switch modes (mock ↔ Supabase), pin the mode in each test server's
+  own environment. Process values beat `.env.local` in Next.

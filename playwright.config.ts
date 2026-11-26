@@ -54,7 +54,13 @@ export default defineConfig({
     env: {
       E2E_RESET_TOKEN: process.env.E2E_RESET_TOKEN,
       SESSION_SECRET: process.env.SESSION_SECRET,
+      // Mock mode, whatever .env.local says (npm run env:local switches it to the local
+      // Supabase stack; Next loads .env.local, but these process values win — TASK-054).
+      AUTH_PROVIDER: "mock",
       DATABASE_URL: "",
+      DIRECT_URL: "",
+      NEXT_PUBLIC_SUPABASE_URL: "",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "",
       LOG_LEVEL: "warn",
     },
   },

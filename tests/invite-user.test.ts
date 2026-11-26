@@ -1,3 +1,5 @@
+import { spawnSync } from "node:child_process";
+import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 // @ts-expect-error — plain ESM script without type declarations
 import { inviteUser } from "../scripts/invite-user.mjs";
@@ -59,5 +61,60 @@ describe("inviteUser", () => {
     });
     await expect(inviteUser("x@example.com", p)).rejects.toThrow(/email_exists/);
     expect(p.link).not.toHaveBeenCalled();
+  });
+});
+
+describe("TASK-054 — invite targets the LOCAL stack unless --remote is explicit", () => {
+  const root = path.resolve(import.meta.dirname, "..");
+  const invite = (args: string[], env: Record<string, string>) =>
+    spawnSync(process.execPath, [path.join(root, "scripts/invite-user.mjs"), ...args], {
+      encoding: "utf8",
+      timeout: 30_000,
+      env: {
+        PATH: process.env.PATH ?? "",
+        SUPABASE_SERVICE_ROLE_KEY: "service-role-VALUE-must-not-print",
+        ...env,
+      } as unknown as NodeJS.ProcessEnv,
+    });
+  const HOSTED = {
+    DATABASE_URL: "postgresql://u:s3cret@db.hosted-project.invalid:5432/postgres",
+    NEXT_PUBLIC_SUPABASE_URL: "https://hosted-project.invalid",
+  };
+
+  it("a hosted target without --remote → refused before anything is sent, host named", () => {
+    const res = invite(["ana@example.com"], HOSTED);
+    expect(res.status).toBe(1);
+    expect(res.stderr).toMatch(/database URL \(db\.hosted-project\.invalid\)/);
+    expect(res.stderr).toMatch(/Nothing was sent\. .*add --remote/);
+    expect(res.stderr + res.stdout).not.toMatch(/s3cret|service-role-VALUE/);
+  });
+
+  it("a mix (local database, hosted Supabase) is still refused", () => {
+    const res = invite(["ana@example.com"], {
+      DATABASE_URL: "postgresql://postgres:postgres@127.0.0.1:1/postgres",
+      NEXT_PUBLIC_SUPABASE_URL: HOSTED.NEXT_PUBLIC_SUPABASE_URL,
+    });
+    expect(res.status).toBe(1);
+    expect(res.stderr).toMatch(
+      /NEXT_PUBLIC_SUPABASE_URL \(hosted-project\.invalid\) is not the local stack/,
+    );
+  });
+
+  it("--remote is the explicit opt-in: the hosted host is announced first", () => {
+    const res = invite(["ana@example.com", "--remote"], HOSTED);
+    expect(res.stdout).toMatch(/--remote: targeting db\.hosted-project\.invalid/);
+    expect(res.stderr).not.toMatch(/Nothing was sent/);
+  });
+
+  it("local targets need no flag", () => {
+    const res = invite(["ana@example.com"], {
+      DATABASE_URL: "postgresql://postgres:postgres@127.0.0.1:1/postgres",
+      NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:1",
+    });
+    expect(res.stderr).not.toMatch(/not the local stack/);
+  });
+
+  it("unknown extra arguments → usage", () => {
+    expect(invite(["a@b.co", "--force"], HOSTED).stderr).toMatch(/usage: .*\[--remote\]/);
   });
 });
