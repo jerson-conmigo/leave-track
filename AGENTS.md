@@ -107,6 +107,11 @@ document's "Revision v1.1" section and `docs/dev-tasks/epic-2-hardening-and-reso
   database access**, failing closed if unset; be idempotent and assume duplicate, overlapping
   and missed invocations (ledger row + effect in one transaction). See ADR-LeaveTrack-E002.
 - RLS is enabled on every table; Day 1 adds policies. The service-role key is server-only.
+- **Deployed environments fail closed** (`APP_ENV` production/staging or `VERCEL_ENV`
+  production/preview): `lib/env.ts` refuses to build or start without every
+  `REQUIRED_WHEN_DEPLOYED` variable, or with `E2E_RESET_TOKEN` set. Never key strictness on
+  `NODE_ENV` — `next build` and local e2e run with `NODE_ENV=production`. New required
+  secrets go into `REQUIRED_WHEN_DEPLOYED` (and its pinned test).
 - Never commit secrets. `.env.example` documents every variable; real values live in
   `.env.local` / Vercel / GitHub secrets.
 

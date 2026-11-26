@@ -32,6 +32,20 @@ describe("POST /api/test/reset", () => {
     expect((await call(token)).status).toBe(404);
   });
 
+  it.each([
+    ["APP_ENV=production", "APP_ENV", "production"],
+    ["APP_ENV=staging", "APP_ENV", "staging"],
+    ["VERCEL_ENV=preview", "VERCEL_ENV", "preview"],
+  ])(
+    "404 in a deployed environment (%s) even with a valid token (TASK-019)",
+    async (_l, key, value) => {
+      vi.stubEnv("E2E_RESET_TOKEN", "secret-token");
+      vi.stubEnv("DATABASE_URL", "");
+      vi.stubEnv(key, value);
+      expect((await call("secret-token")).status).toBe(404);
+    },
+  );
+
   it("404 when DATABASE_URL is set — never touches Postgres", async () => {
     vi.stubEnv("E2E_RESET_TOKEN", "secret-token");
     vi.stubEnv("DATABASE_URL", "postgres://u:p@localhost:5432/db");

@@ -157,7 +157,7 @@ so that I can plan around it.
 - AC1: Given valid credentials from the identity provider, when I sign in, then a signed session is created and my role is read from the users table.
 - AC2: Given a tampered or forged session cookie, when I make any request, then it is rejected as unauthenticated.
 - AC3: Given no activity for the configured idle timeout (default 30 minutes) or 8 hours since sign-in, when I make a request, then I must sign in again.
-- AC4: Given a production deployment, when the mock sign-in or a required secret is configured/missing, then the app refuses to start.
+- AC4: Given a deployed environment (APP_ENV production/staging or VERCEL_ENV production/preview), when the mock sign-in or a required secret is configured/missing, then the app refuses to start.
 
 **US-14 — Multi-Factor Authentication** _(BR-09)_
 - AC1: Given I am an HR Admin, when I sign in, then I must complete an authenticator-app (TOTP) challenge, enrolling by QR code on first use.

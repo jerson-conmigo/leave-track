@@ -50,8 +50,15 @@ The session lasts 8 hours; sign out from the account menu (top right).
 
 ## Environment
 
-Copy `.env.example` to `.env.local`. Every variable is documented there and optional on Day 0.
-Environments are selected with `APP_ENV` (`development` / `staging` / `production`).
+Copy `.env.example` to `.env.local`. Every variable is documented there and optional for
+local development, tests, CI and local e2e. Environments are selected with `APP_ENV`
+(`development` / `staging` / `production`).
+
+**Deploying (TASK-019):** a deployed environment — `APP_ENV=production|staging` or Vercel's
+`VERCEL_ENV=production|preview` — must set `DATABASE_URL` and `CRON_SECRET`, and must not set
+`E2E_RESET_TOKEN`. Otherwise `next build` fails, or `next start` exits with code 1 before
+serving any request, naming the missing variables (never their values). Preview deployments
+need a database too; there is no silent in-memory fallback once deployed.
 
 ## Database
 

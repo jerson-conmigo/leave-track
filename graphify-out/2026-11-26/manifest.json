@@ -18,9 +18,9 @@
     "semantic_hash": ""
   },
   "docs/prd/PRD-LeaveTrack-v1.0.md": {
-    "mtime": 1795674957.0782127,
-    "seen": 1795674959.0314639,
-    "ast_hash": "a0798a17bf4729ca5f2a06926364cab7",
+    "mtime": 1795675932.1591399,
+    "seen": 1795675934.4883919,
+    "ast_hash": "e4a43ab16ef08d7da9f8bd73f861dfb7",
     "semantic_hash": ""
   },
   "knowledge/rules/arch-summary.md": {
@@ -342,9 +342,9 @@
     "semantic_hash": ""
   },
   "lib/env.ts": {
-    "mtime": 1795524541.1354935,
-    "seen": 1795524544.140151,
-    "ast_hash": "4cb7882edc141b1bce3607d14ca88e59",
+    "mtime": 1795675739.8770313,
+    "seen": 1795675741.9719832,
+    "ast_hash": "9d4ac35459531c6f1e11ac61ee8aff91",
     "semantic_hash": ""
   },
   "lib/logger.ts": {
@@ -702,15 +702,15 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1795675113.1682186,
-    "seen": 1795675115.5106719,
-    "ast_hash": "124440870af478c40bdc0d96b4a19adb",
+    "mtime": 1795675932.15801,
+    "seen": 1795675934.4882078,
+    "ast_hash": "afc456e3246ff107302d4a0502124559",
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1795673142.167008,
-    "seen": 1795673144.474674,
-    "ast_hash": "b0be0bd160dbfbd7815a4ae6af077a24",
+    "mtime": 1795675932.1576262,
+    "seen": 1795675934.488209,
+    "ast_hash": "912f8c022e47915b276bd560fee5908a",
     "semantic_hash": ""
   },
   "knowledge/design-system.md": {
@@ -744,15 +744,15 @@
     "semantic_hash": ""
   },
   "knowledge/rules/coding-standards.md": {
-    "mtime": 1795673142.1668208,
-    "seen": 1795673144.475241,
-    "ast_hash": "1992e382b92d55dccc91efcaabe5d619",
+    "mtime": 1795675932.1582425,
+    "seen": 1795675934.4885418,
+    "ast_hash": "04f5e42b6d7662ac0a871afd6878f033",
     "semantic_hash": ""
   },
   "knowledge/retros/2026-11-24-day0-scaffold.md": {
-    "mtime": 1795673142.520343,
-    "seen": 1795673144.475191,
-    "ast_hash": "f2881923df095bc87ebe9c1993d3a973",
+    "mtime": 1795675134.6866467,
+    "seen": 1795675136.9716322,
+    "ast_hash": "1be5ed9dc2a0fd8547b99da14c64bc81",
     "semantic_hash": ""
   },
   "tests/db/schema.test.ts": {
@@ -984,9 +984,9 @@
     "semantic_hash": ""
   },
   "app/api/test/reset/route.ts": {
-    "mtime": 1795664308.6690624,
-    "seen": 1795664310.144445,
-    "ast_hash": "b4766d1f2cad342dcb92d1e6da007ed9",
+    "mtime": 1795675777.2152584,
+    "seen": 1795675778.969633,
+    "ast_hash": "26863402835d12bf844dc75c91add903",
     "semantic_hash": ""
   },
   "tests/data/mock-store-reset.test.ts": {
@@ -996,9 +996,9 @@
     "semantic_hash": ""
   },
   "tests/e2e-reset-route.test.ts": {
-    "mtime": 1795663031.952996,
-    "seen": 1795663034.590425,
-    "ast_hash": "36499313b24c6576c766ec167e2b648f",
+    "mtime": 1795675779.4978023,
+    "seen": 1795675784.740191,
+    "ast_hash": "5a7a8546c13c47b1758541bd960104ac",
     "semantic_hash": ""
   },
   "e2e/helpers.ts": {
@@ -1203,6 +1203,24 @@
     "mtime": 1795675027.745608,
     "seen": 1795675103.357764,
     "ast_hash": "b6d15e719a95814350d2999afe563e0b",
+    "semantic_hash": ""
+  },
+  "instrumentation.ts": {
+    "mtime": 1795675876.8819714,
+    "seen": 1795675878.9148679,
+    "ast_hash": "f55a340569ac46a0b609b3580a6def29",
+    "semantic_hash": ""
+  },
+  "tests/env.test.ts": {
+    "mtime": 1795675779.4862251,
+    "seen": 1795675784.740192,
+    "ast_hash": "655c6db7637747555f8a943f454334c2",
+    "semantic_hash": ""
+  },
+  "tests/instrumentation.test.ts": {
+    "mtime": 1795675879.0224454,
+    "seen": 1795675884.126313,
+    "ast_hash": "fbe22478483ddbe891d4d9c30592e0c1",
     "semantic_hash": ""
   }
 }
