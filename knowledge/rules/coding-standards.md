@@ -126,6 +126,9 @@ export const POST = withErrorHandler(async (req) => {
 
 - Exact versions only (no `^`/`~`/`latest`); resolve from the registry, never from memory.
 - No beta/RC/canary, no deprecated packages. Justify every new dependency in the PR.
+- If a dependency's peer range excludes the installed major, pin to the newest version every
+  peer supports (TASK-021: ESLint 9.39.5 for eslint-config-next's plugins). Never use
+  `overrides` or `--legacy-peer-deps` to hide it.
 
 ## Hard-won rules (from Day 0 VALIDATE)
 

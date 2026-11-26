@@ -30,9 +30,9 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1795662987.3256085,
-    "seen": 1795662989.1345122,
-    "ast_hash": "ca9d4e8d519b0810eea1dfb374b8203d",
+    "mtime": 1795678687.583288,
+    "seen": 1795678700.167712,
+    "ast_hash": "22e51fdbdcb7b3c44ce3a119698b4b00",
     "semantic_hash": ""
   },
   ".claude/settings.json": {
@@ -690,27 +690,27 @@
     "semantic_hash": ""
   },
   ".github/workflows/ci.yml": {
-    "mtime": 1795663997.6302633,
-    "seen": 1795663999.240281,
-    "ast_hash": "765c027c09d3c61d5323e20373dbe948",
+    "mtime": 1795678092.6689847,
+    "seen": 1795678096.3771079,
+    "ast_hash": "cab438e78fe68efd0d1c138074128af5",
     "semantic_hash": ""
   },
   "vitest.config.mts": {
-    "mtime": 1795503230.015959,
-    "seen": 1795503231.6865559,
-    "ast_hash": "f1f92a19310701a2c0249e2a514d0f8b",
+    "mtime": 1795678639.680569,
+    "seen": 1795678676.23024,
+    "ast_hash": "3055b01595feb6ebf3475a32dfbe648f",
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1795675932.15801,
-    "seen": 1795675934.4882078,
-    "ast_hash": "afc456e3246ff107302d4a0502124559",
+    "mtime": 1795678138.056403,
+    "seen": 1795678140.603405,
+    "ast_hash": "e9c624783fdc3b9746b042371cbb0f48",
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1795675932.1576262,
-    "seen": 1795675934.488209,
-    "ast_hash": "912f8c022e47915b276bd560fee5908a",
+    "mtime": 1795678128.5630965,
+    "seen": 1795678130.60252,
+    "ast_hash": "290a1f67b6a93f3f7c422c390ebd98ad",
     "semantic_hash": ""
   },
   "knowledge/design-system.md": {
@@ -720,9 +720,9 @@
     "semantic_hash": ""
   },
   "knowledge/patterns/implement-and-test.md": {
-    "mtime": 1795676491.962626,
-    "seen": 1795676494.598984,
-    "ast_hash": "5fcecd3a50ce9355e535d4c4722c42be",
+    "mtime": 1795677351.791044,
+    "seen": 1795677354.372094,
+    "ast_hash": "0a7e2c42b34e81c6d86e34f43ebf1c03",
     "semantic_hash": ""
   },
   "knowledge/prompts/dev/implement-api-route.md": {
@@ -744,15 +744,15 @@
     "semantic_hash": ""
   },
   "knowledge/rules/coding-standards.md": {
-    "mtime": 1795676962.8680668,
-    "seen": 1795677049.460062,
-    "ast_hash": "7bab97a17650a1d190ae80274bef553f",
+    "mtime": 1795678128.563517,
+    "seen": 1795678130.6029298,
+    "ast_hash": "534d0298f27efd1fd5427c004959f0cc",
     "semantic_hash": ""
   },
   "knowledge/retros/2026-11-24-day0-scaffold.md": {
-    "mtime": 1795676963.2336514,
-    "seen": 1795677049.4600341,
-    "ast_hash": "78458c07860458af0b67edb9ed9a725e",
+    "mtime": 1795678138.4161491,
+    "seen": 1795678140.6037009,
+    "ast_hash": "572f840744dc3fa5e28ebf1c47cd8c8f",
     "semantic_hash": ""
   },
   "tests/db/schema.test.ts": {
@@ -1233,6 +1233,18 @@
     "mtime": 1795676848.075104,
     "seen": 1795676853.474715,
     "ast_hash": "e5a63eb93290d52a75562a243e567ef7",
+    "semantic_hash": ""
+  },
+  "scripts/coverage-summary.mjs": {
+    "mtime": 1795678556.1997595,
+    "seen": 1795678557.987221,
+    "ast_hash": "85d1279482803f6945b86a8f50c3bd56",
+    "semantic_hash": ""
+  },
+  "tests/coverage-summary.test.ts": {
+    "mtime": 1795678522.1109142,
+    "seen": 1795678527.5790458,
+    "ast_hash": "37df62e0201e9bf1517950fed9182842",
     "semantic_hash": ""
   }
 }

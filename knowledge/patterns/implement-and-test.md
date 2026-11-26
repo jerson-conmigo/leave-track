@@ -210,3 +210,15 @@ the origin guard alone then exposed a real subtlety: `new URL("http:evil.com", "
 is a _relative_ path, so same-origin checks must try both `http` and `https` bases.
 Prove the bug end-to-end before fixing it, with off-site navigation blocked
 (`context.route(url => url.host !== app, abort)`) before the form is submitted.
+
+### Changing tooling versions: diff the resolved config, measure before thresholding (from TASK-021)
+
+- When the lint engine changes (ESLint 10 → 9 here), "lint still passes" is not enough: save
+  `eslint --print-config <file>` for one file of each kind before and after and diff the rule
+  sets (names, severities, options). Here the only difference was cosmetic (ESLint 10 prints
+  default options for the disabled core `no-unused-vars`).
+- Coverage thresholds come from a measured baseline: run coverage twice, confirm identical
+  covered/total counts, then set thresholds (baseline rounded down − 2). Prove they bite with
+  a threshold above the baseline and a narrowed `include`.
+- CI helper scripts that guard a gate get their own tests, including "fails loudly"
+  cases — a report step that silently passes on a missing file hides a broken gate.

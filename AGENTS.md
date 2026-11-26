@@ -135,6 +135,10 @@ npm run lint && npm run format:check && npm run typecheck && npm test && npm run
 npm run test:e2e   # mobile e2e (CI runs it on every PR)
 ```
 
+- CI runs `npm run test:coverage` in place of `npm test` (same tests plus V8 coverage). It fails
+  below the thresholds in `vitest.config.mts`; raise them as coverage improves, never lower
+  them silently.
+
 - UI changes must keep `e2e/` green: no horizontal overflow at 320/375, ≥44px tap targets,
   visible keyboard focus, no serious/critical axe violations. Use the helpers in `e2e/helpers.ts`.
 

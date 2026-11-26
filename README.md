@@ -42,6 +42,7 @@ The session lasts 8 hours; sign out from the account menu (top right).
 | `npm run format`                       | Prettier write (`format:check` to verify)         |
 | `npm run typecheck`                    | Generate route types and run `tsc --noEmit`       |
 | `npm test`                             | vitest unit tests                                 |
+| `npm run test:coverage`                | Unit tests + V8 coverage and thresholds (CI)      |
 | `npm run test:e2e`                     | Playwright mobile e2e (builds + runs the app)     |
 | `npm run test:e2e:install`             | Download Playwright Chromium (CI / no Chrome)     |
 | `npm run db:push`                      | Apply `supabase/migrations` to the linked project |
@@ -138,6 +139,11 @@ changes nothing. Constraint violations surface to clients as 400/409 envelopes
 
 - **Unit / integration** — `npm test` (vitest, `tests/`): domain services and repositories run
   against in-process Postgres (PGlite); no Docker needed.
+- **Coverage** — `npm run test:coverage` (CI runs this instead of `npm test`): V8 coverage of
+  the code unit tests are meant to cover (`lib/`, `app/api/`, server actions, `proxy.ts`,
+  `instrumentation.ts`); UI is covered by e2e and excluded. CI fails below the thresholds in
+  `vitest.config.mts` (baseline 2026-11-26: statements 86.28%, branches 80.24%, functions
+  91.77%, lines 87.2%), writes a table to the job summary and uploads `coverage-report`.
 - **Mobile e2e** — `npm run test:e2e` (Playwright, `e2e/`): builds the app, starts it in memory
   mode on port 3100 and tests the submit form and balance page at 375×667, 320×568 and
   667×375 landscape (US-06), plus an overflow / tap-target / focus sweep of every page and

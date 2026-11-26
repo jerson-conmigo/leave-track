@@ -29,7 +29,7 @@
 | B6      | Manager notification channel (US-01 AC1 "manager is notified").                                                                                                                                                                                                                                                                                           | No channel in ARCH.                                                                                                                  |
 | B7      | RLS policies (RLS is enabled, deny-all).                                                                                                                                                                                                                                                                                                                  | Needs real auth (Day 1).                                                                                                             |
 | B8      | TypeScript 7 upgrade.                                                                                                                                                                                                                                                                                                                                     | Blocked: typescript-eslint supports `<6.1`.                                                                                          |
-| B9      | ESLint 10 peer warnings from `eslint-plugin-react` / `eslint-plugin-import` (declare ≤9). Lint works.                                                                                                                                                                                                                                                     | Upgrade when plugins publish v10 support.                                                                                            |
+| B9      | ~~ESLint 10 peer warnings from `eslint-plugin-react` / `eslint-plugin-import` (declare ≤9).~~ **Resolved in TASK-021:** ESLint pinned to 9.39.5, inside every peer range (`npm ls` clean, resolved rule sets unchanged). Revisit when eslint-plugin-import, jsx-a11y and react declare ESLint 10 support.                                                 | TASK-021                                                                                                                             |
 | B10     | Nonce-based CSP (drop `'unsafe-inline'` on `script-src`).                                                                                                                                                                                                                                                                                                 | Hardening.                                                                                                                           |
 | B11     | Dark mode (`next-themes` + `.dark` tokens).                                                                                                                                                                                                                                                                                                               | Not required by PRD.                                                                                                                 |
 | B12     | Never run on a real Supabase instance. Schema: automated on PGlite (`tests/db/`). postgres.js adapter: verified one-off over the wire via `pglite-socket` (TASK-011). Run `npx supabase start && npm run db:reset` once Docker is available; consider making the socket test permanent (`@electric-sql/pglite-socket` devDep).                            | Docker daemon still not running (2026-11-24).                                                                                        |
@@ -49,6 +49,8 @@
 | B24     | **Policy history (effective-dated rates).** Catch-up accrues missed months at the CURRENT rate; with history it could use the rate in effect per month. Pairs with the ARCH open question on mid-year policy changes (Sprint 2). Until then: manual adjustment using the run's `rates` snapshot.                                                          | Sprint 2 (TASK-017).                                                                                                                 |
 | B25     | **UI assumes the three known leave types.** DB, services and stores are generic on `tracks_balance` (proven with a 4th type in tests), but `LeaveTypeName` / `LEAVE_TYPE_META` (icons, colours) list Vacation/Sick/Unpaid only. Adding a type needs a neutral badge fallback.                                                                             | When a 4th type is requested (TASK-018).                                                                                             |
 | B26     | **Confirm fail-closed startup on a real Vercel deployment.** TASK-019 proved locally that `next build` fails and `next start` exits 1 on missing deployed config. On Vercel serverless each cold start runs `register()`; confirm a misconfigured preview fails its build (env vars are exposed at build) and never serves, at the first real deployment. | First Vercel deployment (TASK-019); pairs with B23.                                                                                  |
+| B27     | **Confirm the coverage summary and `coverage-report` artifact on the first GitHub CI run.** TASK-021 verified the YAML, the thresholds and the summary script locally (including a simulated `$GITHUB_STEP_SUMMARY`); only a real run proves the job-summary table and the upload.                                                                        | First PR after TASK-021.                                                                                                             |
+| B28     | **lint-staged glob misses `.mts`/`.cts`.** `.lintstagedrc.json` matches `*.{ts,tsx,mjs,js}`, so `vitest.config.mts` skips the pre-commit ESLint step (it is still covered by `npm run lint` and CI). Add `mts,cts` to the glob.                                                                                                                           | Pre-existing; small (found in TASK-021).                                                                                             |
 
 ## EPIC 2 planning (2026-11-26)
 
@@ -56,28 +58,28 @@ EPIC 1 is Done. The EPIC 2 evaluation re-checked every open backlog item; each n
 owning task in `docs/dev-tasks/epic-2-hardening-and-resolution-tasks.csv`. Rows above are kept
 as history; close them here when the owning task passes VALIDATE.
 
-| Backlog | Owning task(s)      | Note                                                    |
-| ------- | ------------------- | ------------------------------------------------------- |
-| B2      | TASK-026            | Approval routing (ADR-E005)                             |
-| B5      | TASK-038            | Blocked on decision D9 (calendar vs business days)      |
-| B6      | TASK-030, TASK-037  | Outbox + in-app inbox, then email (ADR-E007)            |
-| B7      | TASK-042            | RLS policies                                            |
-| B8      | —                   | TypeScript 7: not scheduled                             |
-| B9      | TASK-021            | ESLint 10 peer mismatch (lint itself is clean)          |
-| B10     | TASK-041            | Nonce-based CSP                                         |
-| B11     | TASK-047            | Dark mode without a new dependency                      |
-| B12     | TASK-042            | Real Supabase in CI                                     |
-| B14     | TASK-027            | Overlap prevention                                      |
-| B15     | TASK-053            | ADR sign-off tracking (E003 and E002, E004 – E007)      |
-| B16     | TASK-025            | `/login` honours a safe `next`                          |
-| B17     | TASK-027, TASK-041  | Maximum length; rate limiting                           |
-| B18     | TASK-042            | Measure p95 on real Supabase                            |
-| B19     | TASK-031 – TASK-036 | Negative-balance resolution (ADR-E006)                  |
-| B21     | TASK-050            | Keyset pagination                                       |
-| B22     | TASK-052            | WebKit e2e                                              |
-| B23     | TASK-037            | Missed-accrual alert (production cron proof at go-live) |
-| B24     | TASK-039            | Effective-dated policies                                |
-| B25     | TASK-043            | Neutral UI fallback for new leave types                 |
+| Backlog | Owning task(s)      | Note                                                             |
+| ------- | ------------------- | ---------------------------------------------------------------- |
+| B2      | TASK-026            | Approval routing (ADR-E005)                                      |
+| B5      | TASK-038            | Blocked on decision D9 (calendar vs business days)               |
+| B6      | TASK-030, TASK-037  | Outbox + in-app inbox, then email (ADR-E007)                     |
+| B7      | TASK-042            | RLS policies                                                     |
+| B8      | —                   | TypeScript 7: not scheduled                                      |
+| B9      | TASK-021            | Resolved: ESLint 9.39.5 pinned; coverage baseline recorded below |
+| B10     | TASK-041            | Nonce-based CSP                                                  |
+| B11     | TASK-047            | Dark mode without a new dependency                               |
+| B12     | TASK-042            | Real Supabase in CI                                              |
+| B14     | TASK-027            | Overlap prevention                                               |
+| B15     | TASK-053            | ADR sign-off tracking (E003 and E002, E004 – E007)               |
+| B16     | TASK-025            | `/login` honours a safe `next`                                   |
+| B17     | TASK-027, TASK-041  | Maximum length; rate limiting                                    |
+| B18     | TASK-042            | Measure p95 on real Supabase                                     |
+| B19     | TASK-031 – TASK-036 | Negative-balance resolution (ADR-E006)                           |
+| B21     | TASK-050            | Keyset pagination                                                |
+| B22     | TASK-052            | WebKit e2e                                                       |
+| B23     | TASK-037            | Missed-accrual alert (production cron proof at go-live)          |
+| B24     | TASK-039            | Effective-dated policies                                         |
+| B25     | TASK-043            | Neutral UI fallback for new leave types                          |
 
 New findings from the EPIC 2 evaluation (not previously in the backlog):
 
@@ -90,3 +92,17 @@ New findings from the EPIC 2 evaluation (not previously in the backlog):
 | No withdraw/cancel; PRD says HR configures policies (read-only)                                                           | TASK-028, TASK-039                          |
 | Coverage not measured; graph cache tracked in git                                                                         | TASK-021, TASK-022                          |
 | Commit `b8d6539` is labelled task-017 but carries task-018's message; commits went straight to `main`                     | TASK-022 (workflow); history left unchanged |
+
+### Coverage baseline (TASK-021, 2026-11-26)
+
+Measured with `npm run test:coverage` (V8; scope: `lib/`, `app/api/`, server actions,
+`proxy.ts`, `instrumentation.ts`), identical on two consecutive runs:
+
+| Metric     | Baseline | Covered / total | CI threshold |
+| ---------- | -------: | --------------: | -----------: |
+| Statements |   86.28% |       629 / 729 |           84 |
+| Branches   |   80.24% |       390 / 486 |           78 |
+| Functions  |   91.77% |       212 / 231 |           89 |
+| Lines      |   87.20% |       559 / 641 |           85 |
+
+Thresholds = baseline rounded down − 2. Raise them as coverage improves; never lower them silently.
