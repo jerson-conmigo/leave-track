@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth/cookies";
-import { safeRedirectPath } from "@/lib/auth/roles";
+import { MAX_REDIRECT_LENGTH, safeRedirectPath } from "@/lib/auth/roles";
 import { repository } from "@/lib/data/repositories";
 import { isProduction } from "@/lib/env";
 import { logger } from "@/lib/logger";
@@ -19,7 +19,11 @@ export type LoginState = { error?: string };
 
 const LoginSchema = z.object({
   userId: z.uuid({ error: "Choose who to sign in as." }),
-  next: z.string().optional(),
+  // Over-long values are dropped (not an error) so sign-in never fails because of `next`.
+  next: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.length <= MAX_REDIRECT_LENGTH ? v : undefined)),
 });
 
 export async function loginAction(_prev: LoginState, formData: FormData): Promise<LoginState> {

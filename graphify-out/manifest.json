@@ -396,9 +396,9 @@
     "semantic_hash": ""
   },
   "lib/auth/roles.ts": {
-    "mtime": 1795665575.402634,
-    "seen": 1795665579.804608,
-    "ast_hash": "a71a202971dc405d459ad5841f151054",
+    "mtime": 1795677254.4136422,
+    "seen": 1795677256.1955159,
+    "ast_hash": "cf93122c48bee3e661394dd1a687687e",
     "semantic_hash": ""
   },
   "lib/auth/session.ts": {
@@ -582,9 +582,9 @@
     "semantic_hash": ""
   },
   "app/(public)/login/actions.ts": {
-    "mtime": 1795499395.0094566,
-    "seen": 1795499396.5707898,
-    "ast_hash": "d1250abe7d84bd5238a9dc4d6ee61f19",
+    "mtime": 1795676946.2173839,
+    "seen": 1795676951.991477,
+    "ast_hash": "71d22fbb0d3084df33000207cb513fd4",
     "semantic_hash": ""
   },
   "app/(public)/login/page.tsx": {
@@ -684,9 +684,9 @@
     "semantic_hash": ""
   },
   "tests/roles.test.ts": {
-    "mtime": 1795499564.4533746,
-    "seen": 1795499567.2835782,
-    "ast_hash": "cc592e05b8c404bb7c3cbb30838a47ed",
+    "mtime": 1795677187.4137466,
+    "seen": 1795677192.7565749,
+    "ast_hash": "0849a150f21ca6e97638e7f17f97cbf0",
     "semantic_hash": ""
   },
   ".github/workflows/ci.yml": {
@@ -720,9 +720,9 @@
     "semantic_hash": ""
   },
   "knowledge/patterns/implement-and-test.md": {
-    "mtime": 1795676491.962626,
-    "seen": 1795676494.598984,
-    "ast_hash": "5fcecd3a50ce9355e535d4c4722c42be",
+    "mtime": 1795677351.791044,
+    "seen": 1795677354.372094,
+    "ast_hash": "0a7e2c42b34e81c6d86e34f43ebf1c03",
     "semantic_hash": ""
   },
   "knowledge/prompts/dev/implement-api-route.md": {
@@ -744,15 +744,15 @@
     "semantic_hash": ""
   },
   "knowledge/rules/coding-standards.md": {
-    "mtime": 1795675932.1582425,
-    "seen": 1795675934.4885418,
-    "ast_hash": "04f5e42b6d7662ac0a871afd6878f033",
+    "mtime": 1795676962.8680668,
+    "seen": 1795677049.460062,
+    "ast_hash": "7bab97a17650a1d190ae80274bef553f",
     "semantic_hash": ""
   },
   "knowledge/retros/2026-11-24-day0-scaffold.md": {
-    "mtime": 1795676491.9776003,
-    "seen": 1795676494.599054,
-    "ast_hash": "01bf55665e7284cad2f402c7c513ceef",
+    "mtime": 1795676963.2336514,
+    "seen": 1795677049.4600341,
+    "ast_hash": "78458c07860458af0b67edb9ed9a725e",
     "semantic_hash": ""
   },
   "tests/db/schema.test.ts": {
@@ -1227,6 +1227,12 @@
     "mtime": 1795676378.9948268,
     "seen": 1795676381.505336,
     "ast_hash": "79ddf834d43eb0a9e5a04eee3a4cba9a",
+    "semantic_hash": ""
+  },
+  "e2e/auth-redirect.spec.ts": {
+    "mtime": 1795676848.075104,
+    "seen": 1795676853.474715,
+    "ast_hash": "e5a63eb93290d52a75562a243e567ef7",
     "semantic_hash": ""
   }
 }

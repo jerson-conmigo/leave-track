@@ -10,6 +10,9 @@ Expands `AGENTS.md`. When the two disagree, fix whichever is wrong in the same P
 - Prefer `type` aliases; export prop types for every component (`XxxProps`).
 - Path alias `@/` for everything outside the current folder.
 - Server-only modules start with `import "server-only"` (env, logger, session, repositories).
+- Redirect targets go through `safeRedirectPath()`: reject ASCII control characters and
+  backslashes, then resolve with the WHATWG `URL` parser and compare origins — never prefix
+  checks alone (browsers strip tab/CR/LF, so `/\t/evil.com` becomes `//evil.com`; TASK-020).
 - Environment strictness keys on the deployment stage (`isDeployedEnv`: `APP_ENV` /
   `VERCEL_ENV`), never `NODE_ENV`. `lib/env.ts` runs at build ("collect configuration"), at
   server start (`instrumentation.ts`, which exits 1 on failure — Next.js would otherwise stay

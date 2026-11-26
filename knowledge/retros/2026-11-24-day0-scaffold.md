@@ -81,12 +81,12 @@ as history; close them here when the owning task passes VALIDATE.
 
 New findings from the EPIC 2 evaluation (not previously in the backlog):
 
-| Finding                                                                                               | Owning task(s)                              |
-| ----------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| Unsigned mock session cookies allow impersonation (Critical)                                          | TASK-023, TASK-024                          |
-| Production silently falls back to the in-memory store (High)                                          | TASK-019                                    |
-| `safeRedirectPath` accepts `/\t/evil.com` (open redirect)                                             | TASK-020                                    |
-| HR Admins' own leave has no approver                                                                  | TASK-026                                    |
-| No withdraw/cancel; PRD says HR configures policies (read-only)                                       | TASK-028, TASK-039                          |
-| Coverage not measured; graph cache tracked in git                                                     | TASK-021, TASK-022                          |
-| Commit `b8d6539` is labelled task-017 but carries task-018's message; commits went straight to `main` | TASK-022 (workflow); history left unchanged |
+| Finding                                                                                                                   | Owning task(s)                              |
+| ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Unsigned mock session cookies allow impersonation (Critical)                                                              | TASK-023, TASK-024                          |
+| Production silently falls back to the in-memory store (High)                                                              | TASK-019                                    |
+| ~~`safeRedirectPath` accepts `/\t/evil.com` (open redirect)~~ **Fixed in TASK-020** (proven exploitable end-to-end first) | TASK-020                                    |
+| HR Admins' own leave has no approver                                                                                      | TASK-026                                    |
+| No withdraw/cancel; PRD says HR configures policies (read-only)                                                           | TASK-028, TASK-039                          |
+| Coverage not measured; graph cache tracked in git                                                                         | TASK-021, TASK-022                          |
+| Commit `b8d6539` is labelled task-017 but carries task-018's message; commits went straight to `main`                     | TASK-022 (workflow); history left unchanged |

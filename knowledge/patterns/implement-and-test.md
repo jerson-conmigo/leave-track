@@ -197,3 +197,16 @@ needs a test at each.
 - Prove it with real processes: build and start under each configuration (CI, deployed-valid,
   deployed-missing, deployed-with-test-token), and assert exit codes, `/api/health` and that
   no secret value is ever printed.
+
+### Overlapping guards: name them and test each one directly (from TASK-020)
+
+A layered check (control characters → root-relative → same origin → reserved paths) passed
+a 46-case corpus, yet removing the backslash rule, the `//` rule or the whole origin check
+left every test green — each was covered by another layer, and the origin check was
+unreachable by any string the earlier layers let through. Fix: express the layers as an
+exported, ordered list of named guards (`REDIRECT_GUARDS`), unit-test each guard **in
+isolation** (the only way to reach the later ones), and pin the list structurally. Testing
+the origin guard alone then exposed a real subtlety: `new URL("http:evil.com", "http://base")`
+is a _relative_ path, so same-origin checks must try both `http` and `https` bases.
+Prove the bug end-to-end before fixing it, with off-site navigation blocked
+(`context.route(url => url.host !== app, abort)`) before the form is submitted.
