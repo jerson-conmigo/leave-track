@@ -1,11 +1,11 @@
 import type { PGlite } from "@electric-sql/pglite";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { LEAVE_TYPE_IDS, users, USER_IDS } from "@/lib/data/mock/fixtures";
 import { mockRepository } from "@/lib/data/mock/repository";
 import { createPostgresRepository } from "@/lib/data/postgres-repository";
 import type { LeaveRepository } from "@/lib/data/repositories";
 import type { SqlClient } from "@/lib/db/sql";
-import { createTestDb } from "../db/helpers";
+import { closeAfterEachTest, createTestDb } from "../db/helpers";
 
 /**
  * TASK-012 — Postgres reads against real Postgres (PGlite) with the seed.
@@ -18,18 +18,14 @@ const { Vacation, Sick } = LEAVE_TYPE_IDS;
 let db: PGlite;
 let sql: SqlClient;
 let repo: LeaveRepository;
-const dbs: PGlite[] = [];
+const track = closeAfterEachTest(); // B30: each test's database closes after that test
 
 beforeEach(async () => {
   const t = await createTestDb();
   db = t.db;
   sql = t.sql;
-  dbs.push(db);
+  track(db);
   repo = createPostgresRepository(t.sql);
-});
-
-afterAll(async () => {
-  await Promise.all(dbs.map((d) => d.close()));
 });
 
 const insertPending = (userId: string, leaveTypeId: string, start: string, end: string) =>
@@ -69,7 +65,7 @@ describe("AC1 — current balance per leave type, as of the last accrual run", (
 
   it("reports asOf null when no accrual has ever run", async () => {
     const fresh = await createTestDb();
-    dbs.push(fresh.db);
+    track(fresh.db);
     await fresh.db.exec(`truncate accrual_runs`);
     const balances = await createPostgresRepository(fresh.sql).getBalances(USER_IDS.ana);
     expect(balances.map((b) => b.asOf)).toEqual([null, null, null]);

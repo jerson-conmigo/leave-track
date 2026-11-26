@@ -15,9 +15,15 @@ export const ROUTE_ACCESS: readonly { prefix: string; roles: readonly Role[] }[]
  * Reachable without a session. `/api/test/reset` is gated by its own token and is
  * a 404 unless E2E_RESET_TOKEN is set (tests only). `/api/jobs/accrual` is called by
  * Vercel Cron (no cookie) and gated by `Authorization: Bearer $CRON_SECRET`.
+ * The account pages (TASK-024) are reached from emailed links before a LeaveTrack
+ * session exists; each answers 404 unless AUTH_PROVIDER=supabase, and set-password
+ * requires a live provider session of its own.
  */
 export const PUBLIC_PATHS: readonly string[] = [
   "/login",
+  "/forgot-password",
+  "/auth/confirm",
+  "/auth/set-password",
   "/forbidden",
   "/api/health",
   "/api/test/reset",

@@ -1,5 +1,4 @@
-import type { PGlite } from "@electric-sql/pglite";
-import { afterAll, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { memoryAccrualStore } from "@/lib/accrual/memory-store";
 import { createPostgresAccrualStore } from "@/lib/accrual/postgres-store";
 import { runMonthlyAccrual } from "@/lib/accrual/run";
@@ -17,7 +16,7 @@ import {
 } from "@/lib/leave-requests/postgres-store";
 import type { DecideStore, SubmitStore } from "@/lib/leave-requests/store";
 import { submitLeaveRequest } from "@/lib/leave-requests/submit";
-import { createTestDb } from "../db/helpers";
+import { closeAfterEachTest, createTestDb } from "../db/helpers";
 
 /**
  * TASK-018 / US-08 — every balance writer (submit, approve, reject, accrual) touches
@@ -48,12 +47,11 @@ type Harness = {
   close: () => Promise<void>;
 };
 
-const dbs: PGlite[] = [];
-afterAll(async () => Promise.all(dbs.map((d) => d.close())));
+const track = closeAfterEachTest(); // B30: each test's database closes after that test
 
 async function postgresHarness(): Promise<Harness> {
   const { db, sql } = await createTestDb();
-  dbs.push(db);
+  track(db);
   await db.query(
     `insert into leave_types (id, name, tracks_balance) values ($1, 'Study leave', false)`,
     [STUDY],

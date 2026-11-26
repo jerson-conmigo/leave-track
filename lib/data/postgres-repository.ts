@@ -48,6 +48,14 @@ export function createPostgresRepository(sql: SqlClient): LeaveRepository {
       return row ? toUser(row) : null;
     },
 
+    async getUserByAuthUserId(authUserId) {
+      const [row] = await sql.query<UserRow>(
+        `select ${USER_COLUMNS} from users where auth_user_id = $1`,
+        [authUserId],
+      );
+      return row ? toUser(row) : null;
+    },
+
     async listUsers() {
       return (await sql.query<UserRow>(`select ${USER_COLUMNS} from users order by id`)).map(
         toUser,

@@ -1,12 +1,12 @@
 import type { PGlite } from "@electric-sql/pglite";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { memoryAccrualStore } from "@/lib/accrual/memory-store";
 import { createPostgresAccrualStore } from "@/lib/accrual/postgres-store";
 import type { AccrualStore } from "@/lib/accrual/store";
 import { runMonthlyAccrual } from "@/lib/accrual/run";
 import { LEAVE_TYPE_IDS, USER_IDS } from "@/lib/data/mock/fixtures";
 import { mockDb, resetMockDb } from "@/lib/data/mock/store";
-import { createTestDb } from "../db/helpers";
+import { closeAfterEachTest, createTestDb } from "../db/helpers";
 
 /**
  * TASK-017 — overlapping / duplicate invocations across MULTIPLE missed months
@@ -25,8 +25,7 @@ const runAll = (store: AccrualStore, nows: Date[]) =>
   Promise.allSettled(nows.map((now) => runMonthlyAccrual({ store }, { trigger: "cron", now })));
 
 let db: PGlite;
-const dbs: PGlite[] = [];
-afterAll(async () => Promise.all(dbs.map((d) => d.close())));
+const track = closeAfterEachTest(); // B30: each test's database closes after that test
 
 describe("Postgres store", () => {
   let store: AccrualStore;
@@ -45,7 +44,7 @@ describe("Postgres store", () => {
   beforeEach(async () => {
     const t = await createTestDb();
     db = t.db;
-    dbs.push(db);
+    track(db);
     store = createPostgresAccrualStore(t.sql);
   });
 

@@ -1,12 +1,12 @@
 import type { PGlite } from "@electric-sql/pglite";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { leaveRequests, users, USER_IDS } from "@/lib/data/mock/fixtures";
 import { mockRepository } from "@/lib/data/mock/repository";
 import { createPostgresRepository } from "@/lib/data/postgres-repository";
 import type { LeaveRepository } from "@/lib/data/repositories";
 import { AUDIT_LOG_LIMIT } from "@/lib/data/types";
 import type { SqlClient } from "@/lib/db/sql";
-import { createTestDb } from "../db/helpers";
+import { closeAfterEachTest, createTestDb } from "../db/helpers";
 
 /**
  * TASK-015 / US-05 — HR audit report against real Postgres (PGlite) with the seed.
@@ -19,14 +19,13 @@ const VACATION = "10000000-0000-4000-8000-000000000001";
 let db: PGlite;
 let sql: SqlClient;
 let repo: LeaveRepository;
-const dbs: PGlite[] = [];
+const track = closeAfterEachTest(); // B30: each test's database closes after that test
 
 beforeEach(async () => {
   ({ db, sql } = await createTestDb());
-  dbs.push(db);
+  track(db);
   repo = createPostgresRepository(sql);
 });
-afterAll(async () => Promise.all(dbs.map((d) => d.close())));
 
 async function insertOldRequest() {
   // Created and approved 3+ years ago (BR-04 retention window).

@@ -26,16 +26,16 @@ const cleared = (res: Response) =>
   /lt-session=.*(Max-Age=0|Expires=Thu, 01 Jan 1970)/i.test(res.headers.get("set-cookie") ?? "");
 
 describe("proxy", () => {
-  it("lets public paths through without a session", () => {
-    expect(proxy(req("/login")).headers.get("x-middleware-next")).toBe("1");
-    expect(proxy(req("/api/health")).headers.get("x-middleware-next")).toBe("1");
+  it("lets public paths through without a session", async () => {
+    expect((await proxy(req("/login"))).headers.get("x-middleware-next")).toBe("1");
+    expect((await proxy(req("/api/health"))).headers.get("x-middleware-next")).toBe("1");
   });
 
   it("no cookie: pages redirect to /login?next=…, APIs get a 401 envelope", async () => {
-    const page = proxy(req("/requests?x=1"));
+    const page = await proxy(req("/requests?x=1"));
     expect(page.status).toBe(307);
     expect(page.headers.get("location")).toBe("http://localhost/login?next=%2Frequests%3Fx%3D1");
-    const api = proxy(req("/api/leave-requests"));
+    const api = await proxy(req("/api/leave-requests"));
     expect(api.status).toBe(401);
     expect(await api.json()).toEqual({
       success: false,
@@ -49,17 +49,17 @@ describe("proxy", () => {
     ["garbage", () => "not-a-token"],
   ])("%s cookie → unauthenticated, and the bad cookie is deleted", async (_l, make) => {
     const value = make();
-    const page = proxy(req("/dashboard", { [SESSION_COOKIE]: value }));
+    const page = await proxy(req("/dashboard", { [SESSION_COOKIE]: value }));
     expect(page.status).toBe(307);
     expect(page.headers.get("location")).toContain("/login");
     expect(cleared(page)).toBe(true);
-    const api = proxy(req("/api/leave-requests", { [SESSION_COOKIE]: value }));
+    const api = await proxy(req("/api/leave-requests", { [SESSION_COOKIE]: value }));
     expect(api.status).toBe(401);
     expect(cleared(api)).toBe(true);
   });
 
-  it("the Day 0 unsigned cookies alone no longer authenticate (impersonation closed)", () => {
-    const res = proxy(req("/audit", { "mock-role": "hr_admin", "mock-user-id": ANA }));
+  it("the Day 0 unsigned cookies alone no longer authenticate (impersonation closed)", async () => {
+    const res = await proxy(req("/audit", { "mock-role": "hr_admin", "mock-user-id": ANA }));
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toContain("/login");
   });
@@ -67,14 +67,16 @@ describe("proxy", () => {
   it("a valid session passes; role gating still applies (employee → /approvals is 403)", async () => {
     const employee = token("employee");
     expect(
-      proxy(req("/dashboard", { [SESSION_COOKIE]: employee })).headers.get("x-middleware-next"),
+      (await proxy(req("/dashboard", { [SESSION_COOKIE]: employee }))).headers.get(
+        "x-middleware-next",
+      ),
     ).toBe("1");
-    const page = proxy(req("/approvals", { [SESSION_COOKIE]: employee }));
+    const page = await proxy(req("/approvals", { [SESSION_COOKIE]: employee }));
     expect(page.headers.get("location")).toBe("http://localhost/forbidden");
-    const api = proxy(req("/approvals/x", { [SESSION_COOKIE]: employee }));
+    const api = await proxy(req("/approvals/x", { [SESSION_COOKIE]: employee }));
     expect(api.status).toBe(307);
     expect(
-      proxy(req("/approvals", { [SESSION_COOKIE]: token("manager") })).headers.get(
+      (await proxy(req("/approvals", { [SESSION_COOKIE]: token("manager") }))).headers.get(
         "x-middleware-next",
       ),
     ).toBe("1");

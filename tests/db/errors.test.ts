@@ -71,6 +71,26 @@ const CASES: [string, () => Promise<unknown>, string, number][] = [
     "CONFLICT",
     409,
   ],
+  [
+    "a provider identity linked twice (TASK-024)",
+    async () => {
+      const id = "30000000-0000-4000-8000-000000000001";
+      await db.query(`update users set auth_user_id = $1 where id = $2`, [id, ANA]);
+      return raise(`update users set auth_user_id = $1 where id = $2`, [id, BEN]);
+    },
+    "CONFLICT",
+    409,
+  ],
+  [
+    "an email differing only in case (TASK-024)",
+    () =>
+      raise(
+        `insert into users (name, email) select 'Twin', upper(email) from users where id = $1`,
+        [ANA],
+      ),
+    "CONFLICT",
+    409,
+  ],
   ["hard delete (retention trigger)", () => raise(`delete from leave_requests`), "CONFLICT", 409],
 ];
 

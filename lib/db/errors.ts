@@ -35,6 +35,16 @@ const BY_CONSTRAINT: Record<string, { sqlstate: string; code: ErrorCode; message
     code: "CONFLICT",
     message: "This month has already been accrued.",
   },
+  users_auth_user_id_key: {
+    sqlstate: "23505",
+    code: "CONFLICT",
+    message: "This sign-in is already linked to another user.",
+  },
+  users_email_lower_key: {
+    sqlstate: "23505",
+    code: "CONFLICT",
+    message: "A user with this email already exists.",
+  },
 };
 
 /** SQLSTATE-only mappings (no constraint name involved). */

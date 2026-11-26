@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { CircleCheck, ShieldCheck, Smartphone } from "lucide-react";
 import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/auth/login-form";
+import { PasswordLoginForm } from "@/components/auth/password-login-form";
 import { Brand } from "@/components/layout/brand";
+import { getAuthProvider } from "@/lib/auth/provider";
 import { getSession } from "@/lib/auth/session";
 import { repository } from "@/lib/data/repositories";
 
@@ -14,10 +16,19 @@ const HIGHLIGHTS = [
   { icon: Smartphone, text: "Works just as well on your phone" },
 ];
 
+/** ?error=… values set by our own redirects; anything else is ignored. */
+const NOTICES: Record<string, string> = {
+  link: "That link is invalid or has expired. Ask HR for a new invite, or reset your password.",
+  "not-linked": "This account isn't set up for LeaveTrack. Contact HR.",
+};
+
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   if (await getSession()) redirect("/dashboard");
-  const { next } = await searchParams;
-  const users = await repository.listUsers();
+  const { next, error } = await searchParams;
+  const nextPath = typeof next === "string" ? next : undefined;
+  const isMock = getAuthProvider().name === "mock";
+  // The mock picker lists every seeded user — never rendered with a real provider.
+  const users = isMock ? await repository.listUsers() : [];
 
   return (
     <div className="grid min-h-dvh lg:grid-cols-2">
@@ -49,10 +60,17 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           <p className="mt-1 mb-6 text-sm text-muted-foreground">
             Welcome back. Sign in to manage your leave.
           </p>
-          <LoginForm
-            mockUsers={users.map((u) => ({ id: u.id, name: u.name, role: u.role }))}
-            next={typeof next === "string" ? next : undefined}
-          />
+          {isMock ? (
+            <LoginForm
+              mockUsers={users.map((u) => ({ id: u.id, name: u.name, role: u.role }))}
+              next={nextPath}
+            />
+          ) : (
+            <PasswordLoginForm
+              next={nextPath}
+              notice={typeof error === "string" ? NOTICES[error] : undefined}
+            />
+          )}
         </div>
       </main>
     </div>

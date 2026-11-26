@@ -29,8 +29,17 @@ jobs:
       - run: npm run lint
       - run: npm run format:check
       - run: npm run typecheck
+      # B30 diagnostics: record the runner's size next to the test run (read-only).
+      - name: Runner resources
+        run: |
+          echo "CPUs: $(nproc)"
+          free -m
+          node -p "'node availableParallelism: ' + require('node:os').availableParallelism()"
       # Same unit tests as `npm test`, plus coverage and the thresholds in vitest.config.mts.
+      # B30: the suite takes about 1 minute locally; a stall fails HERE, named, instead of
+      # silently using up the 15-minute job timeout.
       - run: npm run test:coverage
+        timeout-minutes: 8
       - name: Coverage summary
         if: ${{ !cancelled() }}
         run: node scripts/coverage-summary.mjs coverage/coverage-summary.json >> "$GITHUB_STEP_SUMMARY"

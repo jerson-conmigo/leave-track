@@ -20,13 +20,17 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install --with-deps chromium",
+    "test:e2e:supabase": "playwright test --config playwright.supabase.config.ts",
     "db:push": "supabase db push",
     "db:reset": "supabase db reset",
     "task:status": "node scripts/set-task-status.mjs",
+    "user:invite": "node scripts/invite-user.mjs",
     "prepare": "husky"
   },
   "dependencies": {
     "@hookform/resolvers": "7.0.8",
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.119.2",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "geist": "1.9.2",

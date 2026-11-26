@@ -12,16 +12,29 @@ import { z } from "zod";
  *   - every variable in REQUIRED_WHEN_DEPLOYED must be set (no silent in-memory store),
  *   - E2E_RESET_TOKEN must NOT be set,
  *   - AUTH_PROVIDER must not be "mock" (ADR-LeaveTrack-E004; TASK-023).
- * Everything stays optional for local development, tests, CI and local e2e.
+ * AUTH_PROVIDER=supabase needs its project URL and anon key in ANY environment (TASK-024).
+ * Everything else stays optional for local development, tests, CI and local e2e.
  */
 const optionalUrl = z.url().optional();
 const optionalSecret = z.string().min(1).optional();
 
 /**
- * Variables a deployed environment refuses to start without. TASK-023/024 append
- * their auth secrets here (tests/env.test.ts pins this list on purpose).
+ * Variables a deployed environment refuses to start without. TASK-023/024 appended
+ * their auth settings here (tests/env.test.ts pins this list on purpose).
  */
-export const REQUIRED_WHEN_DEPLOYED = ["DATABASE_URL", "CRON_SECRET", "SESSION_SECRET"] as const;
+export const REQUIRED_WHEN_DEPLOYED = [
+  "DATABASE_URL",
+  "CRON_SECRET",
+  "SESSION_SECRET",
+  "NEXT_PUBLIC_SUPABASE_URL",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+] as const;
+
+/** What the Supabase sign-in adapter needs wherever it runs (TASK-024). */
+export const REQUIRED_FOR_SUPABASE_AUTH = [
+  "NEXT_PUBLIC_SUPABASE_URL",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+] as const;
 
 const DEPLOYED_APP_ENVS = ["production", "staging"];
 const DEPLOYED_VERCEL_ENVS = ["production", "preview"];
@@ -64,9 +77,9 @@ const EnvSchema = z.object({
 
   // Bearer token Vercel Cron sends to /api/jobs/accrual (TASK-017).
   CRON_SECRET: optionalSecret,
-  // Sign-in adapter (ADR-LeaveTrack-E004). "mock" = DEV/TEST ONLY, refused when deployed;
-  // TASK-024 adds the real provider.
-  AUTH_PROVIDER: z.enum(["mock"]).default("mock"),
+  // Sign-in adapter (ADR-LeaveTrack-E004). "supabase" = Supabase Auth (TASK-024), required
+  // when deployed; "mock" = DEV/TEST ONLY (pick any seeded user), refused when deployed.
+  AUTH_PROVIDER: z.enum(["mock", "supabase"]).default("mock"),
   // HMAC key for the session cookie (TASK-023). Generate: openssl rand -hex 32.
   // Optional locally (a random per-process key is used); required when deployed.
   SESSION_SECRET: z
@@ -92,6 +105,15 @@ export function parseEnv(input: RawEnv): Env {
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
     throw new Error(`Invalid environment configuration — ${issues}`);
+  }
+
+  if (parsed.data.AUTH_PROVIDER === "supabase") {
+    const missing = REQUIRED_FOR_SUPABASE_AUTH.filter((name) => !raw[name]);
+    if (missing.length > 0) {
+      throw new Error(
+        `Invalid environment configuration — AUTH_PROVIDER=supabase needs ${missing.join(", ")}`,
+      );
+    }
   }
 
   if (isDeployedEnv(raw)) {

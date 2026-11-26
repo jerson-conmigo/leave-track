@@ -3,8 +3,9 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * TASK-023 — the session cookie and its signing stay behind the auth boundary:
- * only these files touch the cookie, and only the auth port creates or verifies tokens.
+ * TASK-023/024 — the session cookies and their signing stay behind the auth boundary:
+ * only these files touch our cookie, only the auth port creates or verifies tokens, and
+ * only the Supabase adapter touches the provider's `sb-*` cookies or Supabase clients.
  * A new file reading `lt-session` or signing tokens directly fails here until reviewed.
  */
 const root = path.resolve(import.meta.dirname, "../..");
@@ -24,13 +25,37 @@ const using = (pattern: RegExp) =>
     .sort();
 
 describe("session boundary", () => {
-  it("only proxy.ts, getSession and the login/logout actions touch the session cookie", () => {
+  it("only completeSignIn writes the session cookie; only proxy.ts and getSession read it", () => {
     expect(using(/\bSESSION_COOKIE\b|["'`]lt-session["'`]/)).toEqual([
-      "app/(public)/login/actions.ts",
       "lib/auth/cookies.ts",
       "lib/auth/session.ts",
+      "lib/auth/sign-in.ts",
       "proxy.ts",
     ]);
+  });
+
+  it("only lib/auth/sign-in.ts SETS the session cookie", () => {
+    expect(using(/\.set\(\s*SESSION_COOKIE\b/)).toEqual(["lib/auth/sign-in.ts"]);
+  });
+
+  it("only the Supabase adapter creates Supabase clients or touches the sb-* cookies (TASK-024)", () => {
+    expect(
+      using(
+        /@supabase\/|createServerClient|createSupabaseServerClient|PROVIDER_COOKIE_PREFIX|["'`]sb-/,
+      ),
+    ).toEqual(["lib/auth/supabase/adapter.ts", "lib/auth/supabase/client.ts"]);
+  });
+
+  it("the users row is found by auth_user_id, never by email, at sign-in (TASK-024)", () => {
+    expect(using(/getUserByAuthUserId/)).toEqual([
+      "app/(public)/auth/set-password/actions.ts",
+      "app/(public)/login/actions.ts",
+      "lib/auth/session.ts",
+      "lib/data/mock/repository.ts",
+      "lib/data/postgres-repository.ts",
+      "lib/data/repositories.ts",
+    ]);
+    expect(using(/getUserByEmail|by_email|where\s+(lower\()?email/i)).toEqual([]);
   });
 
   it("only the auth port signs or verifies session tokens", () => {

@@ -1,5 +1,5 @@
 import type { PGlite } from "@electric-sql/pglite";
-import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppError } from "@/lib/api/errors";
 import { LEAVE_TYPE_IDS, USER_IDS } from "@/lib/data/mock/fixtures";
 import { createPostgresRepository } from "@/lib/data/postgres-repository";
@@ -13,7 +13,7 @@ import {
 import type { DecideStore } from "@/lib/leave-requests/store";
 import { submitLeaveRequest } from "@/lib/leave-requests/submit";
 import { logger } from "@/lib/logger";
-import { createTestDb } from "../db/helpers";
+import { closeAfterEachTest, createTestDb } from "../db/helpers";
 
 /**
  * TASK-014 / US-03 — decisions against real Postgres (PGlite) with the production
@@ -40,18 +40,17 @@ let notifier: Notifier & {
   leaveRequestSubmitted: ReturnType<typeof vi.fn>;
   leaveRequestDecided: ReturnType<typeof vi.fn>;
 };
-const dbs: PGlite[] = [];
+const track = closeAfterEachTest(); // B30: each test's database closes after that test
 
 beforeEach(async () => {
   ({ db, sql } = await createTestDb());
-  dbs.push(db);
+  track(db);
   notifier = {
     leaveRequestSubmitted: vi.fn().mockResolvedValue(undefined),
     leaveRequestDecided: vi.fn().mockResolvedValue(undefined),
   };
 });
 afterEach(() => vi.restoreAllMocks());
-afterAll(async () => Promise.all(dbs.map((d) => d.close())));
 
 const decide = (
   session: { userId: string; role: "employee" | "manager" | "hr_admin" },

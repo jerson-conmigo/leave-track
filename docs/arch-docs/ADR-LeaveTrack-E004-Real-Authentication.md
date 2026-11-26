@@ -4,6 +4,14 @@
 mock session of `ADR-LeaveTrack-E001` for every deployed environment.
 **Tasks:** TASK-019, TASK-023, TASK-024, TASK-025, TASK-046 · **Stories:** US-13, US-14 · **BR-09**
 
+**Implementation notes:** TASK-023 signed the session cookie. TASK-024 added the Supabase
+adapter (`lib/auth/supabase/`, `@supabase/ssr` 0.12.7, `@supabase/supabase-js` 2.119.2):
+password sign-in, invite (`npm run user:invite`, which sets `users.auth_user_id`), password
+reset, provider-session refresh in `proxy.ts`, a server-side liveness check in `getSession`,
+and revoking sign-out. The provider session proves identity; the app's signed `lt-session`
+names the linked user. Session policy (TASK-025), MFA (TASK-046), RLS (TASK-042) and the
+admin invite UI (TASK-043) remain.
+
 ## Context
 
 The EPIC 2 evaluation confirmed the Day 0 session is two unsigned cookies (`mock-role`,

@@ -48,10 +48,25 @@ describe("instrumentation register()", () => {
     vi.stubEnv("DATABASE_URL", "postgres://u:p@h:6543/db");
     vi.stubEnv("CRON_SECRET", "x");
     vi.stubEnv("SESSION_SECRET", "s".repeat(40));
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://project.supabase.co");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "anon-public-key");
     await register();
     expect(exit).toHaveBeenCalledWith(1);
     expect(stderrText()).toMatch(/mock sign-in/);
     expect(stderrText()).not.toMatch(/missing/);
+  });
+
+  it("resolves for a deployed environment fully configured with Supabase Auth (TASK-024)", async () => {
+    vi.stubEnv("NEXT_RUNTIME", "nodejs");
+    vi.stubEnv("APP_ENV", "production");
+    vi.stubEnv("DATABASE_URL", "postgres://u:p@h:6543/db");
+    vi.stubEnv("CRON_SECRET", "x");
+    vi.stubEnv("SESSION_SECRET", "s".repeat(40));
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://project.supabase.co");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "anon-public-key");
+    vi.stubEnv("AUTH_PROVIDER", "supabase");
+    await expect(register()).resolves.toBeUndefined();
+    expect(exit).not.toHaveBeenCalled();
   });
 
   it("resolves for local development with no configuration", async () => {

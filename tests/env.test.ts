@@ -9,7 +9,11 @@ import { isDeployedEnv, parseEnv, REQUIRED_WHEN_DEPLOYED } from "@/lib/env";
 const DB = "postgres://user:s3cret-db-pass@db.example.com:6543/postgres";
 const CRON = "cron-s3cret-value";
 const SESSION = "s".repeat(32) + "-session-s3cret";
-const full = { DATABASE_URL: DB, CRON_SECRET: CRON, SESSION_SECRET: SESSION };
+const SUPABASE = {
+  NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.co",
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-public-key",
+};
+const full = { DATABASE_URL: DB, CRON_SECRET: CRON, SESSION_SECRET: SESSION, ...SUPABASE };
 
 describe("not deployed: everything optional (AC4)", () => {
   it.each([
@@ -53,9 +57,9 @@ describe("deployed: required configuration (AC1, AC2)", () => {
     );
   });
 
-  // Until TASK-024 adds a real provider, AUTH_PROVIDER can only be "mock" — which a
-  // deployed environment refuses (ADR-LeaveTrack-E004). So with every required variable
-  // present, the ONLY remaining problem is the mock sign-in.
+  // AUTH_PROVIDER defaults to "mock", which a deployed environment refuses
+  // (ADR-LeaveTrack-E004). So with every required variable present, the ONLY remaining
+  // problem is the mock sign-in.
   it.each(DEPLOYED)(
     "%s with everything required → refuses only the mock sign-in (AC2)",
     (_l, stage) => {
@@ -76,6 +80,24 @@ describe("deployed: required configuration (AC1, AC2)", () => {
     );
   });
 
+  it.each(DEPLOYED)(
+    "%s with everything required and AUTH_PROVIDER=supabase → starts (TASK-024)",
+    (_l, stage) => {
+      expect(parseEnv({ ...stage, ...full, AUTH_PROVIDER: "supabase" }).AUTH_PROVIDER).toBe(
+        "supabase",
+      );
+    },
+  );
+
+  it.each(DEPLOYED)(
+    "%s without the Supabase URL and anon key → refuses (TASK-024)",
+    (_l, stage) => {
+      expect(() =>
+        parseEnv({ ...stage, DATABASE_URL: DB, CRON_SECRET: CRON, SESSION_SECRET: SESSION }),
+      ).toThrow(/missing NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY/);
+    },
+  );
+
   it("allows the mock sign-in when not deployed (local, CI, e2e)", () => {
     expect(parseEnv({ NODE_ENV: "production", AUTH_PROVIDER: "mock" }).AUTH_PROVIDER).toBe("mock");
     expect(parseEnv({}).AUTH_PROVIDER).toBe("mock");
@@ -94,7 +116,7 @@ describe("deployed: required configuration (AC1, AC2)", () => {
 
   it("lists every missing variable at once", () => {
     expect(() => parseEnv({ APP_ENV: "production" })).toThrow(
-      /missing DATABASE_URL, CRON_SECRET, SESSION_SECRET/,
+      /missing DATABASE_URL, CRON_SECRET, SESSION_SECRET, NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY/,
     );
   });
 
@@ -108,6 +130,27 @@ describe("deployed: required configuration (AC1, AC2)", () => {
     expect(() => parseEnv({ APP_ENV: "production", ...full, E2E_RESET_TOKEN: "tok" })).toThrow(
       /E2E_RESET_TOKEN must not be set/,
     );
+  });
+});
+
+describe("AUTH_PROVIDER=supabase needs its project settings in any environment (TASK-024)", () => {
+  it.each([
+    ["no URL or key", {}, /needs NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY/],
+    [
+      "no key",
+      { NEXT_PUBLIC_SUPABASE_URL: SUPABASE.NEXT_PUBLIC_SUPABASE_URL },
+      /needs NEXT_PUBLIC_SUPABASE_ANON_KEY$/,
+    ],
+  ])("locally with %s → refuses", (_l, extra, message) => {
+    expect(() => parseEnv({ AUTH_PROVIDER: "supabase", ...extra })).toThrow(message);
+  });
+
+  it("locally with both → starts (local Supabase: supabase start)", () => {
+    expect(parseEnv({ AUTH_PROVIDER: "supabase", ...SUPABASE }).AUTH_PROVIDER).toBe("supabase");
+  });
+
+  it("rejects an unknown provider", () => {
+    expect(() => parseEnv({ AUTH_PROVIDER: "firebase" })).toThrow(/AUTH_PROVIDER/);
   });
 });
 
@@ -131,7 +174,13 @@ describe("error messages never leak values", () => {
 
 describe("structure", () => {
   it("REQUIRED_WHEN_DEPLOYED is exactly this list (TASK-023/024 add auth secrets on purpose)", () => {
-    expect([...REQUIRED_WHEN_DEPLOYED]).toEqual(["DATABASE_URL", "CRON_SECRET", "SESSION_SECRET"]);
+    expect([...REQUIRED_WHEN_DEPLOYED]).toEqual([
+      "DATABASE_URL",
+      "CRON_SECRET",
+      "SESSION_SECRET",
+      "NEXT_PUBLIC_SUPABASE_URL",
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    ]);
   });
 
   it("isDeployedEnv recognises only deployment stages", () => {

@@ -48,6 +48,11 @@ export const mockRepository: LeaveRepository = {
     return byId(users, id) ?? null;
   },
 
+  async getUserByAuthUserId(authUserId) {
+    const link = mockDb.authLinks.find((l) => l.authUserId === authUserId);
+    return link ? (byId(users, link.userId) ?? null) : null;
+  },
+
   async listUsers() {
     return [...users];
   },

@@ -253,3 +253,40 @@ stays green and proves nothing.
   around the auth port fails CI.
 - A constant-time convention test may flag a harmless length comparison; prefer changing
   the code to compare against a constant (digest size) over weakening the test.
+
+### Real auth provider: prove identity with the provider, name the user yourself (from TASK-024)
+
+- Two layers: the provider session proves _who_; the app's own signed token names _which
+  user_, minted only after matching `users.auth_user_id` (set by an admin invite). Never link
+  by email at sign-in.
+- Check liveness with the provider's **server** (`getUser`), not a locally verified JWT, or
+  sign-out isn't a revocation. Refresh in the proxy; fail closed on every provider error.
+- A dev-only path (the mock picker) must refuse to run when the real provider is configured.
+  Otherwise it can be used to skip real sign-in.
+- Pages whose behaviour depends on runtime configuration (`AUTH_PROVIDER`) must be dynamic.
+  `next build` prerendered them with the build-time value and baked in a 404.
+- Emailed-link routes get a fixed destination. Don't take a `next` value from the email link.
+- Probe overlapping guards one at a time: removing the liveness check went unnoticed because the
+  link check also returned null. Fix: assert the guard returns _before_ the database lookup.
+- Put the real-flow e2e against local Supabase in its own config, so the default CI e2e stays
+  service-free.
+
+### PGlite: close per test, not per file (from B30)
+
+- One migrated and seeded PGlite costs ~1.2 GiB. Keeping a fresh one per test open until
+  `afterAll` stacks them up: about 2.2–2.5 GiB for the heaviest files run alone, and approximately
+  2.6–2.9 GiB for the whole suite in a single Vitest worker with coverage (the default worker count
+  on 2-vCPU CI runners). Closing per test brought that run to about 1.7 GiB (37–44 % lower; measured
+  in B30). The gain differs by file: users-auth-link (four databases, one in each of four of its five tests) showed
+  no measurable improvement.
+- Measure memory as before/after pairs under identical conditions, and more than once: peak
+  memory with many open databases varies by run. Single samples overstated the B30 "before".
+- Use `const track = closeAfterEachTest()` and `track(db)` for every per-test database.
+  afterEach runs even when the test fails. `closeAll` uses `allSettled` and then reports every
+  failure.
+- Setup helpers close a half-built database before rethrowing.
+- `tests/db/pglite-lifecycle.test.ts` pins every database-creating file into a reviewed
+  category. Probe "helper set up but never tracked" too: a guard that only checks for the
+  helper call misses it.
+- "The operation was canceled." in Actions is the runner cancelling the job, not a test failure.
+  Read the annotation (timeout vs. concurrency) before changing timeouts or concurrency.

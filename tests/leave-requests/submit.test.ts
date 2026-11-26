@@ -1,12 +1,12 @@
 import type { PGlite } from "@electric-sql/pglite";
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppError } from "@/lib/api/errors";
 import { LEAVE_TYPE_IDS, USER_IDS } from "@/lib/data/mock/fixtures";
 import type { SqlClient } from "@/lib/db/sql";
 import type { Notifier } from "@/lib/leave-requests/notifier";
 import { createPostgresSubmitStore } from "@/lib/leave-requests/postgres-store";
 import { submitLeaveRequest } from "@/lib/leave-requests/submit";
-import { createTestDb } from "../db/helpers";
+import { closeAfterEachTest, createTestDb } from "../db/helpers";
 
 /**
  * TASK-011 / US-01 — the submit service against real Postgres (PGlite) with the
@@ -29,19 +29,15 @@ const valid = (overrides: Record<string, unknown> = {}) => ({
 let db: PGlite;
 let sql: SqlClient;
 let notifier: Notifier & { leaveRequestSubmitted: ReturnType<typeof vi.fn> };
-const dbs: PGlite[] = [];
+const track = closeAfterEachTest(); // B30: each test's database closes after that test
 
 beforeEach(async () => {
   ({ db, sql } = await createTestDb());
-  dbs.push(db);
+  track(db);
   notifier = {
     leaveRequestSubmitted: vi.fn().mockResolvedValue(undefined),
     leaveRequestDecided: vi.fn().mockResolvedValue(undefined),
   };
-});
-
-afterAll(async () => {
-  await Promise.all(dbs.map((d) => d.close()));
 });
 
 const submit = (session: { userId: string }, input: unknown, client: SqlClient = sql) =>

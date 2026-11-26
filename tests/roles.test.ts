@@ -37,6 +37,12 @@ describe("route access matrix", () => {
     expect(isPublicPath("/login")).toBe(true);
     expect(isPublicPath("/api/health")).toBe(true);
     expect(isPublicPath("/dashboard")).toBe(false);
+    // TASK-024 account pages, reached from emailed links before a session exists.
+    expect(isPublicPath("/forgot-password")).toBe(true);
+    expect(isPublicPath("/auth/confirm")).toBe(true);
+    expect(isPublicPath("/auth/set-password")).toBe(true);
+    expect(isPublicPath("/auth")).toBe(false);
+    expect(isPublicPath("/auth/other")).toBe(false);
   });
 
   it("validates role cookie values", () => {

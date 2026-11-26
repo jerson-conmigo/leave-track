@@ -17,6 +17,8 @@ function createMockDb() {
     leaveRequests: structuredClone(leaveRequests),
     auditLog: structuredClone(auditLog),
     accrualRuns: structuredClone(accrualRuns),
+    // users.auth_user_id links (TASK-024). Empty: the mock sign-in never uses them.
+    authLinks: [] as { authUserId: string; userId: string }[],
   };
 }
 

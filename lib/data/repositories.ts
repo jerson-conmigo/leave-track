@@ -32,6 +32,11 @@ import type {
  */
 export interface LeaveRepository {
   getUserById(id: string): Promise<User | null>;
+  /**
+   * The user linked to a Supabase Auth identity (users.auth_user_id, set only when an
+   * administrator invites them — TASK-024). Never matches by email. Null if unlinked.
+   */
+  getUserByAuthUserId(authUserId: string): Promise<User | null>;
   listUsers(): Promise<User[]>;
   listLeaveTypes(): Promise<LeaveType[]>;
   getBalances(userId: string): Promise<BalanceSummary[]>;

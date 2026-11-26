@@ -72,7 +72,7 @@ lands with its task in `docs/dev-tasks/epic-2-hardening-and-resolution-tasks.csv
 ### Data model additions (planned)
 
 ```
-users                   + auth_user_id uuid unique (TASK-024), is_active boolean (TASK-043)
+users                   + auth_user_id uuid unique (TASK-024, done), is_active boolean (TASK-043)
 leave_requests          status + 'cancelled' (TASK-028)
 audit_action            + 'cancelled' (TASK-028)
 balance_ledger          (id, user_id, leave_type_id, delta, balance_after, source, source_key unique,

@@ -33,7 +33,7 @@ const ARCH_TABLES = [
 
 /** Columns per ARCH-LeaveTrack-v1.0 › Data Model (+ approved additions). */
 const EXPECTED_COLUMNS: Record<string, string[]> = {
-  users: ["id", "name", "email", "role", "manager_id", "created_at"],
+  users: ["id", "name", "email", "role", "manager_id", "created_at", "auth_user_id"],
   leave_types: ["id", "name", "tracks_balance"],
   leave_policies: ["id", "user_id", "leave_type_id", "accrual_per_month"],
   leave_balances: ["id", "user_id", "leave_type_id", "balance", "updated_at"],

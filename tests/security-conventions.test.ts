@@ -53,6 +53,22 @@ describe("security conventions", () => {
       expect(code, `unsafe compare: ${pattern}`).not.toMatch(pattern);
   });
 
+  it("SUPABASE_SERVICE_ROLE_KEY is read only by the operator invite script (TASK-024)", () => {
+    const all = ["app", "lib", "components", "scripts"].flatMap((d) =>
+      readdirSync(path.join(root, d), { recursive: true })
+        .map((f) => path.join(root, d, String(f)))
+        .filter((f) => /\.(ts|tsx|mjs|js)$/.test(f)),
+    );
+    const readers = [...all, path.join(root, "proxy.ts")]
+      .filter((f) => /SUPABASE_SERVICE_ROLE_KEY/.test(readFileSync(f, "utf8")))
+      .map((f) => path.relative(root, f));
+    // lib/env.ts only declares it as optional; it never hands it to a client.
+    expect(readers.sort()).toEqual(["lib/env.ts", "scripts/invite-user.mjs"]);
+    expect(readFileSync(path.join(root, "lib/env.ts"), "utf8")).not.toMatch(
+      /createClient|createServerClient/,
+    );
+  });
+
   it("session signatures are compared with timingSafeEqual after a length check, never ===", () => {
     const code = readFileSync(path.join(root, "lib/auth/session-token.ts"), "utf8");
     expect(code).toMatch(

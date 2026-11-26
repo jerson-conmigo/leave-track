@@ -3,12 +3,12 @@
 Cross-tool project rules for every contributor, human or AI. Read this before writing code.
 Detailed standards: `knowledge/rules/coding-standards.md` · Design system: `knowledge/design-system.md`.
 
-> ## ⚠️ MOCK SIGN-IN — DEV/TEST ONLY
+> ## Sign-in: Supabase Auth when deployed, mock locally
 >
-> Sign-in still **accepts any email and password** and lets you pick any seeded user. Since
-> TASK-023 the session itself is a **signed** cookie (forged or tampered cookies are rejected),
-> and a deployed environment **refuses to start** with the mock sign-in
-> (ADR-LeaveTrack-E004). A real provider (TASK-024) is required before any deployment.
+> Deployed environments must use `AUTH_PROVIDER=supabase` (email + password, **invite only**;
+> TASK-024). The default `AUTH_PROVIDER=mock` lets you pick any seeded user with no
+> credentials — **dev/test only**; a deployed environment refuses to start with it
+> (ADR-LeaveTrack-E004). Either way the session is a **signed** cookie (TASK-023).
 
 ## Project
 
@@ -23,16 +23,16 @@ document's "Revision v1.1" section and `docs/dev-tasks/epic-2-hardening-and-reso
 
 ## Stack
 
-| Layer   | Choice                                                                                                         |
-| ------- | -------------------------------------------------------------------------------------------------------------- |
-| App     | Next.js 16 App Router, React 19, TypeScript (strict)                                                           |
-| UI      | Tailwind CSS v4 (hsl tokens), shadcn/ui (new-york, Radix), lucide-react icons                                  |
-| Forms   | react-hook-form + zod                                                                                          |
-| Data    | Supabase Postgres via **pooled** connection; migrations in `supabase/`                                         |
-| Auth    | Signed session cookie `lt-session` (HMAC, httpOnly, 8h) via `lib/auth/provider.ts`; mock sign-in dev/test only |
-| Logging | pino (JSON) — `lib/logger.ts`                                                                                  |
-| Tests   | vitest (`tests/`)                                                                                              |
-| Deploy  | Vercel (app + Cron) · Supabase (Postgres)                                                                      |
+| Layer   | Choice                                                                                                              |
+| ------- | ------------------------------------------------------------------------------------------------------------------- |
+| App     | Next.js 16 App Router, React 19, TypeScript (strict)                                                                |
+| UI      | Tailwind CSS v4 (hsl tokens), shadcn/ui (new-york, Radix), lucide-react icons                                       |
+| Forms   | react-hook-form + zod                                                                                               |
+| Data    | Supabase Postgres via **pooled** connection; migrations in `supabase/`                                              |
+| Auth    | Supabase Auth (`@supabase/ssr`) + signed session cookie `lt-session` via `lib/auth/provider.ts`; mock dev/test only |
+| Logging | pino (JSON) — `lib/logger.ts`                                                                                       |
+| Tests   | vitest (`tests/`)                                                                                                   |
+| Deploy  | Vercel (app + Cron) · Supabase (Postgres)                                                                           |
 
 ## Where things go
 
@@ -102,10 +102,19 @@ document's "Revision v1.1" section and `docs/dev-tasks/epic-2-hardening-and-reso
   is one **signed** cookie (`lt-session`, HMAC-SHA256 with `SESSION_SECRET`, verified in
   constant time). Authorization always comes from the `users` row (`getSession`), never from
   token claims; the role in the token only routes `proxy.ts`. Tokens are created and verified only
-  through `lib/auth/provider.ts`; only `proxy.ts`, `lib/auth/session.ts` and the login/logout
-  actions touch the `lt-session` cookie (pinned by `tests/auth/session-boundary.test.ts`).
+  through `lib/auth/provider.ts`; only `lib/auth/sign-in.ts` (`completeSignIn`) writes the
+  `lt-session` cookie, only `proxy.ts` and `lib/auth/session.ts` read it, and only
+  `lib/auth/supabase/*` touches Supabase clients or their `sb-*` cookies (all pinned by
+  `tests/auth/session-boundary.test.ts`).
+- Supabase Auth (TASK-024): a provider identity maps to a user **only** through
+  `users.auth_user_id`, set by an administrator's invite (`npm run user:invite`) — never by
+  matching emails at sign-in. No self-registration. `proxy.ts` refreshes the provider session
+  and `getSession()` re-checks it with the Auth server (signed-out sessions are rejected);
+  every provider failure fails closed. The mock picker refuses to run unless
+  `AUTH_PROVIDER=mock`. `SUPABASE_SERVICE_ROLE_KEY` is read only by the invite script.
 - `proxy.ts` guards every non-public route; role-gated pages **also** call `requireRole()`.
-- Redirect targets go through `safeRedirectPath()` (no open redirects).
+- Redirect targets go through `safeRedirectPath()` (no open redirects); emailed-link routes
+  use a fixed destination and ignore any target in the URL.
 - Security headers (CSP, HSTS, frame-ancestors none, nosniff…) live in `next.config.ts`.
 - No CORS — the API is same-origin only.
 - `/api/jobs/*` (e.g. the accrual job): accept **GET** (Vercel Cron can only GET) and **POST**

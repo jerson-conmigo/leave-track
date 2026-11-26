@@ -2,8 +2,9 @@ import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
+import { fromCookieJar } from "@/lib/auth/cookie-io";
 import { SESSION_COOKIE } from "@/lib/auth/cookies";
-import { getAuthProvider } from "@/lib/auth/provider";
+import { getAuthProvider, NO_PROVIDER_SESSION } from "@/lib/auth/provider";
 import { repository } from "@/lib/data/repositories";
 import type { Role } from "@/lib/data/types";
 
@@ -23,8 +24,19 @@ export type Session = {
  */
 export const getSession = cache(async (): Promise<Session | null> => {
   const jar = await cookies();
-  const claims = getAuthProvider().readSessionToken(jar.get(SESSION_COOKIE)?.value);
+  const provider = getAuthProvider();
+  const claims = provider.readSessionToken(jar.get(SESSION_COOKIE)?.value);
   if (!claims) return null;
+
+  // Supabase Auth (TASK-024): the provider session must ALSO be live — checked with the
+  // Auth server, so a signed-out session is rejected — and linked by users.auth_user_id
+  // to the same user this token names.
+  const providerUser = await provider.currentProviderUser(fromCookieJar(jar));
+  if (providerUser === null) return null; // signed out, revoked or unreachable: fail closed
+  if (providerUser !== NO_PROVIDER_SESSION) {
+    const linked = await repository.getUserByAuthUserId(providerUser);
+    if (linked?.id !== claims.uid) return null; // unlinked, or another user's token
+  }
 
   const user = await repository.getUserById(claims.uid);
   // A role changed since sign-in invalidates the session. TODO(TASK-043): also reject

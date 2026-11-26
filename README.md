@@ -3,9 +3,9 @@
 Self-service leave management: employees request time off and check balances, managers approve
 their own team's requests, and HR gets an auditable, never-deleted decision record.
 
-> **Day 0 scaffold.** The UI shell, design system, schema, and guardrails are in place. Auth is a
-> **mock** (any email/password works) and all data comes from in-memory fixtures. Real auth, the
-> database, and the APIs are wired in Day 1 — see `docs/dev-tasks/`.
+> Sign-in is **Supabase Auth** (email + password, invite only) in every deployed environment.
+> Locally it defaults to a **mock** sign-in (pick any seeded user) with in-memory data, so no
+> service is needed to try it — see `docs/dev-tasks/` for progress.
 
 ## Quick start
 
@@ -33,6 +33,27 @@ cookie; without `SESSION_SECRET` a random key is used, so restarting the dev ser
 
 The session lasts 8 hours; sign out from the account menu (top right).
 
+### Real sign-in locally (Supabase Auth, TASK-024)
+
+Needs Docker. People are **invited**; there is no self-registration.
+
+```bash
+npx supabase start && npm run db:reset    # local Supabase + schema + seed
+npx supabase status                        # API URL, anon + service-role keys, Mailpit URL
+# .env.local: AUTH_PROVIDER=supabase, NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
+#             DATABASE_URL (the local DB URL), SUPABASE_SERVICE_ROLE_KEY (invite script only)
+npm run user:invite -- carla.diaz@leavetrack.test
+```
+
+Open the invite in Mailpit (http://localhost:54324), choose a password, and you are signed
+in with the role from the `users` table. The app must run on port 3000 (the email links use
+`site_url` from `supabase/config.toml`). Forgot-password works the same way.
+
+How it fits together: the Supabase session proves who you are; the app then finds your
+`users` row by `users.auth_user_id` (set only by the invite — never matched by email) and
+issues its signed `lt-session` cookie. Every request re-checks both, and signing out revokes
+the Supabase session.
+
 ## Scripts
 
 | Command                                | What it does                                      |
@@ -47,6 +68,8 @@ The session lasts 8 hours; sign out from the account menu (top right).
 | `npm run test:coverage`                | Unit tests + V8 coverage and thresholds (CI)      |
 | `npm run test:e2e`                     | Playwright mobile e2e (builds + runs the app)     |
 | `npm run test:e2e:install`             | Download Playwright Chromium (CI / no Chrome)     |
+| `npm run test:e2e:supabase`            | Real sign-in e2e against local Supabase (Docker)  |
+| `npm run user:invite -- <email>`       | Invite an existing user to Supabase Auth          |
 | `npm run db:push`                      | Apply `supabase/migrations` to the linked project |
 | `npm run db:reset`                     | Reset a **local** Supabase DB and run `seed.sql`  |
 | `npm run task:status -- TASK-010 Done` | Set a dev task's status in `docs/dev-tasks/*.csv` |
@@ -58,8 +81,9 @@ local development, tests, CI and local e2e. Environments are selected with `APP_
 (`development` / `staging` / `production`).
 
 **Deploying (TASK-019):** a deployed environment — `APP_ENV=production|staging` or Vercel's
-`VERCEL_ENV=production|preview` — must set `DATABASE_URL` and `CRON_SECRET`, and must not set
-`E2E_RESET_TOKEN`. Otherwise `next build` fails, or `next start` exits with code 1 before
+`VERCEL_ENV=production|preview` — must set `DATABASE_URL`, `CRON_SECRET`, `SESSION_SECRET`,
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `AUTH_PROVIDER=supabase`, and
+must not set `E2E_RESET_TOKEN`. Otherwise `next build` fails, or `next start` exits with code 1 before
 serving any request, naming the missing variables (never their values). Preview deployments
 need a database too; there is no silent in-memory fallback once deployed.
 
@@ -157,6 +181,13 @@ changes nothing. Constraint violations surface to clients as 400/409 envelopes
     `POST /api/test/reset`, a test-only hook that is a **404 unless `E2E_RESET_TOKEN` is set**
     (only `playwright.config.ts` sets it, with a random token per run) and never acts when
     `DATABASE_URL` is set. **Never set `E2E_RESET_TOKEN` in a deployed environment.**
+- **Real sign-in e2e** — `npm run test:e2e:supabase` (`e2e-supabase/`, TASK-024): with local
+  Supabase running, invites users, reads the email from Mailpit, sets a password, signs in,
+  checks the database role, refuses an unlinked provider user, and after sign-out checks that
+  Supabase rejects the old token and replayed cookies fail. Not part of the default CI job (that
+  stays mock-only with no services). It creates and deletes only identities under
+  `@e2e-auth.leavetrack.test` (your local users and dev logins are untouched) and needs port
+  3000 free (the email links use `site_url`); it stops with a clear message if 3000 is busy.
 
 ## Project layout
 
@@ -172,8 +203,8 @@ knowledge/      coding standards, design system, prompt templates, patterns
 
 ## Day 1 hand-off notes
 
-- **Auth:** replace the body of `loginAction` (`app/(public)/login/actions.ts`) with a real
-  provider; keep the cookie names/shape so `proxy.ts` and `getSession()` stay unchanged.
+- **Auth:** done in TASK-023/024 — the auth port (`lib/auth/provider.ts`) has a Supabase
+  adapter and a dev/test mock; `proxy.ts` and `getSession()` depend only on the port.
 - **Data:** implement `LeaveRepository` (`lib/data/repositories.ts`) against Supabase and swap the
   exported `repository`. Components and pages don't change.
 - **Cron (TASK-017):** add `vercel.json` with
