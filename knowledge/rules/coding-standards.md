@@ -67,6 +67,13 @@ export const POST = withErrorHandler(async (req) => {
   never `ts::date`, which follows the session timezone. Compute month/period bounds in TS and
   pass them as parameters so mock and Postgres share one definition (TASK-015, parity-tested
   with a 23:30 UTC boundary under a non-UTC session).
+- **Day amounts use exact decimal arithmetic.** `numeric` in SQL (compute sums/totals in SQL);
+  integer hundredths in TS via `lib/data/decimal.ts` (`addDays`, `sumDays`). Never add day
+  amounts as binary floats (0.1 + 0.2 = 0.30000000000000004). Tests must use inputs **verified**
+  to drift (check in node first) — some "obvious" ones like 1.33 × 3 are exact in floats (TASK-017).
+- **Scheduled jobs:** write the idempotency ledger row and the effect in ONE transaction; assume
+  duplicate, overlapping and missed invocations (Vercel Cron is best-effort, never retried);
+  catch up missed periods with a sanity cap; record an audit snapshot of the inputs used.
 - **Never bind a parameter as a custom enum.** Send enums as text and cast inside SQL —
   `($3::text)::public.request_status` — and read them back as `::text`. A `$n::public.<enum>`
   parameter makes postgres.js issue a type-lookup query mid-statement (extra round trips; on a

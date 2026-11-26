@@ -1,4 +1,5 @@
 import {
+  accrualRuns,
   auditLog,
   leaveBalances,
   leavePolicies,
@@ -15,6 +16,7 @@ function createMockDb() {
     leavePolicies: structuredClone(leavePolicies),
     leaveRequests: structuredClone(leaveRequests),
     auditLog: structuredClone(auditLog),
+    accrualRuns: structuredClone(accrualRuns),
   };
 }
 

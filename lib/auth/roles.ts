@@ -13,13 +13,15 @@ export const ROUTE_ACCESS: readonly { prefix: string; roles: readonly Role[] }[]
 
 /**
  * Reachable without a session. `/api/test/reset` is gated by its own token and is
- * a 404 unless E2E_RESET_TOKEN is set (tests only) — see its route.
+ * a 404 unless E2E_RESET_TOKEN is set (tests only). `/api/jobs/accrual` is called by
+ * Vercel Cron (no cookie) and gated by `Authorization: Bearer $CRON_SECRET`.
  */
 export const PUBLIC_PATHS: readonly string[] = [
   "/login",
   "/forbidden",
   "/api/health",
   "/api/test/reset",
+  "/api/jobs/accrual",
 ];
 
 export const ROLE_LABEL: Record<Role, string> = {

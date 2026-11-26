@@ -144,3 +144,20 @@ tests may still pass on some paths, the "never called" assertions must fail.
 - **Probe the thing, not a neighbour:** deleting `event.preventDefault()` left our own
   `target.focus()` in place, so the "focus return removed" probe was invalid. A green probe means
   "check the probe" before "the test is weak".
+
+### Precision tests need inputs that really drift (from TASK-017)
+
+Two "float addition" probes stayed green because the chosen values happened to be exact in
+binary (11.25 + 1.33, 1.33 × 3, and even 0.1 + 0.2 × 3 = 0.7 by error cancellation). Before
+writing a precision test, **verify in node that the float result differs** — e.g.
+`0.1 + 0.2 = 0.30000000000000004` (one month) and `0.1 + 0.2×4 = 0.8999999999999999` — and
+assert the test input itself drifts (`expect(0.1 + 0.2).not.toBe(0.3)`) so it can't silently
+become a non-test. Same lesson as focus checks: a green probe means "check the inputs/probe"
+before "the code is right".
+
+### Security properties that behaviour can't show need structural tests
+
+Constant-time comparison is invisible to functional tests (both `===` and `timingSafeEqual`
+return the same answers). Enforce it structurally: `tests/security-conventions.test.ts` finds
+every file reading a request-authenticating secret, asserts `timingSafeEqual` is used and no
+`===`/`!==` compares a secret — and asserts the expected file list so it can't pass vacuously.

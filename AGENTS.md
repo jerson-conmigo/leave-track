@@ -94,7 +94,10 @@ Traceability: `docs/brd/BRD-LeaveTrack-v1.0.md` → `docs/prd/PRD-LeaveTrack-v1.
 - Redirect targets go through `safeRedirectPath()` (no open redirects).
 - Security headers (CSP, HSTS, frame-ancestors none, nosniff…) live in `next.config.ts`.
 - No CORS — the API is same-origin only.
-- `/api/jobs/*` must check `Authorization: Bearer $CRON_SECRET`.
+- `/api/jobs/*` (e.g. the accrual job): accept **GET** (Vercel Cron can only GET) and **POST**
+  (manual); check `Authorization: Bearer $CRON_SECRET` with a constant-time compare **before any
+  database access**, failing closed if unset; be idempotent and assume duplicate, overlapping
+  and missed invocations (ledger row + effect in one transaction). See ADR-LeaveTrack-E002.
 - RLS is enabled on every table; Day 1 adds policies. The service-role key is server-only.
 - Never commit secrets. `.env.example` documents every variable; real values live in
   `.env.local` / Vercel / GitHub secrets.

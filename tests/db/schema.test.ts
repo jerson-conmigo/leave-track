@@ -1,6 +1,7 @@
 import type { PGlite } from "@electric-sql/pglite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
+  accrualRuns,
   auditLog,
   LEAVE_TYPE_IDS,
   leaveRequests,
@@ -51,7 +52,7 @@ const EXPECTED_COLUMNS: Record<string, string[]> = {
     "created_at",
   ],
   audit_log: ["id", "leave_request_id", "actor_id", "action", "occurred_at"],
-  accrual_runs: ["id", "period", "ran_at"],
+  accrual_runs: ["id", "period", "ran_at", "trigger", "users_accrued", "days_accrued", "rates"],
 };
 
 /** [table, column, referenced table] — every FK the arch doc implies. */
@@ -411,6 +412,29 @@ describe("drift guards — SQL ↔ TypeScript ↔ fixtures", () => {
           created_at: r.createdAt,
         })),
     );
+  });
+
+  it("seeded accrual runs match fixtures.ts (TASK-017)", async () => {
+    const seeded = await rows<{
+      period: string;
+      ran_at: Date;
+      trigger: string;
+      users_accrued: number;
+      days_accrued: string;
+      rates: unknown;
+    }>(
+      `select period::text, ran_at, trigger, users_accrued, days_accrued::text, rates from accrual_runs order by period`,
+    );
+    expect(
+      seeded.map((r) => ({
+        period: r.period,
+        ranAt: r.ran_at.toISOString(),
+        trigger: r.trigger,
+        usersAccrued: r.users_accrued,
+        daysAccrued: Number(r.days_accrued),
+        rates: r.rates,
+      })),
+    ).toEqual(accrualRuns);
   });
 
   it("seeded audit log matches fixtures.ts", async () => {

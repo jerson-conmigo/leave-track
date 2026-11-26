@@ -1,4 +1,5 @@
 import type {
+  AccrualRun,
   AuditLogEntry,
   LeaveBalance,
   LeavePolicy,
@@ -32,6 +33,18 @@ export const USER_IDS = {
 } as const;
 
 export const LAST_ACCRUAL_AT = "2026-11-01T02:00:00.000Z";
+
+/** Mirrors the seeded accrual_runs row (defaults for the audit columns). */
+export const accrualRuns: AccrualRun[] = [
+  {
+    period: "2026-11-01",
+    ranAt: LAST_ACCRUAL_AT,
+    trigger: "manual",
+    usersAccrued: 0,
+    daysAccrued: 0,
+    rates: [],
+  },
+];
 
 export const leaveTypes: LeaveType[] = [
   { id: LEAVE_TYPE_IDS.Vacation, name: "Vacation", tracksBalance: true },

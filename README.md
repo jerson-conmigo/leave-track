@@ -74,6 +74,28 @@ One switch (`getSql()` in `lib/db/postgres.ts`) picks the store for reads **and*
 
 Design: ADR-LeaveTrack-E003.
 
+### Accrual job (TASK-017)
+
+- **What:** adds each tracked policy's `accrual_per_month` to the employee's balance, once per
+  UTC month. Unpaid (untracked) and zero-rate policies are skipped; a missing balance row is
+  created. Design and trade-offs: ADR-LeaveTrack-E002.
+- **When:** Vercel Cron calls `GET /api/jobs/accrual` **daily at 02:00 UTC** (`vercel.json`).
+  The first successful run of a month accrues it; later runs that month are no-ops. Vercel
+  never retries and may skip or duplicate runs — the job is idempotent and **catches up**
+  every missed month (oldest first) on the next run. A gap over 12 months is refused (409)
+  for manual review. Cron runs only on production deployments.
+- **Manual run:**
+  `curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://<host>/api/jobs/accrual`
+  → `{ accrued: [{ period, usersAccrued, daysAccrued }], upToDate, catchUp }`.
+- **Audit:** each accrued month is a row in `accrual_runs` with `trigger` (`cron` for GET,
+  `manual` for POST), `users_accrued`, exact `days_accrued` and a `rates` snapshot.
+- **Policy changes and catch-up:** there is no policy history yet (backlog B24), so catch-up
+  applies the **current** rate to every missed month. If a rate changed during a gap, compare
+  the run's `rates` snapshot with the rate that was in effect and post a manual adjustment
+  for the difference. Catch-up runs log a warning naming the periods.
+- **Security:** `CRON_SECRET` is required; the Bearer check (constant-time) runs before any
+  database access and fails closed if the secret is unset.
+
 ### HR audit (TASK-015)
 
 - `/audit` — all-employees event log (newest first, capped at 500; narrow the filters for older

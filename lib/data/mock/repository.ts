@@ -1,6 +1,5 @@
 import { availableForRequest, buildBalanceSummaries } from "@/lib/data/balance";
 import { utcMonthBounds, withinUtcDays } from "@/lib/data/dates";
-import { LAST_ACCRUAL_AT } from "@/lib/data/mock/fixtures";
 import { mockDb } from "@/lib/data/mock/store";
 import type { LeaveRepository } from "@/lib/data/repositories";
 import {
@@ -17,6 +16,13 @@ import { countDays } from "@/lib/format";
 const { auditLog, leaveBalances, leavePolicies, leaveRequests, leaveTypes, users } = mockDb;
 
 const byId = <T extends { id: string }>(rows: T[], id: string) => rows.find((r) => r.id === id);
+
+function latestAccrualAt(): string | null {
+  return mockDb.accrualRuns.reduce<string | null>(
+    (max, r) => (max === null || r.ranAt > max ? r.ranAt : max),
+    null,
+  );
+}
 const active = () => leaveRequests.filter((r) => !r.isDeleted);
 
 function typeOf(id: string): LeaveType {
@@ -56,9 +62,9 @@ export const mockRepository: LeaveRepository = {
       balances: leaveBalances.filter((b) => b.userId === userId),
       policies: leavePolicies.filter((p) => p.userId === userId),
       pendingRanges: active().filter((r) => r.userId === userId && r.status === "pending"),
-      // The seeded accrual run (accrual_runs) — not balance.updatedAt, which
-      // approvals will also bump (TASK-014).
-      lastAccrualAt: LAST_ACCRUAL_AT,
+      // Latest accrual run (= Postgres max(accrual_runs.ran_at)) — not
+      // balance.updatedAt, which approvals also bump (TASK-014).
+      lastAccrualAt: latestAccrualAt(),
     });
   },
 

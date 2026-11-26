@@ -212,6 +212,24 @@ export type DecideLeaveRequestResult = {
 };
 
 /** Result shape for mutations invoked from the UI (server actions). */
+/** One accrued month — the accrual_runs ledger row (TASK-017, ADR-LeaveTrack-E002). */
+export type AccrualRun = {
+  period: string; // YYYY-MM-01 (UTC month)
+  ranAt: string; // ISO timestamp
+  trigger: "cron" | "manual";
+  usersAccrued: number;
+  daysAccrued: number;
+  /** Policy rates applied in this run (snapshot), for audit after policy changes. */
+  rates: { userId: string; leaveTypeId: string; accrualPerMonth: number }[];
+};
+
+/** Result of one accrual job invocation. */
+export type AccrualResult = {
+  accrued: { period: string; usersAccrued: number; daysAccrued: number }[];
+  upToDate: boolean;
+  catchUp: boolean;
+};
+
 export type ActionResult =
   | { success: true; warnings?: (SubmitWarning | DecideWarning)[] }
   | { success: false; error: { code: string; message: string } };
