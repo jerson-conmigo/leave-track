@@ -10,7 +10,7 @@ import {
   users,
 } from "@/lib/data/mock/fixtures";
 import { AUDIT_ACTIONS, LEAVE_TYPE_NAMES, REQUEST_STATUSES, ROLES } from "@/lib/data/types";
-import { MIGRATION_FILES, migratedDb, SEED } from "./helpers";
+import { MIGRATION_FILES, MIGRATIONS, migratedDb, SEED } from "./helpers";
 
 /**
  * TASK-010 — schema contract, run against real Postgres 17 (PGlite, in-process).
@@ -472,5 +472,157 @@ describe("scoped visibility query shape (US-04)", () => {
         .sort();
     expect(await team(BEN)).toEqual([USER_IDS.ana, USER_IDS.jordan, USER_IDS.priya].sort());
     expect(await team(USER_IDS.maya)).not.toContain(USER_IDS.ana);
+  });
+});
+
+/* ── TASK-018 / US-08 — untracked leave types can never hold balances or policies ── */
+describe("US-08 database guard (generic on tracks_balance)", () => {
+  const UNPAID = "10000000-0000-4000-8000-000000000003";
+  const VACATION_ID = "10000000-0000-4000-8000-000000000001";
+  const STUDY = "10000000-0000-4000-8000-000000000004"; // a NEW untracked type
+
+  const expectGuard = (err: { code?: string; message: string } | null, constraint: string) => {
+    expect(err?.code).toBe("23514");
+    expect(err && ((err as { constraint?: string }).constraint ?? "")).toBe(constraint);
+  };
+
+  it.each([
+    [
+      "insert an Unpaid balance",
+      `insert into leave_balances (user_id, leave_type_id, balance) values ($1, '${UNPAID}', 1)`,
+    ],
+    [
+      "insert an Unpaid policy",
+      `insert into leave_policies (user_id, leave_type_id, accrual_per_month) values ($1, '${UNPAID}', 1)`,
+    ],
+    [
+      "move an existing balance onto Unpaid",
+      `update leave_balances set leave_type_id = '${UNPAID}' where user_id = $1 and leave_type_id = '${VACATION_ID}'`,
+    ],
+  ])("rejects: %s", async (_l, statement) => {
+    expectGuard(await attempt(statement, [ANA]), "leave_type_must_track_balance");
+  });
+
+  it("is generic: a brand-new untracked type is rejected the same way, with no code change", async () => {
+    await db.exec("begin");
+    try {
+      await db.query(
+        `insert into leave_types (id, name, tracks_balance) values ($1, 'Study leave', false)`,
+        [STUDY],
+      );
+      const err = await db
+        .query(`insert into leave_balances (user_id, leave_type_id, balance) values ($1, $2, 1)`, [
+          ANA,
+          STUDY,
+        ])
+        .then(
+          () => null,
+          (e: { code?: string; message: string; constraint?: string }) => e,
+        );
+      expectGuard(err, "leave_type_must_track_balance");
+    } finally {
+      await db.exec("rollback");
+    }
+  });
+
+  it("a type with balances or policies cannot stop tracking balances", async () => {
+    expectGuard(
+      await attempt(`update leave_types set tracks_balance = false where id = $1`, [VACATION_ID]),
+      "leave_type_has_balances",
+    );
+  });
+
+  it("tracked writes still work, and an empty untracked type may still be created", async () => {
+    expect(
+      await attempt(
+        `update leave_balances set balance = balance + 1 where user_id = $1 and leave_type_id = $2`,
+        [ANA, VACATION_ID],
+      ),
+    ).toBeNull();
+    expect(
+      await attempt(
+        `insert into leave_types (id, name, tracks_balance) values ($1, 'Study leave', false)`,
+        [STUDY],
+      ),
+    ).toBeNull();
+  });
+
+  it("the type check locks the leave_types row (FOR SHARE) so it serialises with a concurrent flip", async () => {
+    const [fn] = await rows<{ src: string }>(
+      `select prosrc src from pg_proc where proname = 'enforce_tracked_leave_type'`,
+    );
+    expect(fn?.src.replace(/\s+/g, " ").toLowerCase()).toMatch(
+      /where t\.id = new\.leave_type_id for share/,
+    );
+  });
+
+  it.each([
+    ["flip first, then insert", ["flip", "insert"]],
+    ["insert first, then flip", ["insert", "flip"]],
+  ])("flip vs insert (%s): exactly one succeeds and the invariant holds", async (_l, order) => {
+    const STUDY_TRACKED = "10000000-0000-4000-8000-000000000005";
+    await db.exec("begin");
+    try {
+      await db.query(
+        `insert into leave_types (id, name, tracks_balance) values ($1, 'Training', true)`,
+        [STUDY_TRACKED],
+      );
+      const ops = {
+        flip: () =>
+          db.query(`update leave_types set tracks_balance = false where id = $1`, [STUDY_TRACKED]),
+        insert: () =>
+          db.query(
+            `insert into leave_balances (user_id, leave_type_id, balance) values ($1, $2, 1)`,
+            [ANA, STUDY_TRACKED],
+          ),
+      } as const;
+      const results: boolean[] = [];
+      for (const op of order as ("flip" | "insert")[]) {
+        await db.exec("savepoint s");
+        results.push(
+          await ops[op]().then(
+            async () => {
+              await db.exec("release savepoint s");
+              return true;
+            },
+            async () => {
+              await db.exec("rollback to savepoint s");
+              return false;
+            },
+          ),
+        );
+      }
+      expect(results.filter(Boolean)).toHaveLength(1);
+      const [bad] = await rows<{ n: number }>(
+        `select count(*)::int n from leave_balances b join leave_types t on t.id = b.leave_type_id where not t.tracks_balance`,
+      );
+      expect(bad?.n).toBe(0);
+    } finally {
+      await db.exec("rollback");
+    }
+  });
+});
+
+describe("US-08 migration pre-check refuses to run on bad existing data", () => {
+  it("fails with the pre-check message and leaves the schema without the guard", async () => {
+    const GUARD = "20261129000000_untracked_types_guard.sql";
+    const pre = await migratedDb({ upTo: GUARD });
+    try {
+      await pre.exec(SEED);
+      await pre.query(
+        `insert into leave_balances (user_id, leave_type_id, balance) values ($1, $2, 3)`,
+        [ANA, "10000000-0000-4000-8000-000000000003"],
+      );
+      const guardSql = MIGRATIONS[MIGRATION_FILES.indexOf(GUARD)]!;
+      await expect(pre.exec(guardSql)).rejects.toThrow(
+        /US-08 pre-check failed: 1 leave_balances and 0 leave_policies/,
+      );
+      const triggers = await pre.query(
+        `select 1 from pg_trigger where tgname = 'leave_balances_tracked_type'`,
+      );
+      expect(triggers.rows).toHaveLength(0); // nothing was changed
+    } finally {
+      await pre.close();
+    }
   });
 });

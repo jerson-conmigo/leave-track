@@ -185,6 +185,27 @@ test.describe("submit-request form on mobile", () => {
   });
 });
 
+test("Unpaid: no balance warning even for a long range, and it submits (US-08 AC2)", async ({
+  context,
+  page,
+}) => {
+  await signInAs(context, "employee", USERS.ana);
+  await page.goto("/requests/new");
+  await page.locator('main button[role="combobox"]').tap();
+  const unpaid = page.getByRole("option", { name: /Unpaid/ });
+  await expect(unpaid).toContainText("not tracked");
+  await unpaid.tap();
+  await expect(page.getByRole("listbox")).toBeHidden();
+  await page.locator('input[name="startDate"]').fill("2027-05-01");
+  await page.locator('input[name="endDate"]').fill("2027-07-31");
+  await expect(page.getByText("92 days requested")).toBeVisible();
+  // The over-balance alert must NOT appear for an untracked type.
+  await expect(page.getByText(/more than your .* balance/)).toHaveCount(0);
+  await page.locator('textarea[name="reason"]').fill("Sabbatical");
+  await page.getByRole("button", { name: "Submit request" }).tap();
+  await expect(page.locator("[data-sonner-toast]")).toContainText("Request sent to your manager");
+});
+
 test("sign-in through the real login form works by touch on mobile", async ({ page }) => {
   await page.goto("/login?next=%2Frequests%2Fnew");
   await page.locator("#userId").tap();

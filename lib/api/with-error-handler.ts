@@ -2,6 +2,7 @@ import "server-only";
 import type { NextRequest } from "next/server";
 import { isAppError } from "@/lib/api/errors";
 import { fail } from "@/lib/api/response";
+import { toAppError } from "@/lib/db/errors";
 import { logger } from "@/lib/logger";
 
 type RouteHandler<Ctx> = (req: NextRequest, ctx: Ctx) => Promise<Response>;
@@ -20,6 +21,15 @@ export function withErrorHandler<Ctx = unknown>(handler: RouteHandler<Ctx>): Rou
         if (error.status >= 500)
           logger.error({ err: error, path: req.nextUrl.pathname }, error.message);
         return fail(error);
+      }
+      // Known database constraint violations → consistent 4xx envelope (lib/db/errors.ts).
+      const mapped = toAppError(error);
+      if (mapped) {
+        logger.warn(
+          { err: error, path: req.nextUrl.pathname, code: mapped.code },
+          "database constraint violation",
+        );
+        return fail(mapped);
       }
       logger.error({ err: error, path: req.nextUrl.pathname }, "Unhandled route error");
       return fail("INTERNAL_ERROR", "Something went wrong. Please try again.");

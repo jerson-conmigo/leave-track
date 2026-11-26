@@ -52,6 +52,9 @@ Traceability: `docs/brd/BRD-LeaveTrack-v1.0.md` → `docs/prd/PRD-LeaveTrack-v1.
    Use `ok()` / `fail()` from `lib/api/response.ts` and codes from `lib/api/errors.ts`.
 2. **Wrap every route handler** in `withErrorHandler`. Throw `AppError` for expected failures.
    Never return stack traces, SQL, or raw provider errors.
+   Database constraint violations reach clients through `toAppError` (`lib/db/errors.ts`):
+   name every constraint/trigger error and map it there — match SQLSTATE + constraint
+   name, never message text.
 3. **Validate every boundary with zod** — request bodies, query params, server action input,
    env vars. Client-side validation is UX only; the server always re-validates.
 4. **Manager scoping is enforced in SQL** — `WHERE u.manager_id = :current_user_id` inside the
@@ -61,7 +64,10 @@ Traceability: `docs/brd/BRD-LeaveTrack-v1.0.md` → `docs/prd/PRD-LeaveTrack-v1.
    no hard-delete path — the database rejects `DELETE` on `leave_requests` and `audit_log` (BR-04).
 6. **Every decision writes an `audit_log` row** in the same transaction as the status change.
 7. **Balances are per leave type.** A request only ever touches its own `leave_type_id`.
-   Unpaid (`tracks_balance = false`) is never balance-checked (US-08).
+   Unpaid (`tracks_balance = false`) is never balance-checked (US-08). Key logic on
+   `tracksBalance`, never on a type's name. Enforced by DB triggers (untracked types can't
+   hold balances or policies) and `tests/leave-types/balance-writers.test.ts` — a new
+   writer of `leave_balances` must be reviewed and added to that registry.
 8. **Accrual is idempotent** — insert the month into `accrual_runs` first in the transaction;
    a unique violation means it already ran (US-07).
 9. **Pooled DB URL only** (`DATABASE_URL`, port 6543). `DIRECT_URL` is for migrations.

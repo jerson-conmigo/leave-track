@@ -161,3 +161,25 @@ Constant-time comparison is invisible to functional tests (both `===` and `timin
 return the same answers). Enforce it structurally: `tests/security-conventions.test.ts` finds
 every file reading a request-authenticating secret, asserts `timingSafeEqual` is used and no
 `===`/`!==` compares a secret — and asserts the expected file list so it can't pass vacuously.
+
+### Cross-cutting invariants: matrix + writer registry (from TASK-018)
+
+For a rule that every writer must obey ("only the request's own leave type changes"):
+
+1. **Invariant matrix** — every writer × every case × both stores
+   (`tests/leave-types/independence.test.ts`), including a _new_ case invented in the
+   test (an extra untracked type) to prove the logic is generic, not name-based.
+2. **Writer registry** — a structural test lists every file that writes the table and
+   asserts the exact set (`balance-writers.test.ts`). The detector normalises source
+   (comments, case, whitespace) and catches SQL variants (quoted/schema-qualified, CTE,
+   MERGE, COPY), query builders, and mock-store mutations including computed keys.
+   **Test the detector itself** with a positive/negative corpus — ours initially missed
+   `(mockDb as T)[key] = …`, caught only by the corpus.
+3. **DB guard** last, with a data pre-check and a lock where it reads another table.
+
+**Probe every layer, not just the outermost one (TASK-018).** With a DB guard in place, a
+break in the app-level filter is invisible on Postgres (the trigger catches it). Probe 10
+(memory accrual crediting untracked types) stayed green until a memory-only test injected
+the "impossible" row. Every layer of defence-in-depth needs its own test, or it is
+untested code. Likewise, a mapping applied at two transports (routes AND server actions)
+needs a test at each.

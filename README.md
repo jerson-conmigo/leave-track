@@ -106,6 +106,22 @@ Design: ADR-LeaveTrack-E003.
   creation date. Soft-deleted requests are excluded from both views but never removed from the
   database — hard deletes are blocked by triggers.
 
+### Leave types are independent (TASK-018 / US-08)
+
+A request only ever changes its own leave type's balance; untracked types (Unpaid) are
+never balance-checked and can't hold balances or policies — enforced by triggers in
+`20261129000000_untracked_types_guard.sql`.
+
+**Before deploying that migration** to an existing database, run the read-only check:
+
+```bash
+psql "$DIRECT_URL" -f supabase/checks/untracked_type_rows.sql
+```
+
+If it returns rows, fix them with HR first — the migration refuses to run on bad data and
+changes nothing. Constraint violations surface to clients as 400/409 envelopes
+(`lib/db/errors.ts`), never as 500s.
+
 ### Known limitations
 
 - **Notifications are log-only** (backlog B6): `leave_request.submitted` / `leave_request.decided`

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { isAppError } from "@/lib/api/errors";
 import { getSession } from "@/lib/auth/session";
+import { toAppError } from "@/lib/db/errors";
 import type { ActionResult } from "@/lib/data/types";
 import { getSubmitDeps, submitLeaveRequest } from "@/lib/leave-requests";
 import { logger } from "@/lib/logger";
@@ -29,8 +30,10 @@ export async function submitLeaveRequestAction(values: LeaveRequestInput): Promi
     }
     return { success: true, warnings };
   } catch (error) {
-    if (isAppError(error) && error.status < 500) {
-      return { success: false, error: { code: error.code, message: error.message } };
+    // AppErrors and known database constraint violations (lib/db/errors.ts) → 4xx result.
+    const known = isAppError(error) ? error : toAppError(error);
+    if (known && known.status < 500) {
+      return { success: false, error: { code: known.code, message: known.message } };
     }
     logger.error({ err: error, userId: session.userId }, "submit leave request action failed");
     return {

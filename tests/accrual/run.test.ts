@@ -101,20 +101,27 @@ describe("AC1 — one run increases each balance by exactly the policy's accrual
     ).toBe(false);
   });
 
-  it("skips zero-rate policies and untracked types (US-08)", async () => {
+  it("skips zero-rate policies", async () => {
     await db.query(
       `update leave_policies set accrual_per_month = 0 where user_id = $1 and leave_type_id = $2`,
       [USER_IDS.ana, Vacation],
-    );
-    await db.query(
-      `insert into leave_policies (user_id, leave_type_id, accrual_per_month) values ($1, $2, 2)`,
-      [USER_IDS.ana, Unpaid],
     );
     const before = await balances();
     await run(DEC);
     const after = await balances();
     expect(after[`${USER_IDS.ana}:${Vacation}`]).toBe(before[`${USER_IDS.ana}:${Vacation}`]);
     expect(after[`${USER_IDS.ana}:${Unpaid}`]).toBeUndefined();
+  });
+
+  it("an untracked (Unpaid) policy cannot exist — the database refuses it (TASK-018), so there is nothing to accrue", async () => {
+    await expect(
+      db.query(
+        `insert into leave_policies (user_id, leave_type_id, accrual_per_month) values ($1, $2, 2)`,
+        [USER_IDS.ana, Unpaid],
+      ),
+    ).rejects.toMatchObject({ code: "23514" });
+    await run(DEC);
+    expect((await balances())[`${USER_IDS.ana}:${Unpaid}`]).toBeUndefined();
   });
 });
 

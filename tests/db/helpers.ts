@@ -15,10 +15,17 @@ export const MIGRATIONS = MIGRATION_FILES.map((f) =>
 );
 export const SEED = readFileSync(path.join(root, "supabase/seed.sql"), "utf8");
 
-/** A fresh in-process Postgres with all migrations applied (no seed). */
-export async function migratedDb(): Promise<PGlite> {
+/**
+ * A fresh in-process Postgres with migrations applied (no seed). By default all of
+ * them; `upTo` (exclusive) stops before the named file — for testing a migration
+ * against pre-existing data.
+ */
+export async function migratedDb(opts: { upTo?: string } = {}): Promise<PGlite> {
   const db = new PGlite();
-  for (const sql of MIGRATIONS) await db.exec(sql);
+  for (const [i, file] of MIGRATION_FILES.entries()) {
+    if (opts.upTo && file >= opts.upTo) break;
+    await db.exec(MIGRATIONS[i]!);
+  }
   return db;
 }
 

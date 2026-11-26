@@ -44,6 +44,13 @@ export const POST = withErrorHandler(async (req) => {
 - One migration per change: `supabase/migrations/<UTC timestamp>_<snake_name>.sql`. Never edit an
   applied migration.
 - Every FK is indexed; every FK is `on delete restrict` (retention).
+- A trigger that validates against ANOTHER table must lock the row it reads (`for share`)
+  when a concurrent change to that row could break the invariant (TASK-018: balance/policy
+  inserts vs flipping `leave_types.tracks_balance`). Raise with `errcode` + a named
+  `constraint` so `lib/db/errors.ts` can map it.
+- A migration that adds an invariant over existing data starts with a pre-check that
+  raises (and rolls back) on violations — never silently delete or rewrite production rows.
+  Ship a read-only diagnosis script in `supabase/checks/`.
 - Business invariants that can be constraints **are** constraints (`end_date >= start_date`,
   decision consistency, unique balance per user+type).
 - Soft delete: filter `is_deleted = false` in every read. `DELETE` is blocked by trigger.
