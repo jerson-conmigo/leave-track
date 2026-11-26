@@ -211,6 +211,13 @@ describe("AC2 — all 6 tables exist with FKs matching the arch doc", () => {
     expect(unindexed).toEqual([]);
   });
 
+  it("has the audit event-log index (TASK-015)", async () => {
+    const idx = await rows<{ indexname: string }>(
+      `select indexname from pg_indexes where tablename = 'audit_log' and indexname = 'audit_log_occurred_idx'`,
+    );
+    expect(idx).toHaveLength(1);
+  });
+
   it("enables row level security on every table", async () => {
     const off = await rows<{ relname: string }>(`
       select relname from pg_class

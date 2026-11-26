@@ -122,8 +122,37 @@ export type AuditEntryView = {
 
 export type AuditFilter = {
   employeeId?: string;
-  from?: string; // YYYY-MM-DD, inclusive
-  to?: string; // YYYY-MM-DD, inclusive
+  from?: string; // YYYY-MM-DD, inclusive — compared to the UTC date of occurredAt
+  to?: string; // YYYY-MM-DD, inclusive — compared to the UTC date of occurredAt
+};
+
+/** Newest-first cap for the all-employees /audit event log (cursor paging: backlog B21). */
+export const AUDIT_LOG_LIMIT = 500;
+
+/** Date range for one employee's history — UTC date of the request's createdAt, inclusive. */
+export type AuditHistoryFilter = {
+  from?: string; // YYYY-MM-DD
+  to?: string; // YYYY-MM-DD
+};
+
+export type AuditEvent = {
+  action: AuditAction;
+  actorId: string;
+  actorName: string;
+  occurredAt: string;
+};
+
+/** One request in an employee's audit history (US-05 AC1). */
+export type AuditRequestRecord = LeaveRequestView & {
+  decidedBy: { id: string; name: string } | null;
+  decisionReason: string | null;
+  events: AuditEvent[];
+};
+
+/** `data` of GET /api/audit/:userId — full, non-deleted decision history (BR-04). */
+export type EmployeeAuditHistory = {
+  employee: Pick<User, "id" | "name" | "email" | "role"> & { managerName: string | null };
+  requests: AuditRequestRecord[];
 };
 
 export type PolicyView = {

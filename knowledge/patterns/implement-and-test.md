@@ -108,3 +108,10 @@ TASK-014's browser run hung because an enum-typed bind parameter triggered a pos
 type lookup that pglite-socket can't multiplex. Isolate with tiny single-statement probes
 (one variant per fresh server), find the minimal trigger, then prefer an app-side fix that is
 correct everywhere (text-typed params) plus a static convention test — not a harness tweak.
+
+### "Authorize before any database access" — prove it with a repository spy (from TASK-015)
+
+A 403 response doesn't show the data wasn't read first. For role-gated endpoints, mock the
+repository module with a `vi.fn` wrapper and assert it was **never called** for 401/403 (and
+for 400s rejected by validation). Probe: move the role check below the read — the response
+tests may still pass on some paths, the "never called" assertions must fail.

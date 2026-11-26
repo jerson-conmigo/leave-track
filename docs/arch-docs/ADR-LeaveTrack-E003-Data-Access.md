@@ -51,5 +51,6 @@ Option 3.
   incrementally and delegates the rest to the mock repository, each delegation marked with
   its task. TASK-012 moved users, leave types, balances and my-requests; TASK-013 moved the
   manager queue (every statement scoped by `u.manager_id = $1`, asserted structurally);
-  audit/policies/stats (TASK-015) remain. A parity test asserts the Postgres
+  TASK-015 moved audit/policies/stats and removed the fallback entirely — every method now
+  reads Postgres when `DATABASE_URL` is set (B13 closed). A parity test asserts the Postgres
   and mock implementations agree on the seed.

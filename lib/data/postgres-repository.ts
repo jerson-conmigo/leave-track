@@ -1,8 +1,18 @@
 import { availableForRequest, buildBalanceSummaries } from "@/lib/data/balance";
+import { utcMonthBounds } from "@/lib/data/dates";
 import type { LeaveRepository } from "@/lib/data/repositories";
-import type { LeaveType, LeaveTypeName, RequestStatus, Role, User } from "@/lib/data/types";
+import {
+  AUDIT_LOG_LIMIT,
+  type AuditAction,
+  type LeaveType,
+  type LeaveTypeName,
+  type RequestStatus,
+  type Role,
+  type User,
+} from "@/lib/data/types";
 import { toRequestView } from "@/lib/data/views";
 import { type SqlClient, toIso, toNumber } from "@/lib/db/sql";
+import { countDays } from "@/lib/format";
 
 type UserRow = { id: string; name: string; email: string; role: Role; manager_id: string | null };
 const USER_COLUMNS = `id, name, email, role::text, manager_id`;
@@ -15,16 +25,13 @@ const toUser = (r: UserRow): User => ({
 });
 
 /**
- * LeaveRepository over Postgres (ADR-LeaveTrack-E003). TASK-012 moved the
- * employee-facing reads, TASK-013 the manager queue; the rest still delegate to
- * `fallback` (the mock repository) until their task lands — backlog B13:
- *   listAudit / listPolicies / getOrgStats → TASK-015
- * All SQL is parameterised; soft-deleted requests are excluded from every read.
+ * LeaveRepository over Postgres (ADR-LeaveTrack-E003). Every method reads
+ * Postgres (migration completed in TASK-015 — backlog B13 closed).
+ * All SQL is parameterised; enums are sent and read as text; soft-deleted
+ * requests are excluded from every read (rows themselves are never deleted).
+ * Date filters use `(ts at time zone 'UTC')::date` — identical to lib/data/dates.ts.
  */
-export function createPostgresRepository(
-  sql: SqlClient,
-  fallback: LeaveRepository,
-): LeaveRepository {
+export function createPostgresRepository(sql: SqlClient): LeaveRepository {
   async function listLeaveTypes(): Promise<LeaveType[]> {
     const rows = await sql.query<{ id: string; name: LeaveTypeName; tracks_balance: boolean }>(
       `select id, name, tracks_balance from leave_types
@@ -223,9 +230,186 @@ export function createPostgresRepository(
       }));
     },
 
-    // ── Still mock until TASK-015 (backlog B13) ──────────────────────────────
-    listAudit: (filter) => fallback.listAudit(filter), // TASK-015
-    listPolicies: () => fallback.listPolicies(), // TASK-015
-    getOrgStats: () => fallback.getOrgStats(), // TASK-015
+    /** All-employees event log (/audit), newest first, capped (cursor paging: backlog B21). */
+    async listAudit(filter) {
+      const rows = await sql.query<{
+        id: string;
+        request_id: string;
+        employee_name: string;
+        type_name: LeaveTypeName;
+        start_date: string;
+        end_date: string;
+        action: AuditAction;
+        actor_name: string;
+        occurred_at: unknown;
+      }>(
+        `select a.id, r.id request_id, e.name employee_name, t.name type_name,
+                r.start_date::text, r.end_date::text, a.action::text, act.name actor_name,
+                a.occurred_at
+           from audit_log a
+           join leave_requests r on r.id = a.leave_request_id
+           join users e on e.id = r.user_id
+           join leave_types t on t.id = r.leave_type_id
+           join users act on act.id = a.actor_id
+          where not r.is_deleted
+            and ($1::uuid is null or r.user_id = $1::uuid)
+            and ($2::date is null or (a.occurred_at at time zone 'UTC')::date >= $2::date)
+            and ($3::date is null or (a.occurred_at at time zone 'UTC')::date <= $3::date)
+          order by a.occurred_at desc, a.id
+          limit $4`,
+        [filter.employeeId ?? null, filter.from ?? null, filter.to ?? null, AUDIT_LOG_LIMIT],
+      );
+      return rows.map((r) => ({
+        id: r.id,
+        requestId: r.request_id,
+        employeeName: r.employee_name,
+        leaveType: r.type_name,
+        startDate: r.start_date,
+        endDate: r.end_date,
+        days: countDays(r.start_date, r.end_date),
+        action: r.action,
+        actorName: r.actor_name,
+        occurredAt: toIso(r.occurred_at),
+      }));
+    },
+
+    /** One employee's full, non-deleted history (US-05, BR-04) — no default date cap. */
+    async getEmployeeAuditHistory(userId, filter = {}) {
+      const [user] = await sql.query<UserRow & { manager_name: string | null }>(
+        `select u.id, u.name, u.email, u.role::text, u.manager_id, m.name manager_name
+           from users u left join users m on m.id = u.manager_id
+          where u.id = $1`,
+        [userId],
+      );
+      if (!user) return null;
+
+      const requests = await sql.query<{
+        id: string;
+        type_name: LeaveTypeName;
+        start_date: string;
+        end_date: string;
+        reason: string;
+        status: RequestStatus;
+        created_at: unknown;
+        decided_at: unknown;
+        decided_by: string | null;
+        decided_by_name: string | null;
+        decision_reason: string | null;
+      }>(
+        `select r.id, t.name type_name, r.start_date::text, r.end_date::text, r.reason,
+                r.status::text, r.created_at, r.decided_at, r.decided_by,
+                d.name decided_by_name, r.decision_reason
+           from leave_requests r
+           join leave_types t on t.id = r.leave_type_id
+           left join users d on d.id = r.decided_by
+          where r.user_id = $1 and not r.is_deleted
+            and ($2::date is null or (r.created_at at time zone 'UTC')::date >= $2::date)
+            and ($3::date is null or (r.created_at at time zone 'UTC')::date <= $3::date)
+          order by r.created_at desc, r.id`,
+        [userId, filter.from ?? null, filter.to ?? null],
+      );
+
+      const events = requests.length
+        ? await sql.query<{
+            leave_request_id: string;
+            action: AuditAction;
+            actor_id: string;
+            actor_name: string;
+            occurred_at: unknown;
+          }>(
+            `select a.leave_request_id, a.action::text, a.actor_id, act.name actor_name, a.occurred_at
+               from audit_log a join users act on act.id = a.actor_id
+              where a.leave_request_id = any($1::uuid[])
+              order by a.occurred_at, a.id`,
+            [requests.map((r) => r.id)],
+          )
+        : [];
+
+      return {
+        employee: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          managerName: user.manager_name,
+        },
+        requests: requests.map((r) => ({
+          ...toRequestView(
+            {
+              id: r.id,
+              startDate: r.start_date,
+              endDate: r.end_date,
+              reason: r.reason,
+              status: r.status,
+              createdAt: toIso(r.created_at),
+              decidedAt: r.decided_at == null ? null : toIso(r.decided_at),
+            },
+            r.type_name,
+            r.decided_by_name,
+          ),
+          decidedBy:
+            r.decided_by && r.decided_by_name
+              ? { id: r.decided_by, name: r.decided_by_name }
+              : null,
+          decisionReason: r.decision_reason,
+          events: events
+            .filter((e) => e.leave_request_id === r.id)
+            .map((e) => ({
+              action: e.action,
+              actorId: e.actor_id,
+              actorName: e.actor_name,
+              occurredAt: toIso(e.occurred_at),
+            })),
+        })),
+      };
+    },
+
+    async listPolicies() {
+      const rows = await sql.query<{
+        id: string;
+        user_id: string;
+        user_name: string;
+        role: Role;
+        type_name: LeaveTypeName;
+        accrual_per_month: unknown;
+      }>(
+        `select p.id, u.id user_id, u.name user_name, u.role::text, t.name type_name,
+                p.accrual_per_month
+           from leave_policies p
+           join users u on u.id = p.user_id
+           join leave_types t on t.id = p.leave_type_id`,
+      );
+      // Sorted in TS with the same comparator as the mock (locale-aware, parity-tested).
+      return rows
+        .map((r) => ({
+          id: r.id,
+          userId: r.user_id,
+          userName: r.user_name,
+          role: r.role,
+          leaveType: r.type_name,
+          accrualPerMonth: toNumber(r.accrual_per_month),
+        }))
+        .sort(
+          (a, b) => a.userName.localeCompare(b.userName) || a.leaveType.localeCompare(b.leaveType),
+        );
+    },
+
+    async getOrgStats(now = new Date()) {
+      const [monthStart, nextMonth] = utcMonthBounds(now);
+      const [row] = await sql.query<{ pending: number; approved: number; with_policy: number }>(
+        `select
+           (select count(*)::int from leave_requests where status = 'pending' and not is_deleted) pending,
+           (select count(*)::int from leave_requests
+             where status = 'approved' and not is_deleted
+               and decided_at >= $1::timestamptz and decided_at < $2::timestamptz) approved,
+           (select count(distinct user_id)::int from leave_policies) with_policy`,
+        [monthStart, nextMonth],
+      );
+      return {
+        pendingCount: row?.pending ?? 0,
+        approvedThisMonth: row?.approved ?? 0,
+        employeeCount: row?.with_policy ?? 0,
+      };
+    },
   };
 }

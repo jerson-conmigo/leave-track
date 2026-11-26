@@ -2,7 +2,6 @@ import type { PGlite } from "@electric-sql/pglite";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppError } from "@/lib/api/errors";
 import { LEAVE_TYPE_IDS, USER_IDS } from "@/lib/data/mock/fixtures";
-import { mockRepository } from "@/lib/data/mock/repository";
 import { createPostgresRepository } from "@/lib/data/postgres-repository";
 import type { SqlClient } from "@/lib/db/sql";
 import { decideLeaveRequest } from "@/lib/leave-requests/decide";
@@ -194,9 +193,7 @@ describe("AC3 — acting on a non-direct-report's request", () => {
   });
 
   it("…and that request never appeared in the acting manager's queue", async () => {
-    const queue = await createPostgresRepository(sql, mockRepository).listTeamRequests(
-      USER_IDS.maya,
-    );
+    const queue = await createPostgresRepository(sql).listTeamRequests(USER_IDS.maya);
     expect(queue.map((r) => r.id)).not.toContain(R.jordanVacation);
   });
 

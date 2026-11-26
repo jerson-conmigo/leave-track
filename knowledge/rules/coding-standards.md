@@ -62,6 +62,11 @@ export const POST = withErrorHandler(async (req) => {
   them (e.g. RLS policies with `auth.uid()`) needs a shim in the test's `beforeAll`.
 - Decisions: `decision_reason` is required when `status = 'rejected'`, optional on approve, and
   must be NULL while pending (DB-enforced).
+- **Date filters are UTC calendar dates, everywhere.** In TS use `lib/data/dates.ts`
+  (`utcDay`, `withinUtcDays`, `utcMonthBounds`); in SQL use `(ts at time zone 'UTC')::date` —
+  never `ts::date`, which follows the session timezone. Compute month/period bounds in TS and
+  pass them as parameters so mock and Postgres share one definition (TASK-015, parity-tested
+  with a 23:30 UTC boundary under a non-UTC session).
 - **Never bind a parameter as a custom enum.** Send enums as text and cast inside SQL —
   `($3::text)::public.request_status` — and read them back as `::text`. A `$n::public.<enum>`
   parameter makes postgres.js issue a type-lookup query mid-statement (extra round trips; on a

@@ -354,9 +354,9 @@
     "semantic_hash": ""
   },
   "lib/data/types.ts": {
-    "mtime": 1795659688.9229593,
-    "seen": 1795659692.430889,
-    "ast_hash": "cf08126faf90f4f10a7be34569a8df4a",
+    "mtime": 1795661738.323708,
+    "seen": 1795661740.0595589,
+    "ast_hash": "71405d9dfa7d5fc287894b0188c8eafc",
     "semantic_hash": ""
   },
   "lib/data/mock/fixtures.ts": {
@@ -372,15 +372,15 @@
     "semantic_hash": ""
   },
   "lib/data/mock/repository.ts": {
-    "mtime": 1795653738.9105353,
-    "seen": 1795653751.59961,
-    "ast_hash": "98d2553a650515864a670a5a0139c115",
+    "mtime": 1795662298.5442016,
+    "seen": 1795662369.776128,
+    "ast_hash": "81c2ae31b63d079e854e3f531cb45df0",
     "semantic_hash": ""
   },
   "lib/data/repositories.ts": {
-    "mtime": 1795653769.8487167,
-    "seen": 1795653772.994226,
-    "ast_hash": "03bead5b43b79b62b7bd875c9fc0931b",
+    "mtime": 1795661752.9070673,
+    "seen": 1795661754.571456,
+    "ast_hash": "ae6c6f6ac7ab322098fd2309ef5c6b35",
     "semantic_hash": ""
   },
   "lib/format.ts": {
@@ -606,9 +606,9 @@
     "semantic_hash": ""
   },
   "app/(app)/audit/page.tsx": {
-    "mtime": 1795660089.3952053,
-    "seen": 1795660092.68128,
-    "ast_hash": "4a49b432b2da6e9a40b4c8a9e6d9ec67",
+    "mtime": 1795661852.913994,
+    "seen": 1795661856.7686012,
+    "ast_hash": "e0ee034c7d75c47de734cd9291279674",
     "semantic_hash": ""
   },
   "app/(app)/balance/page.tsx": {
@@ -702,15 +702,15 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1795660089.394867,
-    "seen": 1795660092.684255,
-    "ast_hash": "2d6a0208fb140b4258777a2186e61c8d",
+    "mtime": 1795662095.0808232,
+    "seen": 1795662097.607378,
+    "ast_hash": "2dbcf1348e0d42676b2290f06bb6990d",
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1795660089.3944468,
-    "seen": 1795660092.684256,
-    "ast_hash": "f244fc91484fc20c9fea5d54c75ff490",
+    "mtime": 1795662095.8458812,
+    "seen": 1795662097.607378,
+    "ast_hash": "f0a867c0b87cea916438759f1561be2d",
     "semantic_hash": ""
   },
   "knowledge/design-system.md": {
@@ -720,9 +720,9 @@
     "semantic_hash": ""
   },
   "knowledge/patterns/implement-and-test.md": {
-    "mtime": 1795660723.5416067,
-    "seen": 1795660751.941498,
-    "ast_hash": "b7c81c41d93ec2ad5bebe7d657d370cc",
+    "mtime": 1795662475.883179,
+    "seen": 1795662507.926347,
+    "ast_hash": "cd44067197656812088c37c76296a233",
     "semantic_hash": ""
   },
   "knowledge/prompts/dev/implement-api-route.md": {
@@ -744,21 +744,21 @@
     "semantic_hash": ""
   },
   "knowledge/rules/coding-standards.md": {
-    "mtime": 1795660722.914463,
-    "seen": 1795660751.9415932,
-    "ast_hash": "3bd6cec643b66ab2107e2cb6d19e83cc",
+    "mtime": 1795662475.8794138,
+    "seen": 1795662507.92645,
+    "ast_hash": "da7900c00e4548fe0b4778711414eee9",
     "semantic_hash": ""
   },
   "knowledge/retros/2026-11-24-day0-scaffold.md": {
-    "mtime": 1795660723.5547564,
-    "seen": 1795660751.941568,
-    "ast_hash": "c32b10a6d831fc64780931aba6116b6b",
+    "mtime": 1795662095.7054904,
+    "seen": 1795662097.607597,
+    "ast_hash": "e1fcd5cf0028382918f9dee9b7a20c10",
     "semantic_hash": ""
   },
   "tests/db/schema.test.ts": {
-    "mtime": 1795659909.2552547,
-    "seen": 1795659911.6313322,
-    "ast_hash": "57471984eee2aa4b833b8bf8643a3cba",
+    "mtime": 1795662067.2358103,
+    "seen": 1795662071.410955,
+    "ast_hash": "bca5ec634b6e9fb349878c96df576efd",
     "semantic_hash": ""
   },
   "scripts/set-task-status.mjs": {
@@ -870,9 +870,9 @@
     "semantic_hash": ""
   },
   "docs/arch-docs/ADR-LeaveTrack-E003-Data-Access.md": {
-    "mtime": 1795653942.1664956,
-    "seen": 1795653968.5571961,
-    "ast_hash": "1a7b2caf1956cd8460b3974a86c12f46",
+    "mtime": 1795662095.081681,
+    "seen": 1795662097.607421,
+    "ast_hash": "4d89396c0ef56b500a9ff23787dc24c1",
     "semantic_hash": ""
   },
   "lib/data/balance.ts": {
@@ -888,9 +888,9 @@
     "semantic_hash": ""
   },
   "lib/data/postgres-repository.ts": {
-    "mtime": 1795654229.4946249,
-    "seen": 1795654230.9371772,
-    "ast_hash": "aa71ea5a820a3ef9541ec66476f46c1d",
+    "mtime": 1795662405.0846102,
+    "seen": 1795662406.720704,
+    "ast_hash": "5c3213860d474ce944d17ac5ff31e483",
     "semantic_hash": ""
   },
   "tests/data/balance.test.ts": {
@@ -900,9 +900,9 @@
     "semantic_hash": ""
   },
   "tests/data/postgres-repository.test.ts": {
-    "mtime": 1795653906.4455748,
-    "seen": 1795653923.0599282,
-    "ast_hash": "05bc3e61502a9a569c836296990682d1",
+    "mtime": 1795661928.954075,
+    "seen": 1795661931.1796439,
+    "ast_hash": "bfa8cf710ec026b42063eff0cd51bbff",
     "semantic_hash": ""
   },
   "lib/leave-requests/decide.ts": {
@@ -930,15 +930,15 @@
     "semantic_hash": ""
   },
   "tests/leave-requests/decide.test.ts": {
-    "mtime": 1795659989.6347458,
-    "seen": 1795660002.751908,
-    "ast_hash": "3995dead87e45a7f045aff9df85ce220",
+    "mtime": 1795661914.9763396,
+    "seen": 1795661917.496223,
+    "ast_hash": "e6c1f879dfdc1fe2ff8b5725665034ae",
     "semantic_hash": ""
   },
   "tests/leave-requests/decide-memory.test.ts": {
-    "mtime": 1795660048.6313114,
-    "seen": 1795660051.019564,
-    "ast_hash": "fda1a94602f0e01618230ebc9a43f4ff",
+    "mtime": 1795661868.6732664,
+    "seen": 1795661891.4828548,
+    "ast_hash": "74bdd93ed074ed7c6bb0cc51d1cd8f1a",
     "semantic_hash": ""
   },
   "tests/leave-requests/decision-route.test.ts": {
@@ -951,6 +951,36 @@
     "mtime": 1795660649.6640606,
     "seen": 1795660665.155725,
     "ast_hash": "8ad3fb62c2a9774bd9353e8ca1f28e2e",
+    "semantic_hash": ""
+  },
+  "lib/data/dates.ts": {
+    "mtime": 1795661752.9118302,
+    "seen": 1795661754.571357,
+    "ast_hash": "4267387fa2c179f970eb83673357c7eb",
+    "semantic_hash": ""
+  },
+  "app/api/audit/[userId]/route.ts": {
+    "mtime": 1795662333.731307,
+    "seen": 1795662369.774976,
+    "ast_hash": "e807132a703d64dd7dce4e44c14b924b",
+    "semantic_hash": ""
+  },
+  "tests/data/audit.test.ts": {
+    "mtime": 1795662031.613759,
+    "seen": 1795662046.846904,
+    "ast_hash": "5ba0672ea13beae6d7103c37c900762b",
+    "semantic_hash": ""
+  },
+  "tests/audit-route.test.ts": {
+    "mtime": 1795662067.6565201,
+    "seen": 1795662071.410858,
+    "ast_hash": "9dae394fae73075c64526e03156647b2",
+    "semantic_hash": ""
+  },
+  "tests/data/dates.test.ts": {
+    "mtime": 1795662476.1837032,
+    "seen": 1795662507.92541,
+    "ast_hash": "7f2d5a36437b66561623a65c649d606e",
     "semantic_hash": ""
   }
 }

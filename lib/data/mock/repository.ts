@@ -1,8 +1,15 @@
 import { availableForRequest, buildBalanceSummaries } from "@/lib/data/balance";
+import { utcMonthBounds, withinUtcDays } from "@/lib/data/dates";
 import { LAST_ACCRUAL_AT } from "@/lib/data/mock/fixtures";
 import { mockDb } from "@/lib/data/mock/store";
 import type { LeaveRepository } from "@/lib/data/repositories";
-import type { LeaveRequest, LeaveRequestView, LeaveType, User } from "@/lib/data/types";
+import {
+  AUDIT_LOG_LIMIT,
+  type LeaveRequest,
+  type LeaveRequestView,
+  type LeaveType,
+  type User,
+} from "@/lib/data/types";
 import { toRequestView } from "@/lib/data/views";
 import { countDays } from "@/lib/format";
 
@@ -94,9 +101,13 @@ export const mockRepository: LeaveRepository = {
       .map((entry) => ({ entry, request: requests.get(entry.leaveRequestId)! }))
       .filter(({ request }) => !request.isDeleted)
       .filter(({ request }) => !filter.employeeId || request.userId === filter.employeeId)
-      .filter(({ entry }) => !filter.from || entry.occurredAt.slice(0, 10) >= filter.from)
-      .filter(({ entry }) => !filter.to || entry.occurredAt.slice(0, 10) <= filter.to)
-      .sort((a, b) => b.entry.occurredAt.localeCompare(a.entry.occurredAt))
+      .filter(({ entry }) => withinUtcDays(entry.occurredAt, filter.from, filter.to))
+      .sort(
+        (a, b) =>
+          b.entry.occurredAt.localeCompare(a.entry.occurredAt) ||
+          a.entry.id.localeCompare(b.entry.id),
+      )
+      .slice(0, AUDIT_LOG_LIMIT)
       .map(({ entry, request }) => ({
         id: entry.id,
         requestId: request.id,
@@ -129,15 +140,53 @@ export const mockRepository: LeaveRepository = {
       );
   },
 
-  async getOrgStats() {
-    const month = LAST_ACCRUAL_AT.slice(0, 7);
+  async getEmployeeAuditHistory(userId, filter = {}) {
+    const user = byId(users, userId);
+    if (!user) return null;
+    const requests = active()
+      .filter((r) => r.userId === userId && withinUtcDays(r.createdAt, filter.from, filter.to))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id));
+    return {
+      employee: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        managerName: userName(user.managerId),
+      },
+      requests: requests.map((r) => ({
+        ...toView(r),
+        decidedBy: r.decidedBy
+          ? { id: r.decidedBy, name: userName(r.decidedBy) ?? "Unknown" }
+          : null,
+        decisionReason: r.decisionReason,
+        events: auditLog
+          .filter((a) => a.leaveRequestId === r.id)
+          .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt) || a.id.localeCompare(b.id))
+          .map((a) => ({
+            action: a.action,
+            actorId: a.actorId,
+            actorName: userName(a.actorId) ?? "Unknown",
+            occurredAt: a.occurredAt,
+          })),
+      })),
+    };
+  },
+
+  async getOrgStats(now = new Date()) {
+    const [monthStart, nextMonth] = utcMonthBounds(now);
     const rows = active();
     return {
       pendingCount: rows.filter((r) => r.status === "pending").length,
       approvedThisMonth: rows.filter(
-        (r) => r.status === "approved" && r.decidedAt?.startsWith(month),
+        (r) =>
+          r.status === "approved" &&
+          r.decidedAt !== null &&
+          r.decidedAt >= monthStart &&
+          r.decidedAt < nextMonth,
       ).length,
-      employeeCount: users.length,
+      // Matches the dashboard label "People with a leave policy".
+      employeeCount: new Set(leavePolicies.map((p) => p.userId)).size,
     };
   },
 };

@@ -65,22 +65,25 @@ Environments are selected with `APP_ENV` (`development` / `staging` / `productio
 
 One switch (`getSql()` in `lib/db/postgres.ts`) picks the store for reads **and** writes.
 
-| `DATABASE_URL` | Submit request | Users · balances · my requests · manager queue | Audit · policies · org stats |
-| -------------- | -------------- | ---------------------------------------------- | ---------------------------- |
-| unset          | In-memory mock | In-memory mock                                 | In-memory mock               |
-| set            | Postgres       | Postgres (TASK-012, TASK-013)                  | Still mock — backlog B13     |
+| `DATABASE_URL` | Every read and write (requests, balances, queue, decisions, audit, policies, stats) |
+| -------------- | ----------------------------------------------------------------------------------- |
+| unset          | In-memory mock DB (per process, local dev only)                                     |
+| set            | Postgres via postgres.js (`lib/db/`) — migration completed in TASK-015              |
 
-With `DATABASE_URL` set, the HR audit report, policies page and HR dashboard stats won't show
-Postgres data until TASK-015. Design: ADR-LeaveTrack-E003.
+Design: ADR-LeaveTrack-E003.
+
+### HR audit (TASK-015)
+
+- `/audit` — all-employees event log (newest first, capped at 500; narrow the filters for older
+  records — cursor paging is backlog B21).
+- `GET /api/audit/:userId` (HR admin only) — one employee's full history: every non-deleted
+  request with status, decision-maker, decision time, reason and its events. No default date
+  cap (3+ year retention, BR-04); optional `from` / `to` (UTC dates, inclusive) on the request's
+  creation date. Soft-deleted requests are excluded from both views but never removed from the
+  database — hard deletes are blocked by triggers.
 
 ### Known limitations
 
-- **HR audit visibility (until TASK-015).** With `DATABASE_URL` set, approvals and rejections
-  (TASK-014) are written to Postgres — `leave_requests` and `audit_log`, in one transaction —
-  but `/audit`, `/policies` and the HR dashboard stats still read the in-memory mock. HR will
-  **not** see Postgres decisions in the audit report yet. The records are complete and safe in
-  `audit_log` (one decision row per request, enforced by a unique index); only the report view
-  lags. `/audit` shows an in-app notice in this mode.
 - **Notifications are log-only** (backlog B6): `leave_request.submitted` / `leave_request.decided`
   events are logged; a delivery failure is logged and never undoes a submission or decision.
 

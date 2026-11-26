@@ -1,5 +1,5 @@
 import type { PGlite } from "@electric-sql/pglite";
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { LEAVE_TYPE_IDS, users, USER_IDS } from "@/lib/data/mock/fixtures";
 import { mockRepository } from "@/lib/data/mock/repository";
 import { createPostgresRepository } from "@/lib/data/postgres-repository";
@@ -18,7 +18,6 @@ const { Vacation, Sick } = LEAVE_TYPE_IDS;
 let db: PGlite;
 let sql: SqlClient;
 let repo: LeaveRepository;
-let fallback: LeaveRepository;
 const dbs: PGlite[] = [];
 
 beforeEach(async () => {
@@ -26,16 +25,7 @@ beforeEach(async () => {
   db = t.db;
   sql = t.sql;
   dbs.push(db);
-  fallback = {
-    ...mockRepository,
-    listTeamRequests: vi.fn().mockResolvedValue([]),
-    listAudit: vi.fn().mockResolvedValue([]),
-    listPolicies: vi.fn().mockResolvedValue([]),
-    getOrgStats: vi
-      .fn()
-      .mockResolvedValue({ pendingCount: 0, approvedThisMonth: 0, employeeCount: 0 }),
-  };
-  repo = createPostgresRepository(t.sql, fallback);
+  repo = createPostgresRepository(t.sql);
 });
 
 afterAll(async () => {
@@ -81,7 +71,7 @@ describe("AC1 — current balance per leave type, as of the last accrual run", (
     const fresh = await createTestDb();
     dbs.push(fresh.db);
     await fresh.db.exec(`truncate accrual_runs`);
-    const balances = await createPostgresRepository(fresh.sql, fallback).getBalances(USER_IDS.ana);
+    const balances = await createPostgresRepository(fresh.sql).getBalances(USER_IDS.ana);
     expect(balances.map((b) => b.asOf)).toEqual([null, null, null]);
   });
 });
@@ -145,19 +135,6 @@ describe("parity guard — Postgres and mock repositories agree on the seed", ()
       await mockRepository.getUserById(USER_IDS.ben),
     );
     expect(await repo.getUserById("00000000-0000-4000-8000-000000000999")).toBeNull();
-  });
-});
-
-describe("not-yet-migrated reads delegate to the fallback (backlog B13)", () => {
-  it("audit, policies and stats come from the fallback; the team queue does NOT", async () => {
-    await repo.listTeamRequests(USER_IDS.ben, { status: "pending" });
-    await repo.listAudit({ employeeId: USER_IDS.ana });
-    await repo.listPolicies();
-    await repo.getOrgStats();
-    expect(fallback.listTeamRequests).not.toHaveBeenCalled();
-    expect(fallback.listAudit).toHaveBeenCalledWith({ employeeId: USER_IDS.ana });
-    expect(fallback.listPolicies).toHaveBeenCalled();
-    expect(fallback.getOrgStats).toHaveBeenCalled();
   });
 });
 
@@ -275,7 +252,7 @@ describe("TASK-013 — scoping is enforced IN SQL, not in application code (BR-0
       },
       transaction: sql.transaction,
     };
-    await createPostgresRepository(recording, fallback).listTeamRequests(USER_IDS.ben, {
+    await createPostgresRepository(recording).listTeamRequests(USER_IDS.ben, {
       status: "pending",
     });
     expect(seen.length).toBeGreaterThan(0);

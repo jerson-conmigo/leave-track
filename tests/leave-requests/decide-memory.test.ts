@@ -81,9 +81,7 @@ describe("memory decide store", () => {
       "approved",
       "NOT_FOUND",
     ]);
-    expect(await reads(mockRepository)).toEqual(
-      await reads(createPostgresRepository(t.sql, mockRepository)),
-    );
+    expect(await reads(mockRepository)).toEqual(await reads(createPostgresRepository(t.sql)));
   });
 
   it("mirrors the DB backstop: refuses a second decision audit row", async () => {
