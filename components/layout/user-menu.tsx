@@ -22,18 +22,21 @@ export function UserMenu({ name, email, role }: UserMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="gap-2 px-2" aria-label={`Account menu for ${name}`}>
-          <Avatar className="size-8">
+        {/* Name from content (WCAG 2.5.3 Label in Name): the visible name/role is part of
+            the accessible name; the avatar initials are decorative. */}
+        <Button variant="ghost" className="gap-2 px-2">
+          <Avatar className="size-8" aria-hidden>
             <AvatarFallback className="bg-accent text-xs font-semibold text-accent-foreground">
               {initials(name)}
             </AvatarFallback>
           </Avatar>
-          <span className="hidden text-left sm:block">
+          <span className="sr-only text-left sm:not-sr-only sm:block">
             <span className="block text-sm leading-tight font-medium">{name}</span>
             <span className="block text-xs leading-tight text-muted-foreground">
               {ROLE_LABEL[role]}
             </span>
           </span>
+          <span className="sr-only">, account menu</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">

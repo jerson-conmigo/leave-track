@@ -116,7 +116,11 @@ Never re-save the CSV through a CSV library or spreadsheet app (it re-quotes eve
 
 ```bash
 npm run lint && npm run format:check && npm run typecheck && npm test && npm run build
+npm run test:e2e   # mobile e2e (CI runs it on every PR)
 ```
+
+- UI changes must keep `e2e/` green: no horizontal overflow at 320/375, ≥44px tap targets,
+  visible keyboard focus, no serious/critical axe violations. Use the helpers in `e2e/helpers.ts`.
 
 - husky pre-commit runs lint-staged (eslint --fix + prettier on staged files).
 - husky commit-msg runs commitlint.

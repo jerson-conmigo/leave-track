@@ -11,8 +11,16 @@ export const ROUTE_ACCESS: readonly { prefix: string; roles: readonly Role[] }[]
   { prefix: "/policies", roles: ["hr_admin"] },
 ];
 
-/** Reachable without a session. */
-export const PUBLIC_PATHS: readonly string[] = ["/login", "/forbidden", "/api/health"];
+/**
+ * Reachable without a session. `/api/test/reset` is gated by its own token and is
+ * a 404 unless E2E_RESET_TOKEN is set (tests only) — see its route.
+ */
+export const PUBLIC_PATHS: readonly string[] = [
+  "/login",
+  "/forbidden",
+  "/api/health",
+  "/api/test/reset",
+];
 
 export const ROLE_LABEL: Record<Role, string> = {
   employee: "Employee",

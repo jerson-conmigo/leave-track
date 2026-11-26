@@ -115,3 +115,32 @@ A 403 response doesn't show the data wasn't read first. For role-gated endpoints
 repository module with a `vi.fn` wrapper and assert it was **never called** for 401/403 (and
 for 400s rejected by validation). Probe: move the role check below the read — the response
 tests may still pass on some paths, the "never called" assertions must fail.
+
+### Browser e2e recipe (from TASK-016)
+
+- **Isolate shared state:** the e2e server's in-memory store is shared, so an auto fixture resets
+  it before every test via a gated test-only route (404 unless `E2E_RESET_TOKEN` + header match,
+  never with `DATABASE_URL`). Reset arrays **in place** — holders keep references from import.
+  Prove isolation with `--repeat-each=2` over the whole suite.
+- **Wait for state, never for time:** assert the highlighted option before pressing Enter; wait
+  for a listbox to be hidden and focus to return before the next Tab. Every race we hit was a
+  test pressing a key before the previous one was processed.
+- **Don't assume one Tab per field:** Chromium makes each date segment a Tab stop — use a bounded
+  `tabUntil(target, max)` (a trap still fails).
+- **Externally-opened dialogs need explicit focus return:** Radix returns focus to its
+  `DialogTrigger`; without one, focus drops to `<body>`. Pass the opener and handle
+  `onCloseAutoFocus` (fallback to `#main` if the opener left the DOM).
+- **Label in Name (WCAG 2.5.3):** don't put an `aria-label` on a control whose visible text
+  differs (initials, abbreviations) — use name-from-content with `sr-only` text instead.
+- **Flaky = real until proven otherwise:** the 1-in-12 overflow at 320px/200% text was a real
+  header that only tipped over once the web font loaded; fixed with `min-w-0`/`truncate`.
+- Locally use the installed Chrome (`channel: "chrome"`); CI uses cached Playwright Chromium.
+- **A focus check must detect a visible CHANGE, not mere presence** (TASK-016 VALIDATE caught
+  two false greens): a resting `shadow-xs` looked like a focus ring, and later a zero-width
+  ring-colour change looked like one. Compare focused vs. blurred, counting only drawn shadow
+  layers (non-transparent, non-zero size), outlines, or a border-colour change; finish CSS
+  transitions (`el.getAnimations().forEach(a => a.finish())`) before each read. Probe with
+  "remove ring AND border change" — removing only the ring is not a no-indicator state.
+- **Probe the thing, not a neighbour:** deleting `event.preventDefault()` left our own
+  `target.focus()` in place, so the "focus return removed" probe was invalid. A green probe means
+  "check the probe" before "the test is weak".

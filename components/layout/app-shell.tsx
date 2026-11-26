@@ -28,8 +28,9 @@ export function AppShell({ session, children }: AppShellProps) {
       <div className="flex min-w-0 flex-col">
         <header className="sticky top-0 z-40 flex h-14 items-center gap-2 border-b bg-card/95 px-2 backdrop-blur supports-[backdrop-filter]:bg-card/80 sm:px-4 lg:h-16 lg:px-8">
           <MobileNav role={session.role} />
-          <Brand className="lg:hidden" />
-          <div className="ml-auto">
+          {/* min-w-0 lets the brand shrink/truncate at 320px with 200% text (WCAG 1.4.10). */}
+          <Brand className="min-w-0 lg:hidden" />
+          <div className="ml-auto shrink-0">
             <UserMenu name={session.name} email={session.email} role={session.role} />
           </div>
         </header>

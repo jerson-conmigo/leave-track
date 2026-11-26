@@ -2,7 +2,7 @@
   "name": "leave-track",
   "version": "0.1.0",
   "private": true,
-  "description": "LeaveTrack — self-service leave requests, scoped manager approvals, and an auditable HR record.",
+  "description": "LeaveTrack \u2014 self-service leave requests, scoped manager approvals, and an auditable HR record.",
   "engines": {
     "node": ">=24"
   },
@@ -17,6 +17,8 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install --with-deps chromium",
     "db:push": "supabase db push",
     "db:reset": "supabase db reset",
     "task:status": "node scripts/set-task-status.mjs",
@@ -41,9 +43,11 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.1",
     "@commitlint/cli": "21.2.4",
     "@commitlint/config-conventional": "21.2.4",
     "@electric-sql/pglite": "0.6.0",
+    "@playwright/test": "1.65.1",
     "@tailwindcss/postcss": "4.3.5",
     "@types/node": "24.19.2",
     "@types/react": "19.3.0",

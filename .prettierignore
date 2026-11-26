@@ -6,3 +6,6 @@ graphify-out
 supabase/.temp
 docs
 .claude
+playwright-report
+test-results
+blob-report

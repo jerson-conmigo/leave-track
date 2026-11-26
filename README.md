@@ -42,6 +42,8 @@ The session lasts 8 hours; sign out from the account menu (top right).
 | `npm run format`                       | Prettier write (`format:check` to verify)         |
 | `npm run typecheck`                    | Generate route types and run `tsc --noEmit`       |
 | `npm test`                             | vitest unit tests                                 |
+| `npm run test:e2e`                     | Playwright mobile e2e (builds + runs the app)     |
+| `npm run test:e2e:install`             | Download Playwright Chromium (CI / no Chrome)     |
 | `npm run db:push`                      | Apply `supabase/migrations` to the linked project |
 | `npm run db:reset`                     | Reset a **local** Supabase DB and run `seed.sql`  |
 | `npm run task:status -- TASK-010 Done` | Set a dev task's status in `docs/dev-tasks/*.csv` |
@@ -86,6 +88,22 @@ Design: ADR-LeaveTrack-E003.
 
 - **Notifications are log-only** (backlog B6): `leave_request.submitted` / `leave_request.decided`
   events are logged; a delivery failure is logged and never undoes a submission or decision.
+
+## Testing
+
+- **Unit / integration** — `npm test` (vitest, `tests/`): domain services and repositories run
+  against in-process Postgres (PGlite); no Docker needed.
+- **Mobile e2e** — `npm run test:e2e` (Playwright, `e2e/`): builds the app, starts it in memory
+  mode on port 3100 and tests the submit form and balance page at 375×667, 320×568 and
+  667×375 landscape (US-06), plus an overflow / tap-target / focus sweep of every page and
+  role, keyboard navigation, reduced motion and axe (WCAG 2.1 A/AA) scans.
+  - Locally it drives your installed **Google Chrome** (`channel: "chrome"`) — no download.
+    Without Chrome, run `npm run test:e2e:install` once. CI uses Playwright's Chromium,
+    cached per Playwright version.
+  - **Isolation:** every test starts from the seed. An auto fixture calls
+    `POST /api/test/reset`, a test-only hook that is a **404 unless `E2E_RESET_TOKEN` is set**
+    (only `playwright.config.ts` sets it, with a random token per run) and never acts when
+    `DATABASE_URL` is set. **Never set `E2E_RESET_TOKEN` in a deployed environment.**
 
 ## Project layout
 

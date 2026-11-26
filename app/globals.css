@@ -118,4 +118,20 @@
   body {
     @apply bg-background font-sans text-foreground antialiased;
   }
+
+  /*
+   * Respect the OS "reduce motion" setting (WCAG 2.3.3; backlog B20). Durations are
+   * shortened to ~0 rather than removed, so Radix still receives `animationend`
+   * and finishes its cleanup (e.g. restoring body pointer-events after an overlay).
+   */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }

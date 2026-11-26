@@ -28,6 +28,13 @@ type DecisionDialogProps = {
   onOpenChange: (open: boolean) => void;
   /** Rejection always passes a validated reason (US-03 AC2). */
   onConfirm: (reason?: string) => Promise<ActionResult>;
+  /**
+   * Where focus goes when the dialog closes. Needed because this dialog is opened
+   * from outside (no Radix DialogTrigger), so Radix's default would drop focus to
+   * <body> (WCAG 2.4.3). Falls back to <main> if the element left the DOM (e.g. the
+   * row turned into an "Approved" badge).
+   */
+  returnFocusTo?: HTMLElement | null;
 };
 
 export function DecisionDialog({
@@ -36,6 +43,7 @@ export function DecisionDialog({
   open,
   onOpenChange,
   onConfirm,
+  returnFocusTo,
 }: DecisionDialogProps) {
   const [reason, setReason] = useState("");
   const [fieldError, setFieldError] = useState<string | null>(null);
@@ -79,7 +87,16 @@ export function DecisionDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent
+        className="sm:max-w-md"
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          const target = returnFocusTo?.isConnected
+            ? returnFocusTo
+            : document.getElementById("main");
+          target?.focus();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{isReject ? "Reject leave request?" : "Approve leave request?"}</DialogTitle>
           <DialogDescription>

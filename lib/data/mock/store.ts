@@ -32,3 +32,17 @@ const globalForMock = globalThis as unknown as { __leaveTrackMockDb?: MockDb };
  * API write would be invisible to pages.
  */
 export const mockDb: MockDb = (globalForMock.__leaveTrackMockDb ??= createMockDb());
+
+/**
+ * Restore every mockDb collection to the fixtures — IN PLACE. The mock
+ * repository and memory stores hold references to these arrays from import
+ * time, so reassigning (`mockDb.leaveRequests = …`) would leave them reading
+ * stale data. Used only by tests and the gated e2e reset route.
+ */
+export function resetMockDb(): void {
+  const fresh = createMockDb();
+  for (const key of Object.keys(fresh) as (keyof MockDb)[]) {
+    const target = mockDb[key] as unknown[];
+    target.splice(0, target.length, ...(fresh[key] as unknown[]));
+  }
+}

@@ -51,6 +51,10 @@ export function ApprovalQueue({ requests, onDecide = mockSubmit }: ApprovalQueue
   const [active, setActive] = useState<{ request: TeamRequestView; decision: Decision } | null>(
     null,
   );
+  // `active` stays set while the dialog closes (only `dialogOpen` flips), so the dialog
+  // isn't unmounted mid-close and Radix returns focus to the trigger (WCAG 2.4.3).
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [returnFocusTo, setReturnFocusTo] = useState<HTMLElement | null>(null);
 
   if (requests.length === 0) {
     return (
@@ -62,7 +66,12 @@ export function ApprovalQueue({ requests, onDecide = mockSubmit }: ApprovalQueue
     );
   }
 
-  const open = (request: TeamRequestView, decision: Decision) => setActive({ request, decision });
+  const open = (request: TeamRequestView, decision: Decision) => {
+    // Remember the button that opened the dialog so focus can return to it.
+    setReturnFocusTo(document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    setActive({ request, decision });
+    setDialogOpen(true);
+  };
 
   async function confirm(reason?: string): Promise<ActionResult> {
     if (!active)
@@ -177,11 +186,12 @@ export function ApprovalQueue({ requests, onDecide = mockSubmit }: ApprovalQueue
       <DecisionDialog
         request={active?.request ?? null}
         decision={active?.decision ?? "approve"}
-        open={active !== null}
+        open={dialogOpen}
         onOpenChange={(o) => {
-          if (!o) setActive(null);
+          setDialogOpen(o);
         }}
         onConfirm={confirm}
+        returnFocusTo={returnFocusTo}
       />
     </>
   );
