@@ -1,4 +1,4 @@
-import { buildBalanceSummaries } from "@/lib/data/balance";
+import { availableForRequest, buildBalanceSummaries } from "@/lib/data/balance";
 import { LAST_ACCRUAL_AT } from "@/lib/data/mock/fixtures";
 import { mockDb } from "@/lib/data/mock/store";
 import type { LeaveRepository } from "@/lib/data/repositories";
@@ -24,18 +24,6 @@ function userName(id: string | null): string | null {
 
 function toView(r: LeaveRequest): LeaveRequestView {
   return toRequestView(r, typeOf(r.leaveTypeId).name, userName(r.decidedBy));
-}
-
-function pendingDays(userId: string, leaveTypeId: string): number {
-  return active()
-    .filter((r) => r.userId === userId && r.leaveTypeId === leaveTypeId && r.status === "pending")
-    .reduce((sum, r) => sum + countDays(r.startDate, r.endDate), 0);
-}
-
-function available(userId: string, leaveTypeId: string): number | null {
-  if (!typeOf(leaveTypeId).tracksBalance) return null;
-  const bal = leaveBalances.find((b) => b.userId === userId && b.leaveTypeId === leaveTypeId);
-  return bal ? bal.balance - pendingDays(userId, leaveTypeId) : null;
 }
 
 const newestFirst = (a: { createdAt: string }, b: { createdAt: string }) =>
@@ -88,13 +76,14 @@ export const mockRepository: LeaveRepository = {
         return {
           ...toView(r),
           employee: { id: emp.id, name: emp.name, email: emp.email },
-          // Exclude THIS request from the pending deduction, otherwise it is
-          // counted twice and an in-balance request is flagged as over.
-          balanceAvailable: (() => {
-            const avail = available(r.userId, r.leaveTypeId);
-            if (avail === null) return null;
-            return r.status === "pending" ? avail + countDays(r.startDate, r.endDate) : avail;
-          })(),
+          balanceAvailable: availableForRequest({
+            tracksBalance: typeOf(r.leaveTypeId).tracksBalance,
+            confirmed: leaveBalances.find(
+              (b) => b.userId === r.userId && b.leaveTypeId === r.leaveTypeId,
+            )?.balance,
+            pendingRanges: active().filter((p) => p.userId === r.userId && p.status === "pending"),
+            request: r,
+          }),
         };
       });
   },

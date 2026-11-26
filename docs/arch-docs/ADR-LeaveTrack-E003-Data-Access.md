@@ -49,6 +49,7 @@ Option 3.
   Security.
 - Transitional (backlog B13): `createPostgresRepository(sql, fallback)` implements reads
   incrementally and delegates the rest to the mock repository, each delegation marked with
-  its task. TASK-012 moved users, leave types, balances and my-requests; team queue
-  (TASK-013) and audit/policies/stats (TASK-015) remain. A parity test asserts the Postgres
+  its task. TASK-012 moved users, leave types, balances and my-requests; TASK-013 moved the
+  manager queue (every statement scoped by `u.manager_id = $1`, asserted structurally);
+  audit/policies/stats (TASK-015) remain. A parity test asserts the Postgres
   and mock implementations agree on the seed.

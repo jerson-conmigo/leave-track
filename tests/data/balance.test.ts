@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildBalanceSummaries } from "@/lib/data/balance";
+import { availableForRequest, buildBalanceSummaries } from "@/lib/data/balance";
 import type { LeaveType } from "@/lib/data/types";
 
 /** US-02 balance rules — the single implementation shared by all repositories. */
@@ -74,5 +74,43 @@ describe("buildBalanceSummaries", () => {
 
   it("asOf is null when no accrual has run yet", () => {
     expect(build({ lastAccrualAt: null }).map((b) => b.asOf)).toEqual([null, null, null]);
+  });
+});
+
+describe("availableForRequest (queue balance hint)", () => {
+  const pending = [
+    { id: "r1", leaveTypeId: V, startDate: "2026-12-01", endDate: "2026-12-05" }, // 5 days — under review
+    { id: "r2", leaveTypeId: V, startDate: "2027-01-04", endDate: "2027-01-05" }, // 2 days
+    { id: "r3", leaveTypeId: S, startDate: "2027-01-06", endDate: "2027-01-06" }, // other type
+  ];
+
+  it("excludes the request under review and other types", () => {
+    expect(
+      availableForRequest({
+        tracksBalance: true,
+        confirmed: 6.5,
+        pendingRanges: pending,
+        request: { id: "r1", leaveTypeId: V },
+      }),
+    ).toBe(4.5);
+  });
+
+  it("missing balance row counts as 0; untracked types are null", () => {
+    expect(
+      availableForRequest({
+        tracksBalance: true,
+        confirmed: undefined,
+        pendingRanges: [],
+        request: { id: "x", leaveTypeId: V },
+      }),
+    ).toBe(0);
+    expect(
+      availableForRequest({
+        tracksBalance: false,
+        confirmed: 3,
+        pendingRanges: pending,
+        request: { id: "x", leaveTypeId: U },
+      }),
+    ).toBeNull();
   });
 });

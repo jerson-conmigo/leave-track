@@ -80,3 +80,13 @@ Headless Chrome never fires the exit-animation end for Radix Select/Dialog, so `
 `pointer-events: none` and every later click silently misses. Emulate
 `prefers-reduced-motion: reduce` (puppeteer `emulateMediaFeatures`) — real browsers are unaffected.
 Also assert on the _toast_ element, not page text: pre-submit alerts can contain the same words.
+
+### Security-scoped queries: assert the scope structurally (from TASK-013)
+
+Functional tests ("Ben sees only his team") pass just as well if the filter is applied in app
+code after an unscoped query — which ARCH/BR-02 forbids. Add a **structural** test: wrap the
+`SqlClient` in a recorder, call the repository method, and assert that _every_ statement
+contains the scope predicate (e.g. `where u.manager_id = $1`) and receives the session id as
+its parameter. Prove it with a probe that removes the SQL filter **and** re-adds it in
+TypeScript: all functional tests stay green and only the structural test must go red
+(TASK-013: 1 failed / 60 passed — exactly the intended signal).

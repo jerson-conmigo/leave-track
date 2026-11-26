@@ -24,7 +24,8 @@ import type {
  *                        delegate to mock until TASK-013/015 — backlog B13)
  *   DATABASE_URL unset → in-memory mock (`mockRepository`)
  * Rules for the Postgres implementation:
- *   - `listTeamRequests` MUST filter `WHERE manager_id = :managerId` in SQL (BR-02).
+ *   - `listTeamRequests` MUST filter `WHERE manager_id = :managerId` in SQL (BR-02) —
+ *     done in TASK-013; tests/data/postgres-repository.test.ts asserts it structurally.
  *   - Every leave_requests read MUST exclude `is_deleted = true`; never hard-delete.
  */
 export interface LeaveRepository {

@@ -161,6 +161,11 @@ export type MyLeaveContext = {
   requests: LeaveRequestView[];
 };
 
+/** `data` of GET /api/leave-requests?scope=team — US-04 manager queue. */
+export type TeamQueue = {
+  requests: TeamRequestView[];
+};
+
 /** Result shape for mutations invoked from the UI (server actions). */
 export type ActionResult =
   | { success: true; warnings?: SubmitWarning[] }

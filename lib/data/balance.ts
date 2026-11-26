@@ -39,3 +39,23 @@ export function buildBalanceSummaries(input: {
     };
   });
 }
+
+/**
+ * Balance hint for ONE request in a manager's queue (US-03/US-04): the
+ * employee's confirmed balance (0 if no row) minus their OTHER pending requests
+ * of the same type. The request under review is excluded so it isn't counted
+ * twice. null for untracked types (Unpaid, US-08). Shared by every repository.
+ */
+export function availableForRequest(input: {
+  tracksBalance: boolean;
+  confirmed: number | undefined;
+  pendingRanges: (PendingRange & { id: string })[];
+  request: { id: string; leaveTypeId: string };
+}): number | null {
+  const { tracksBalance, confirmed, pendingRanges, request } = input;
+  if (!tracksBalance) return null;
+  const otherPending = pendingRanges
+    .filter((r) => r.leaveTypeId === request.leaveTypeId && r.id !== request.id)
+    .reduce((sum, r) => sum + countDays(r.startDate, r.endDate), 0);
+  return (confirmed ?? 0) - otherPending;
+}

@@ -5,7 +5,7 @@ import { ok } from "@/lib/api/response";
 import { withErrorHandler } from "@/lib/api/with-error-handler";
 import { getSession } from "@/lib/auth/session";
 import { repository } from "@/lib/data/repositories";
-import type { MyLeaveContext } from "@/lib/data/types";
+import type { MyLeaveContext, TeamQueue } from "@/lib/data/types";
 import { getSubmitDeps, submitLeaveRequest } from "@/lib/leave-requests";
 
 /**
@@ -31,19 +31,28 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   return ok(result, { status: 201 });
 });
 
-/** `scope=team` joins this enum in TASK-013 (manager-only, scoped in SQL). */
 const ListQuerySchema = z.object({
-  scope: z.enum(["mine"], { error: "Unsupported scope." }),
+  scope: z.enum(["mine", "team"], { error: "Unsupported scope." }),
+  // Only meaningful for scope=team: the queue shows pending requests by default.
+  status: z.enum(["pending", "all"], { error: "Unsupported status." }).default("pending"),
 });
 
+const NO_STORE = { headers: { "Cache-Control": "private, no-store" } };
+
 /**
- * GET /api/leave-requests?scope=mine — the session user's balance context
- * (US-02): per-type balances (confirmed, pending shown separately, as of the
- * last accrual run) and their own requests. Always the SESSION user — any
- * `userId` in the query is ignored.
+ * GET /api/leave-requests — list leave requests for the session user.
  *
- * 200 { success: true, data: { balances, requests } }
- * 400 VALIDATION_ERROR (missing/unsupported scope) · 401 UNAUTHENTICATED
+ * scope=mine (US-02): the session user's balance context — per-type balances
+ *   (confirmed, pending shown separately, as of the last accrual run) and their
+ *   own requests.  200 { success: true, data: { balances, requests } }
+ *
+ * scope=team (US-04, BR-02): a MANAGER's queue of their direct reports' requests,
+ *   scoped in SQL by users.manager_id = <session user>. `status=pending` (default)
+ *   or `all`. The role check lives here because proxy.ts's route→role matrix only
+ *   covers pages.  200 { success: true, data: { requests } } · 403 FORBIDDEN
+ *
+ * The subject is ALWAYS the session user — `userId` / `managerId` query params
+ * are ignored. 400 VALIDATION_ERROR (bad scope/status) · 401 UNAUTHENTICATED
  */
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const session = await getSession();
@@ -54,10 +63,22 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     throw new AppError("VALIDATION_ERROR", query.error.issues[0]?.message ?? "Invalid query.");
   }
 
+  if (query.data.scope === "team") {
+    if (session.role !== "manager") {
+      throw new AppError("FORBIDDEN", "Only managers can view a team queue.");
+    }
+    const requests = await repository.listTeamRequests(
+      session.userId,
+      query.data.status === "pending" ? { status: "pending" } : undefined,
+    );
+    const data: TeamQueue = { requests };
+    return ok(data, NO_STORE);
+  }
+
   const [balances, requests] = await Promise.all([
     repository.getBalances(session.userId),
     repository.listMyRequests(session.userId),
   ]);
   const data: MyLeaveContext = { balances, requests };
-  return ok(data, { headers: { "Cache-Control": "private, no-store" } });
+  return ok(data, NO_STORE);
 });

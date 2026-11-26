@@ -65,13 +65,13 @@ Environments are selected with `APP_ENV` (`development` / `staging` / `productio
 
 One switch (`getSql()` in `lib/db/postgres.ts`) picks the store for reads **and** writes.
 
-| `DATABASE_URL` | Submit request | Users · balances · my requests (TASK-012) | Team queue · audit · policies · stats |
-| -------------- | -------------- | ----------------------------------------- | ------------------------------------- |
-| unset          | In-memory mock | In-memory mock                            | In-memory mock                        |
-| set            | Postgres       | Postgres                                  | Still mock — backlog B13              |
+| `DATABASE_URL` | Submit request | Users · balances · my requests · manager queue | Audit · policies · org stats |
+| -------------- | -------------- | ---------------------------------------------- | ---------------------------- |
+| unset          | In-memory mock | In-memory mock                                 | In-memory mock               |
+| set            | Postgres       | Postgres (TASK-012, TASK-013)                  | Still mock — backlog B13     |
 
-With `DATABASE_URL` set, a manager's queue and the HR audit won't show Postgres data until
-TASK-013/015 — keep it unset for demos until then. Design: ADR-LeaveTrack-E003.
+With `DATABASE_URL` set, the HR audit report, policies page and HR dashboard stats won't show
+Postgres data until TASK-015. Design: ADR-LeaveTrack-E003.
 
 ## Project layout
 

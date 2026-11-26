@@ -147,13 +147,87 @@ describe("GET /api/leave-requests?scope=mine (TASK-012)", () => {
   it.each([
     ["missing scope", ""],
     ["unknown scope", "?scope=everyone"],
-    ["team (TASK-013)", "?scope=team"],
   ])("400 VALIDATION_ERROR for %s", async (_label, query) => {
     const res = await get(query);
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({
       success: false,
       error: { code: "VALIDATION_ERROR", message: "Unsupported scope." },
+    });
+  });
+});
+
+const BEN_SESSION = {
+  userId: USER_IDS.ben,
+  role: "manager",
+  name: "Ben Ortiz",
+  email: "ben.ortiz@leavetrack.test",
+  managerId: USER_IDS.carla,
+};
+const CARLA_SESSION = {
+  userId: USER_IDS.carla,
+  role: "hr_admin",
+  name: "Carla Diaz",
+  email: "carla.diaz@leavetrack.test",
+  managerId: null,
+};
+const BENS_TEAM = new Set<string>([USER_IDS.ana, USER_IDS.jordan, USER_IDS.priya]);
+
+describe("GET /api/leave-requests?scope=team (TASK-013)", () => {
+  type Row = { employee: { id: string }; status: string };
+
+  it("200 with only the manager's direct reports' pending requests", async () => {
+    getSession.mockResolvedValue(BEN_SESSION);
+    const res = await get("?scope=team");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("private, no-store");
+    const { data } = await res.json();
+    expect(data.requests.length).toBeGreaterThan(0);
+    expect(data.requests.every((r: Row) => BENS_TEAM.has(r.employee.id))).toBe(true);
+    expect(data.requests.every((r: Row) => r.status === "pending")).toBe(true);
+  });
+
+  it("status=all includes decided requests, still only the team", async () => {
+    getSession.mockResolvedValue(BEN_SESSION);
+    const { data } = await (await get("?scope=team&status=all")).json();
+    expect(data.requests.some((r: Row) => r.status === "rejected")).toBe(true);
+    expect(data.requests.every((r: Row) => BENS_TEAM.has(r.employee.id))).toBe(true);
+  });
+
+  it("ignores ?managerId / ?userId — always the session manager's team", async () => {
+    getSession.mockResolvedValue(BEN_SESSION);
+    const own = await (await get("?scope=team&status=all")).json();
+    const spoofed = await (
+      await get(`?scope=team&status=all&managerId=${USER_IDS.maya}&userId=${USER_IDS.maya}`)
+    ).json();
+    expect(spoofed.data).toEqual(own.data);
+  });
+
+  it.each([
+    ["an employee", ANA_SESSION],
+    ["an HR admin", CARLA_SESSION],
+  ])("403 FORBIDDEN for %s", async (_label, session) => {
+    getSession.mockResolvedValue(session);
+    const res = await get("?scope=team");
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({
+      success: false,
+      error: { code: "FORBIDDEN", message: "Only managers can view a team queue." },
+    });
+  });
+
+  it("401 without a session", async () => {
+    getSession.mockResolvedValue(null);
+    expect((await get("?scope=team")).status).toBe(401);
+  });
+
+  it("400 VALIDATION_ERROR for an unsupported status", async () => {
+    getSession.mockResolvedValue(BEN_SESSION);
+    const res = await get("?scope=team&status=bogus");
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toEqual({
+      code: "VALIDATION_ERROR",
+      message: "Unsupported status.",
     });
   });
 });
