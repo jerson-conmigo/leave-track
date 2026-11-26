@@ -29,16 +29,28 @@ export async function createTestDb(): Promise<{ db: PGlite; sql: SqlClient }> {
   return { db, sql: pgliteClient(db) };
 }
 
+let savepointSeq = 0;
+
 /** PGlite adapter for the SqlClient port (mirrors lib/db/postgres.ts). */
 export function pgliteClient(db: PGlite | Transaction): SqlClient {
   return {
     async query(text, params = []) {
       return (await db.query(text, [...params])).rows as never[];
     },
-    transaction(fn) {
-      // PGlite has no nested transactions; inside one, run inline.
-      if (!("transaction" in db)) return fn(pgliteClient(db));
-      return db.transaction((tx) => fn(pgliteClient(tx)));
+    async transaction(fn) {
+      if ("transaction" in db) return db.transaction((tx) => fn(pgliteClient(tx)));
+      // Nested: emulate a SAVEPOINT exactly like postgres.js v4's nested `begin()`,
+      // so a caught inner failure rolls back only the inner work (review TASK-011 #4).
+      const name = `sp_${++savepointSeq}`;
+      await db.exec(`savepoint ${name}`);
+      try {
+        const result = await fn(pgliteClient(db));
+        await db.exec(`release savepoint ${name}`);
+        return result;
+      } catch (error) {
+        await db.exec(`rollback to savepoint ${name}`);
+        throw error;
+      }
     },
   };
 }

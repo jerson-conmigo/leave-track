@@ -73,6 +73,17 @@ One switch (`getSql()` in `lib/db/postgres.ts`) picks the store for reads **and*
 With `DATABASE_URL` set, the HR audit report, policies page and HR dashboard stats won't show
 Postgres data until TASK-015. Design: ADR-LeaveTrack-E003.
 
+### Known limitations
+
+- **HR audit visibility (until TASK-015).** With `DATABASE_URL` set, approvals and rejections
+  (TASK-014) are written to Postgres — `leave_requests` and `audit_log`, in one transaction —
+  but `/audit`, `/policies` and the HR dashboard stats still read the in-memory mock. HR will
+  **not** see Postgres decisions in the audit report yet. The records are complete and safe in
+  `audit_log` (one decision row per request, enforced by a unique index); only the report view
+  lags. `/audit` shows an in-app notice in this mode.
+- **Notifications are log-only** (backlog B6): `leave_request.submitted` / `leave_request.decided`
+  events are logged; a delivery failure is logged and never undoes a submission or decision.
+
 ## Project layout
 
 ```

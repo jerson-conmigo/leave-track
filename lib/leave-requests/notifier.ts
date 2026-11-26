@@ -13,9 +13,22 @@ export type LeaveRequestSubmittedNotice = {
   days: number;
 };
 
-/** Delivery channel for "a request needs your review" (US-01 AC1). */
+export type LeaveRequestDecidedNotice = {
+  requestId: string;
+  decision: "approved" | "rejected";
+  employee: { id: string; name: string; email: string };
+  manager: { id: string; name: string };
+  leaveType: LeaveTypeName;
+  startDate: string;
+  endDate: string;
+  days: number;
+  reason: string | null;
+};
+
+/** Delivery channels: "needs your review" (US-01 AC1) and "your request was decided" (US-03). */
 export interface Notifier {
   leaveRequestSubmitted(notice: LeaveRequestSubmittedNotice): Promise<void>;
+  leaveRequestDecided(notice: LeaveRequestDecidedNotice): Promise<void>;
 }
 
 /**
@@ -40,5 +53,20 @@ export const logNotifier: Notifier = {
       return;
     }
     logger.info(context, "manager notified of new leave request");
+  },
+
+  async leaveRequestDecided(notice) {
+    logger.info(
+      {
+        event: "leave_request.decided",
+        requestId: notice.requestId,
+        decision: notice.decision,
+        employeeId: notice.employee.id,
+        managerId: notice.manager.id,
+        leaveType: notice.leaveType,
+        days: notice.days,
+      },
+      "employee notified of leave decision",
+    );
   },
 };

@@ -62,6 +62,11 @@ export const POST = withErrorHandler(async (req) => {
   them (e.g. RLS policies with `auth.uid()`) needs a shim in the test's `beforeAll`.
 - Decisions: `decision_reason` is required when `status = 'rejected'`, optional on approve, and
   must be NULL while pending (DB-enforced).
+- **Never bind a parameter as a custom enum.** Send enums as text and cast inside SQL —
+  `($3::text)::public.request_status` — and read them back as `::text`. A `$n::public.<enum>`
+  parameter makes postgres.js issue a type-lookup query mid-statement (extra round trips; on a
+  single-session server it destroyed the connection inside a transaction — TASK-014). Enforced
+  by `tests/db/sql-conventions.test.ts`.
 - **CHECK constraints pass on NULL.** `check (x ~ '\S')` accepts `x IS NULL` — wrap nullable
   inputs in `coalesce(...)` (or add `NOT NULL`) when NULL must fail.
 - **Postgres `trim()` strips spaces only**, not tabs/newlines. For "non-blank" use

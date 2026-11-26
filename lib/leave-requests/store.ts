@@ -35,3 +35,36 @@ export interface SubmitStore {
   /** Inserts the pending request AND its `submitted` audit row atomically (BR-04). */
   insertRequestWithAudit(input: NewLeaveRequest): Promise<LeaveRequest>;
 }
+
+export type DecideInput = {
+  requestId: string;
+  /** Always the session manager — never from the request body. */
+  managerId: string;
+  decision: "approve" | "reject";
+  reason: string | undefined;
+  /** Day counting stays in the service (countDays, backlog B5). */
+  daysFor: (startDate: string, endDate: string) => number;
+};
+
+export type DecideOutcome =
+  | {
+      ok: true;
+      request: LeaveRequest;
+      leaveType: LeaveType;
+      employee: { id: string; name: string; email: string };
+      manager: { id: string; name: string };
+      days: number;
+      /** Balance after the decrement; null when no balance changed (reject / untracked). */
+      balanceAfter: number | null;
+    }
+  | { ok: false; reason: "not_found" | "not_report" | "already_decided" };
+
+/** Persistence port for manager decisions (TASK-014). */
+export interface DecideStore {
+  /**
+   * In ONE transaction: scoped + status-guarded update, balance decrement on
+   * approve (tracked types only, that request's own leave type), and the
+   * decision audit row. Nothing is written when the outcome is not ok.
+   */
+  decideWithAudit(input: DecideInput): Promise<DecideOutcome>;
+}

@@ -166,7 +166,23 @@ export type TeamQueue = {
   requests: TeamRequestView[];
 };
 
+export type Decision = "approve" | "reject";
+
+/** Non-blocking issue returned with a successful approval (warn, don't block). */
+export type DecideWarning = {
+  code: "NEGATIVE_BALANCE";
+  message: string;
+  leaveType: LeaveTypeName;
+  balanceAfter: number;
+};
+
+/** `data` of a successful POST /api/leave-requests/:id/decision (200). */
+export type DecideLeaveRequestResult = {
+  request: LeaveRequestView;
+  warnings: DecideWarning[];
+};
+
 /** Result shape for mutations invoked from the UI (server actions). */
 export type ActionResult =
-  | { success: true; warnings?: SubmitWarning[] }
+  | { success: true; warnings?: (SubmitWarning | DecideWarning)[] }
   | { success: false; error: { code: string; message: string } };

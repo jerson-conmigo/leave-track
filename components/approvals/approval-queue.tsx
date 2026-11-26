@@ -71,12 +71,14 @@ export function ApprovalQueue({ requests, onDecide = mockSubmit }: ApprovalQueue
     const result = await onDecide(request.id, decision, reason);
     if (result.success) {
       setDecided((d) => ({ ...d, [request.id]: decision === "approve" ? "approved" : "rejected" }));
-      toast.success(
-        `${decision === "approve" ? "Approved" : "Rejected"} ${request.employee.name}'s request`,
-        {
-          description: "Demo mode — nothing was saved. Decisions are wired up in TASK-014.",
-        },
-      );
+      const title = `${decision === "approve" ? "Approved" : "Rejected"} ${request.employee.name}'s request`;
+      const negative = result.warnings?.find((w) => w.code === "NEGATIVE_BALANCE");
+      if (negative) {
+        // Warn, don't block: the approval went through but left a negative balance.
+        toast.warning(title, { description: negative.message });
+      } else {
+        toast.success(title, { description: `${request.employee.name} has been notified.` });
+      }
     }
     return result;
   }

@@ -28,3 +28,26 @@ export const RejectReasonSchema = z
   .trim()
   .min(3, { error: "Give the employee a reason (at least 3 characters)." })
   .max(500, { error: "Keep the reason under 500 characters." });
+
+/**
+ * Manager decision body (US-03). Reject requires a reason (AC2); approve may
+ * carry an optional note. Shared by the route, the server action, and the dialog.
+ */
+export const DecisionSchema = z.discriminatedUnion(
+  "decision",
+  [
+    z.object({
+      decision: z.literal("approve"),
+      reason: z
+        .string()
+        .trim()
+        .max(500, { error: "Keep the reason under 500 characters." })
+        .optional()
+        .transform((v) => (v ? v : undefined)),
+    }),
+    z.object({ decision: z.literal("reject"), reason: RejectReasonSchema }),
+  ],
+  { error: "Decision must be approve or reject." },
+);
+
+export type DecisionInput = z.infer<typeof DecisionSchema>;

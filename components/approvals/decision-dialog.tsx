@@ -1,9 +1,9 @@
 "use client";
 
-import { CircleAlert, Loader2 } from "lucide-react";
+import { CircleAlert, Loader2, TriangleAlert } from "lucide-react";
 import { useId, useState } from "react";
 import { LeaveTypeBadge } from "@/components/leave/leave-type-badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,11 +15,11 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { ActionResult, TeamRequestView } from "@/lib/data/types";
-import { formatDateRange, formatDays } from "@/lib/format";
+import type { ActionResult, Decision, TeamRequestView } from "@/lib/data/types";
+import { formatDateRange, formatDayNumber, formatDays } from "@/lib/format";
 import { RejectReasonSchema } from "@/lib/validation/leave-request";
 
-export type Decision = "approve" | "reject";
+export type { Decision } from "@/lib/data/types";
 
 type DecisionDialogProps = {
   request: TeamRequestView | null;
@@ -99,6 +99,23 @@ export function DecisionDialog({
           </div>
           <p className="mt-2 break-words text-muted-foreground">&ldquo;{request.reason}&rdquo;</p>
         </div>
+
+        {!isReject &&
+        request.balanceAvailable !== null &&
+        request.days > request.balanceAvailable ? (
+          <Alert
+            role="status"
+            className="border-status-pending-foreground/30 bg-status-pending text-status-pending-foreground"
+          >
+            <TriangleAlert aria-hidden />
+            <AlertTitle>This approval exceeds the available balance</AlertTitle>
+            <AlertDescription className="text-status-pending-foreground">
+              Approving takes {request.employee.name}&apos;s {request.leaveType} balance to{" "}
+              {formatDayNumber(request.balanceAvailable - request.days)} days. HR will need to
+              review the override.
+            </AlertDescription>
+          </Alert>
+        ) : null}
 
         {isReject ? (
           <div className="grid gap-2">

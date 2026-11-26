@@ -34,7 +34,10 @@ const dbs: PGlite[] = [];
 beforeEach(async () => {
   ({ db, sql } = await createTestDb());
   dbs.push(db);
-  notifier = { leaveRequestSubmitted: vi.fn().mockResolvedValue(undefined) };
+  notifier = {
+    leaveRequestSubmitted: vi.fn().mockResolvedValue(undefined),
+    leaveRequestDecided: vi.fn().mockResolvedValue(undefined),
+  };
 });
 
 afterAll(async () => {

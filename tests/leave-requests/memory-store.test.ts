@@ -7,7 +7,10 @@ import { submitLeaveRequest } from "@/lib/leave-requests/submit";
 
 /** Local dev without DATABASE_URL: submissions must show up in mock reads. */
 describe("in-memory submit store", () => {
-  const notifier = { leaveRequestSubmitted: vi.fn().mockResolvedValue(undefined) };
+  const notifier = {
+    leaveRequestSubmitted: vi.fn().mockResolvedValue(undefined),
+    leaveRequestDecided: vi.fn().mockResolvedValue(undefined),
+  };
 
   it("makes a submitted request visible in My requests, the pending balance, and the manager queue", async () => {
     const { request } = await submitLeaveRequest(

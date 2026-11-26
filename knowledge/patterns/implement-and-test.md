@@ -90,3 +90,21 @@ contains the scope predicate (e.g. `where u.manager_id = $1`) and receives the s
 its parameter. Prove it with a probe that removes the SQL filter **and** re-adds it in
 TypeScript: all functional tests stay green and only the structural test must go red
 (TASK-013: 1 failed / 60 passed — exactly the intended signal).
+
+### Defense in depth for "exactly once" writes (from TASK-014)
+
+For money-like effects (balance decrements), stack independent guards and test each alone:
+
+1. a guarded, scoped statement (`update … where status = 'pending' and u.manager_id = $n`) → 409;
+2. a **DB backstop** that makes the duplicate impossible (partial unique index on the audit
+   row written in the same transaction as the effect);
+3. relative updates (`balance = balance - $days`), never read-modify-write.
+   Prove the backstop _independently_: remove guard (1) and assert the data is still correct
+   (one decrement, one decision row) — a red test alone doesn't show the data survived.
+
+### When a real-driver run hangs, suspect the harness before the app — then fix the app anyway
+
+TASK-014's browser run hung because an enum-typed bind parameter triggered a postgres.js
+type lookup that pglite-socket can't multiplex. Isolate with tiny single-statement probes
+(one variant per fresh server), find the minimal trigger, then prefer an app-side fix that is
+correct everywhere (text-typed params) plus a static convention test — not a harness tweak.

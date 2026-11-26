@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
+import { Info } from "lucide-react";
 import { ALL_EMPLOYEES, AuditFilters } from "@/components/audit/audit-filters";
 import { AuditTable } from "@/components/audit/audit-table";
 import { PageHeader } from "@/components/layout/page-header";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { requireRole } from "@/lib/auth/session";
 import { repository } from "@/lib/data/repositories";
 import type { AuditFilter } from "@/lib/data/types";
+import { getSql } from "@/lib/db/postgres";
 
 export const metadata: Metadata = { title: "Audit report" };
 
@@ -36,6 +39,19 @@ export default async function AuditPage({ searchParams }: PageProps<"/audit">) {
         description="Every request and decision — who, what, and when. Records are retained for at least 3 years."
       />
       <div className="flex flex-col gap-6">
+        {/* B13 / TASK-015: in Postgres mode this report still reads the mock — say so,
+            so HR never mistakes an incomplete report for a complete one. */}
+        {getSql() ? (
+          <Alert role="status">
+            <Info aria-hidden />
+            <AlertTitle>Recent decisions may be missing from this report</AlertTitle>
+            <AlertDescription>
+              Approvals and rejections are being recorded in the database, but this report
+              doesn&apos;t read from it yet. Full history arrives with the audit-report update
+              (TASK-015).
+            </AlertDescription>
+          </Alert>
+        ) : null}
         <AuditFilters employees={users.map((u) => ({ id: u.id, name: u.name }))} value={filter} />
         <section aria-label="Results">
           <AuditTable entries={entries} />

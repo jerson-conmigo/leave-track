@@ -40,6 +40,8 @@ Traceability: `docs/brd/BRD-LeaveTrack-v1.0.md` → `docs/prd/PRD-LeaveTrack-v1.
   route handlers and server actions are thin transports over them (pattern: TASK-011)
 - `lib/db/` — `SqlClient` port + postgres.js adapter (pooled URL); stores use the port, never a
   driver (ADR-LeaveTrack-E003). Process-wide state lives on `globalThis` (see coding-standards)
+- Known gap (until TASK-015): `/audit`, `/policies` and HR stats still read the mock even with
+  `DATABASE_URL` set — delegations are marked in `lib/data/postgres-repository.ts` (backlog B13)
 - `lib/auth/roles.ts` — the **only** route→role matrix (proxy, `requireRole`, and nav all read it)
 - `lib/api/` — response envelope, `AppError`, `withErrorHandler`
 - `lib/validation/` — zod schemas shared by client and server

@@ -266,6 +266,24 @@ describe("AC4 — is_deleted defaults to false; no hard-delete path", () => {
 });
 
 describe("invariants enforced by the database", () => {
+  it("allows at most one decision audit row per request (TASK-014 backstop)", async () => {
+    // r2 (Ana, approved) already has its `approved` audit row in the seed.
+    const decided = leaveRequests[1]!.id;
+    const err = await attempt(
+      `insert into audit_log (leave_request_id, actor_id, action) values ($1, $2, 'rejected')`,
+      [decided, BEN],
+    );
+    expect(err?.code).toBe("23505");
+    expect(err?.message).toMatch(/audit_log_one_decision_per_request/);
+    // `submitted` rows are outside the invariant.
+    expect(
+      await attempt(
+        `insert into audit_log (leave_request_id, actor_id, action) values ($1, $2, 'submitted')`,
+        [decided, ANA],
+      ),
+    ).toBeNull();
+  });
+
   it("rejects an end date before the start date (US-01 AC2)", async () => {
     const err = await insertRequest({ start_date: "2027-02-10", end_date: "2027-02-01" });
     expect(err?.message).toMatch(/leave_requests_date_range/);

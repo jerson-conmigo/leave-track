@@ -1,11 +1,16 @@
 import "server-only";
 import { getSql } from "@/lib/db/postgres";
-import { memorySubmitStore } from "@/lib/leave-requests/memory-store";
+import type { DecideDeps } from "@/lib/leave-requests/decide";
+import { memoryDecideStore, memorySubmitStore } from "@/lib/leave-requests/memory-store";
 import { logNotifier } from "@/lib/leave-requests/notifier";
-import { createPostgresSubmitStore } from "@/lib/leave-requests/postgres-store";
+import {
+  createPostgresDecideStore,
+  createPostgresSubmitStore,
+} from "@/lib/leave-requests/postgres-store";
 import type { SubmitDeps } from "@/lib/leave-requests/submit";
 import { logger } from "@/lib/logger";
 
+export { decideLeaveRequest } from "@/lib/leave-requests/decide";
 export { submitLeaveRequest } from "@/lib/leave-requests/submit";
 
 let announced = false;
@@ -22,4 +27,10 @@ export function getSubmitDeps(): SubmitDeps {
     announced = true;
   }
   return { store: sql ? createPostgresSubmitStore(sql) : memorySubmitStore, notifier: logNotifier };
+}
+
+/** Wire the decide service — same switch as submit and the repository. */
+export function getDecideDeps(): DecideDeps {
+  const sql = getSql();
+  return { store: sql ? createPostgresDecideStore(sql) : memoryDecideStore, notifier: logNotifier };
 }
