@@ -101,4 +101,3 @@ export function parseEnv(input: RawEnv): Env {
 
 export const env = parseEnv(process.env);
 export const isProduction = env.NODE_ENV === "production";
-export const isDeployed = isDeployedEnv(process.env);

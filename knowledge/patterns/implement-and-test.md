@@ -183,3 +183,17 @@ break in the app-level filter is invisible on Postgres (the trigger catches it).
 the "impossible" row. Every layer of defence-in-depth needs its own test, or it is
 untested code. Likewise, a mapping applied at two transports (routes AND server actions)
 needs a test at each.
+
+### Fail-closed configuration: test build time and runtime separately (from TASK-019)
+
+- `lib/env.ts` validates at **module load**, which Next.js runs during `next build`
+  ("collecting configuration"), not only at server start. A strict rule keyed on `NODE_ENV`
+  would break every build, CI run and local e2e (all `NODE_ENV=production`); key it on the
+  deployment stage (`APP_ENV` / `VERCEL_ENV`) instead.
+- A throw in `instrumentation.ts` `register()` does **not** stop `next start`: Next.js keeps
+  the process alive and answers every route (static ones included) with 500. Exit explicitly
+  (`process.exit(1)`) from a Node-only module (`lib/env-startup.ts`), imported only when
+  `NEXT_RUNTIME === "nodejs"`, or the Edge bundle warns about Node APIs.
+- Prove it with real processes: build and start under each configuration (CI, deployed-valid,
+  deployed-missing, deployed-with-test-token), and assert exit codes, `/api/health` and that
+  no secret value is ever printed.

@@ -342,9 +342,9 @@
     "semantic_hash": ""
   },
   "lib/env.ts": {
-    "mtime": 1795675739.8770313,
-    "seen": 1795675741.9719832,
-    "ast_hash": "9d4ac35459531c6f1e11ac61ee8aff91",
+    "mtime": 1795676390.8275132,
+    "seen": 1795676392.600864,
+    "ast_hash": "4d66b1e4026c73ecdfd611f191e416e3",
     "semantic_hash": ""
   },
   "lib/logger.ts": {
@@ -984,8 +984,8 @@
     "semantic_hash": ""
   },
   "app/api/test/reset/route.ts": {
-    "mtime": 1795675777.2152584,
-    "seen": 1795675778.969633,
+    "mtime": 1795676379.4354324,
+    "seen": 1795676381.503582,
     "ast_hash": "26863402835d12bf844dc75c91add903",
     "semantic_hash": ""
   },
@@ -1206,9 +1206,9 @@
     "semantic_hash": ""
   },
   "instrumentation.ts": {
-    "mtime": 1795675876.8819714,
-    "seen": 1795675878.9148679,
-    "ast_hash": "f55a340569ac46a0b609b3580a6def29",
+    "mtime": 1795676378.5627449,
+    "seen": 1795676381.504715,
+    "ast_hash": "8c3262b8d7a79f389fca5409796d8695",
     "semantic_hash": ""
   },
   "tests/env.test.ts": {
@@ -1221,6 +1221,12 @@
     "mtime": 1795675879.0224454,
     "seen": 1795675884.126313,
     "ast_hash": "fbe22478483ddbe891d4d9c30592e0c1",
+    "semantic_hash": ""
+  },
+  "lib/env-startup.ts": {
+    "mtime": 1795676378.9948268,
+    "seen": 1795676381.505336,
+    "ast_hash": "79ddf834d43eb0a9e5a04eee3a4cba9a",
     "semantic_hash": ""
   }
 }
