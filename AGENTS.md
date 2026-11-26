@@ -122,6 +122,17 @@ document's "Revision v1.1" section and `docs/dev-tasks/epic-2-hardening-and-reso
 - Reference the task ID in the PR title or body. One task per PR where possible.
 - Never commit directly to `main`; never bypass hooks (`--no-verify`).
 
+Workflow for every task (one branch and one PR per task):
+
+1. `git switch main && git pull`
+2. `git switch -c <feat|fix|chore>/TASK-0NN-short-name`
+3. Run EVALUATE → PLAN → APPLY → VALIDATE; commit with Conventional Commits (hooks run).
+4. `git push -u origin <branch>`, then open a PR that references `TASK-0NN`.
+5. Merge only when CI (quality + e2e) is green. Marking the task Done is part of VALIDATE.
+
+`graphify-out/`: only the shared graph (`graph.json`, `GRAPH_REPORT.md`, `manifest.json`,
+label files) is tracked; the cache, `graph.html` and dated snapshots are git-ignored.
+
 ## Task tracking
 
 `docs/dev-tasks/*.csv` is the task board. When a task's acceptance criteria all pass (VALIDATE),

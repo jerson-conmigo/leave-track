@@ -702,9 +702,9 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1795678138.056403,
-    "seen": 1795678140.603405,
-    "ast_hash": "e9c624783fdc3b9746b042371cbb0f48",
+    "mtime": 1795679428.6065378,
+    "seen": 1795679431.497756,
+    "ast_hash": "7a7df88acd983a0c206fac8fe704601e",
     "semantic_hash": ""
   },
   "README.md": {
@@ -720,9 +720,9 @@
     "semantic_hash": ""
   },
   "knowledge/patterns/implement-and-test.md": {
-    "mtime": 1795678909.5950022,
-    "seen": 1795678913.9904902,
-    "ast_hash": "cca41591b2935fc5e7499c1701daa83c",
+    "mtime": 1795679917.715754,
+    "seen": 1795679920.06878,
+    "ast_hash": "335b30267c71da8a74f635319c3721cc",
     "semantic_hash": ""
   },
   "knowledge/prompts/dev/implement-api-route.md": {
@@ -750,9 +750,9 @@
     "semantic_hash": ""
   },
   "knowledge/retros/2026-11-24-day0-scaffold.md": {
-    "mtime": 1795678909.642508,
-    "seen": 1795678913.9905741,
-    "ast_hash": "26edb08e3c4691f11582c68905303cf3",
+    "mtime": 1795679429.0777578,
+    "seen": 1795679431.498185,
+    "ast_hash": "9135934f7b02a7affeb8391aa8c19ab0",
     "semantic_hash": ""
   },
   "tests/db/schema.test.ts": {
@@ -762,9 +762,9 @@
     "semantic_hash": ""
   },
   "scripts/set-task-status.mjs": {
-    "mtime": 1795501799.1860552,
-    "seen": 1795501802.189811,
-    "ast_hash": "9e375a5df43e4e73eafe3a3b74e67543",
+    "mtime": 1795679753.2319129,
+    "seen": 1795679755.000691,
+    "ast_hash": "72f3da5b0a205785581ebc0fa10ae24b",
     "semantic_hash": ""
   },
   "lib/db/postgres.ts": {
@@ -1245,6 +1245,18 @@
     "mtime": 1795678522.1109142,
     "seen": 1795678527.5790458,
     "ast_hash": "37df62e0201e9bf1517950fed9182842",
+    "semantic_hash": ""
+  },
+  "tests/set-task-status.test.ts": {
+    "mtime": 1795679332.5728345,
+    "seen": 1795679337.919911,
+    "ast_hash": "e49864981841b53230c7649fbc8a68ad",
+    "semantic_hash": ""
+  },
+  "tests/repo-hygiene.test.ts": {
+    "mtime": 1795679770.9737203,
+    "seen": 1795679776.1288981,
+    "ast_hash": "6f1cbc9924f59d93ba1e5a5165c52624",
     "semantic_hash": ""
   }
 }

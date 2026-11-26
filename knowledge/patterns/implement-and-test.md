@@ -222,3 +222,19 @@ Prove the bug end-to-end before fixing it, with off-site navigation blocked
   a threshold above the baseline and a narrowed `include`.
 - CI helper scripts that guard a gate get their own tests, including "fails loudly"
   cases — a report step that silently passes on a missing file hides a broken gate.
+
+### Never split a CSV on line breaks (from TASK-022)
+
+A quoted CSV field may contain line breaks, so `text.split("\n")` is not a list of rows.
+The old `set-task-status` did exactly that: a multi-line field crashed it, mixed line endings
+hid rows, and — worst — a line _inside_ a quoted field that looked like a row
+(`T-9,fake,Open,…`) was "updated", silently corrupting another row's text while reporting
+success. Scan the whole file as RFC 4180 records with exact field ranges, keep each record's
+own line ending, refuse malformed input (unterminated quote, wrong field count) before
+writing, and replace through a temp file + rename. Prove "only one field changed" with golden
+tests on copies of the real files.
+Guard repository-hygiene rules with a test that asks git itself
+(`git check-ignore --no-index`, `git ls-files --cached --ignored --exclude-standard`), so a
+deleted `.gitignore` line or a re-tracked cache file fails CI instead of resurfacing as noise.
+Check that a mutation probe really changes behaviour: a no-op mutation (`if (false) i++;`)
+stays green and proves nothing.

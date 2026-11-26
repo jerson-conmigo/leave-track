@@ -47,3 +47,12 @@ Thumbs.db
 playwright-report/
 test-results/
 blob-report/
+
+# graphify (TASK-022): track only the shared graph (graph.json, GRAPH_REPORT.md,
+# manifest.json, label files). The cache, the HTML view, dated snapshots and the
+# temporary extraction files are local and change on every query/update.
+graphify-out/cache/
+graphify-out/graph.html
+graphify-out/20??-??-??/
+graphify-out/.graphify_cached.json
+graphify-out/.graphify_uncached.txt
