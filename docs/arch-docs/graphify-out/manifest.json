@@ -1,0 +1,50 @@
+{
+  "ADR-LeaveTrack-E001-Auth-Session-Strategy.md": {
+    "mtime": 1795497284.7882352,
+    "seen": 1795675027.995276,
+    "ast_hash": "f5c5f68c934d0fd7af064c9492285db7",
+    "semantic_hash": ""
+  },
+  "ADR-LeaveTrack-E002-Accrual-Idempotency.md": {
+    "mtime": 1795665575.4095936,
+    "seen": 1795675027.9952772,
+    "ast_hash": "f0f3b0fecab76276d50f3b17bd83af47",
+    "semantic_hash": ""
+  },
+  "ADR-LeaveTrack-E003-Data-Access.md": {
+    "mtime": 1795662095.081681,
+    "seen": 1795675027.9952781,
+    "ast_hash": "4d89396c0ef56b500a9ff23787dc24c1",
+    "semantic_hash": ""
+  },
+  "ADR-LeaveTrack-E004-Real-Authentication.md": {
+    "mtime": 1795675027.719091,
+    "seen": 1795675027.995279,
+    "ast_hash": "d64f5714e43147df21117ab570ce9443",
+    "semantic_hash": ""
+  },
+  "ADR-LeaveTrack-E005-Approval-Routing.md": {
+    "mtime": 1795675027.7276895,
+    "seen": 1795675027.995279,
+    "ast_hash": "5462b5619dcd83bc9535a10600d7728b",
+    "semantic_hash": ""
+  },
+  "ADR-LeaveTrack-E006-Balance-Ledger-and-Resolutions.md": {
+    "mtime": 1795675027.7391746,
+    "seen": 1795675027.9952798,
+    "ast_hash": "516065150d262d819e44c84c08c14a0a",
+    "semantic_hash": ""
+  },
+  "ADR-LeaveTrack-E007-Notification-Outbox.md": {
+    "mtime": 1795675027.745608,
+    "seen": 1795675027.995281,
+    "ast_hash": "b6d15e719a95814350d2999afe563e0b",
+    "semantic_hash": ""
+  },
+  "ARCH-LeaveTrack-v1.0.md": {
+    "mtime": 1795674986.0379329,
+    "seen": 1795675027.995281,
+    "ast_hash": "b06fac1ce05a23231695111f19651fcb",
+    "semantic_hash": ""
+  }
+}

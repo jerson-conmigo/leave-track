@@ -72,3 +72,93 @@ Leave requests currently move by email and a shared spreadsheet. Managers report
 - 100% of leave requests move through LeaveTrack, zero through email/spreadsheet, within one month of launch.
 - HR can produce a complete, dated approval record for any employee within one query, at any time.
 - Zero cross-team visibility incidents in the first quarter post-launch.
+
+---
+
+## Revision v1.1 — EPIC 2 (2026-11-26)
+
+EPIC 1 (BR-01 – BR-07) is complete and unchanged above. EPIC 2 makes LeaveTrack safe to deploy
+to real staff, closes the approval-chain and negative-balance gaps found in the EPIC 2
+evaluation, and adds the administration and reporting features HR asked for.
+
+### EPIC 2 Objectives
+
+1. Replace the Day 0 mock sign-in with real authentication before any deployment staff can reach.
+2. Guarantee every leave request has an eligible approver (managers and HR Admins included).
+3. Give HR a controlled, auditable way to resolve negative balances with the employee's consent.
+4. Deliver real notifications, request-integrity rules, policy/user administration and reporting.
+
+### Additional Stakeholder Concerns
+
+| Stakeholder        | Concern                                                                       |
+| ------------------ | ----------------------------------------------------------------------------- |
+| HR Administrators  | Resolve negative balances fairly; administer users, policies and settings     |
+| Employees          | Be told — and agree — before a negative balance is converted or recovered     |
+| Legal / Compliance | Every resolution, consent, automatic conversion and admin change is auditable |
+| IT / Security      | No shared or forgeable sign-in; MFA for privileged users                      |
+
+### Additional Functional Requirements
+
+**BR-08 — Negative Balance Resolution.** When an employee's balance for a tracked leave type
+is negative, HR must be able to propose a resolution — convert the excess to Unpaid leave,
+recover it from future accruals, or a split of both. The employee must be notified and may
+accept or decline (with a reason). A declined proposal returns to HR for review. If the
+employee does not respond within the response deadline (default 3 calendar days), the excess
+is converted to Unpaid automatically and both parties are notified. No resolution may remain
+open indefinitely, and no deficit may be deducted twice.
+
+**BR-09 — Authentication and Session Security.** Staff must sign in with individual
+credentials through a real identity provider; sessions must be tamper-proof, expire after
+inactivity and after an absolute limit, and privileged users (HR Admins) must use MFA.
+
+**BR-10 — Complete Approval Chain.** Every leave request must have an eligible approver:
+an employee's manager, an HR Admin for managers who report to HR, and another HR Admin for
+HR Admins. No one may decide their own request. A request that would have no approver must
+not be created.
+
+**BR-11 — Notifications.** Employees, managers and HR must be notified of events that need
+their attention (submitted, decided, resolution proposed/answered/expired, reminders),
+in-app and by email. A failed notification must never undo the business action.
+
+**BR-12 — Policy and Settings Administration.** HR must be able to change accrual rates with
+an effective date (history kept) and configure operational settings (resolution response
+deadline, inactivity timeout, maximum request length).
+
+**BR-13 — Request Integrity.** The system must prevent overlapping requests by the same
+employee, enforce a maximum request length and past-date rules, and let employees withdraw
+pending requests or cancel approved leave before it starts.
+
+**BR-14 — User Administration.** HR Admins must be able to manage users' roles, managers and
+active status, and approve email-address changes; users must be able to manage their profile
+and password. Every change is audited and at least one HR Admin must always exist.
+
+**BR-15 — Reporting.** HR and managers must have analytics, a leave calendar, search and
+filtering, and CSV export — each scoped to what the viewer is allowed to see.
+
+### Updated Scope
+
+- In scope: BR-01 through BR-15.
+- Still out of scope: payroll integration, multi-country holiday calendars, biometric attendance.
+- Considered and not adopted: a client-side data cache (React Query) and an application
+  Docker image — see `docs/arch-docs/ARCH-LeaveTrack-v1.0.md` (Revision v1.1).
+
+### Updated Assumptions
+
+- Each employee has exactly one approver resolved by BR-10 (replaces the v1.0 assumption that
+  everyone has a manager).
+- The leave year is the calendar year (1 January – 31 December).
+- Leave length is counted in calendar days until a business-day rule is decided (open question).
+
+### Additional Risks
+
+- Negative-balance resolution touches balances and the accrual job (BR-06): it needs the same
+  strict acceptance criteria and concurrency testing as accrual itself.
+- Replacing authentication touches every page and API; it must ship behind regression tests
+  for role scoping (BR-02) and must never fall back to the mock sign-in in production.
+
+### Additional Success Criteria
+
+- Zero sign-ins through shared or forgeable sessions after launch; 100% of HR Admins enrolled in MFA.
+- Every leave request has an approver; zero requests stuck pending with no eligible approver.
+- Every negative balance is resolved (accepted, finalized or auto-converted) within its deadline,
+  with a complete audit trail.

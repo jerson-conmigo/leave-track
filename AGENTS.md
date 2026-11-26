@@ -16,7 +16,9 @@ balances, managers approve **only their direct reports**, HR gets an auditable, 
 decision record (Q3 compliance audit).
 
 Traceability: `docs/brd/BRD-LeaveTrack-v1.0.md` → `docs/prd/PRD-LeaveTrack-v1.0.md` →
-`docs/arch-docs/ARCH-LeaveTrack-v1.0.md` (+ `ADR-LeaveTrack-E001`) → `docs/dev-tasks/*.csv`.
+`docs/arch-docs/ARCH-LeaveTrack-v1.0.md` (+ `ADR-LeaveTrack-E001` – `E007`) → `docs/dev-tasks/*.csv`.
+EPIC 1 (US-01 – US-08) is Done; EPIC 2 (US-09 – US-24, TASK-019 – TASK-053) is defined in each
+document's "Revision v1.1" section and `docs/dev-tasks/epic-2-hardening-and-resolution-tasks.csv`.
 
 ## Stack
 

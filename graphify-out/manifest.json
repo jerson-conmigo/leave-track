@@ -6,21 +6,21 @@
     "semantic_hash": ""
   },
   "docs/arch-docs/ARCH-LeaveTrack-v1.0.md": {
-    "mtime": 1795497261.2512414,
-    "seen": 1795498242.811591,
-    "ast_hash": "c3ca34eb1bed39755614eb942e928ed2",
+    "mtime": 1795674986.0379329,
+    "seen": 1795674987.945005,
+    "ast_hash": "b06fac1ce05a23231695111f19651fcb",
     "semantic_hash": ""
   },
   "docs/brd/BRD-LeaveTrack-v1.0.md": {
-    "mtime": 1795497197.9060762,
-    "seen": 1795498242.8115919,
-    "ast_hash": "fdf78a841cfb1f7d5f0b143bb17d9fc6",
+    "mtime": 1795674912.7769039,
+    "seen": 1795674914.7273002,
+    "ast_hash": "cc06e81f2cc0d2ae0dd9d1a6bd851e09",
     "semantic_hash": ""
   },
   "docs/prd/PRD-LeaveTrack-v1.0.md": {
-    "mtime": 1795497231.927653,
-    "seen": 1795498242.8115919,
-    "ast_hash": "bb9bf41eb459655a823cf0ce48e50472",
+    "mtime": 1795674957.0782127,
+    "seen": 1795674959.0314639,
+    "ast_hash": "a0798a17bf4729ca5f2a06926364cab7",
     "semantic_hash": ""
   },
   "knowledge/rules/arch-summary.md": {
@@ -702,9 +702,9 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1795673142.166626,
-    "seen": 1795673144.4746728,
-    "ast_hash": "27760724be71a430390f50ef04d743ce",
+    "mtime": 1795675113.1682186,
+    "seen": 1795675115.5106719,
+    "ast_hash": "124440870af478c40bdc0d96b4a19adb",
     "semantic_hash": ""
   },
   "README.md": {
@@ -750,9 +750,9 @@
     "semantic_hash": ""
   },
   "knowledge/retros/2026-11-24-day0-scaffold.md": {
-    "mtime": 1795673142.520343,
-    "seen": 1795673144.475191,
-    "ast_hash": "f2881923df095bc87ebe9c1993d3a973",
+    "mtime": 1795675134.6866467,
+    "seen": 1795675136.9716322,
+    "ast_hash": "1be5ed9dc2a0fd8547b99da14c64bc81",
     "semantic_hash": ""
   },
   "tests/db/schema.test.ts": {
@@ -1179,6 +1179,30 @@
     "mtime": 1795673314.2327693,
     "seen": 1795673319.182073,
     "ast_hash": "136e61f7c8035afcbd1710cf88fa9a0d",
+    "semantic_hash": ""
+  },
+  "docs/arch-docs/ADR-LeaveTrack-E004-Real-Authentication.md": {
+    "mtime": 1795675027.719091,
+    "seen": 1795675103.357762,
+    "ast_hash": "d64f5714e43147df21117ab570ce9443",
+    "semantic_hash": ""
+  },
+  "docs/arch-docs/ADR-LeaveTrack-E005-Approval-Routing.md": {
+    "mtime": 1795675027.7276895,
+    "seen": 1795675103.357763,
+    "ast_hash": "5462b5619dcd83bc9535a10600d7728b",
+    "semantic_hash": ""
+  },
+  "docs/arch-docs/ADR-LeaveTrack-E006-Balance-Ledger-and-Resolutions.md": {
+    "mtime": 1795675027.7391746,
+    "seen": 1795675103.357763,
+    "ast_hash": "516065150d262d819e44c84c08c14a0a",
+    "semantic_hash": ""
+  },
+  "docs/arch-docs/ADR-LeaveTrack-E007-Notification-Outbox.md": {
+    "mtime": 1795675027.745608,
+    "seen": 1795675103.357764,
+    "ast_hash": "b6d15e719a95814350d2999afe563e0b",
     "semantic_hash": ""
   }
 }

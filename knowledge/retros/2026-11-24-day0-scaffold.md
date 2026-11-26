@@ -48,3 +48,44 @@
 | B23     | **Prove the cron in production + alert on missed months.** The trigger is only verifiable on a Vercel production deployment (cron never runs on previews). Vercel never retries, so add an alert if `accrual_runs` has no row for the current month by the 2nd (catch-up self-heals, but someone should know).                 | Before go-live (TASK-017).                                                                                                           |
 | B24     | **Policy history (effective-dated rates).** Catch-up accrues missed months at the CURRENT rate; with history it could use the rate in effect per month. Pairs with the ARCH open question on mid-year policy changes (Sprint 2). Until then: manual adjustment using the run's `rates` snapshot.                               | Sprint 2 (TASK-017).                                                                                                                 |
 | B25     | **UI assumes the three known leave types.** DB, services and stores are generic on `tracks_balance` (proven with a 4th type in tests), but `LeaveTypeName` / `LEAVE_TYPE_META` (icons, colours) list Vacation/Sick/Unpaid only. Adding a type needs a neutral badge fallback.                                                  | When a 4th type is requested (TASK-018).                                                                                             |
+
+## EPIC 2 planning (2026-11-26)
+
+EPIC 1 is Done. The EPIC 2 evaluation re-checked every open backlog item; each now has an
+owning task in `docs/dev-tasks/epic-2-hardening-and-resolution-tasks.csv`. Rows above are kept
+as history; close them here when the owning task passes VALIDATE.
+
+| Backlog | Owning task(s)      | Note                                                    |
+| ------- | ------------------- | ------------------------------------------------------- |
+| B2      | TASK-026            | Approval routing (ADR-E005)                             |
+| B5      | TASK-038            | Blocked on decision D9 (calendar vs business days)      |
+| B6      | TASK-030, TASK-037  | Outbox + in-app inbox, then email (ADR-E007)            |
+| B7      | TASK-042            | RLS policies                                            |
+| B8      | —                   | TypeScript 7: not scheduled                             |
+| B9      | TASK-021            | ESLint 10 peer mismatch (lint itself is clean)          |
+| B10     | TASK-041            | Nonce-based CSP                                         |
+| B11     | TASK-047            | Dark mode without a new dependency                      |
+| B12     | TASK-042            | Real Supabase in CI                                     |
+| B14     | TASK-027            | Overlap prevention                                      |
+| B15     | TASK-053            | ADR sign-off tracking (E003 and E002, E004 – E007)      |
+| B16     | TASK-025            | `/login` honours a safe `next`                          |
+| B17     | TASK-027, TASK-041  | Maximum length; rate limiting                           |
+| B18     | TASK-042            | Measure p95 on real Supabase                            |
+| B19     | TASK-031 – TASK-036 | Negative-balance resolution (ADR-E006)                  |
+| B21     | TASK-050            | Keyset pagination                                       |
+| B22     | TASK-052            | WebKit e2e                                              |
+| B23     | TASK-037            | Missed-accrual alert (production cron proof at go-live) |
+| B24     | TASK-039            | Effective-dated policies                                |
+| B25     | TASK-043            | Neutral UI fallback for new leave types                 |
+
+New findings from the EPIC 2 evaluation (not previously in the backlog):
+
+| Finding                                                                                               | Owning task(s)                              |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Unsigned mock session cookies allow impersonation (Critical)                                          | TASK-023, TASK-024                          |
+| Production silently falls back to the in-memory store (High)                                          | TASK-019                                    |
+| `safeRedirectPath` accepts `/\t/evil.com` (open redirect)                                             | TASK-020                                    |
+| HR Admins' own leave has no approver                                                                  | TASK-026                                    |
+| No withdraw/cancel; PRD says HR configures policies (read-only)                                       | TASK-028, TASK-039                          |
+| Coverage not measured; graph cache tracked in git                                                     | TASK-021, TASK-022                          |
+| Commit `b8d6539` is labelled task-017 but carries task-018's message; commits went straight to `main` | TASK-022 (workflow); history left unchanged |
