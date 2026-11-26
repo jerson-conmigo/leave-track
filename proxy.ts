@@ -1,11 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE } from "@/lib/auth/cookies";
-import { canAccess, isPublicPath, isRole } from "@/lib/auth/roles";
+import { getAuthProvider } from "@/lib/auth/provider";
+import { canAccess, isPublicPath } from "@/lib/auth/roles";
 
 /**
  * Route guard (Next.js 16 `proxy`, ADR-LeaveTrack-E001).
  *  1. Public paths pass through.
- *  2. No valid session cookie → /login?next=<path>  (APIs get a 401 envelope).
+ *  2. No valid SIGNED session cookie (missing, forged, tampered or expired — TASK-023)
+ *     → /login?next=<path> (APIs get a 401 envelope); an invalid cookie is deleted.
  *  3. Role not allowed for the path → /forbidden    (APIs get a 403 envelope).
  * Server components re-check with requireRole() — this is not the only gate.
  */
@@ -13,23 +15,23 @@ export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   if (isPublicPath(pathname)) return NextResponse.next();
 
-  const role = request.cookies.get(SESSION_COOKIE.role)?.value;
-  const userId = request.cookies.get(SESSION_COOKIE.userId)?.value;
+  const token = request.cookies.get(SESSION_COOKIE)?.value;
+  // The role here only routes the request; pages and APIs re-read the user (getSession).
+  const claims = getAuthProvider().readSessionToken(token);
   const isApi = pathname.startsWith("/api/");
 
-  if (!isRole(role) || !userId) {
-    if (isApi) {
-      return NextResponse.json(
-        { success: false, error: { code: "UNAUTHENTICATED", message: "Sign in to continue." } },
-        { status: 401 },
-      );
-    }
-    const login = new URL("/login", request.url);
-    if (pathname !== "/") login.searchParams.set("next", `${pathname}${search}`);
-    return NextResponse.redirect(login);
+  if (!claims) {
+    const response = isApi
+      ? NextResponse.json(
+          { success: false, error: { code: "UNAUTHENTICATED", message: "Sign in to continue." } },
+          { status: 401 },
+        )
+      : NextResponse.redirect(loginUrl(request, pathname, search));
+    if (token) response.cookies.delete(SESSION_COOKIE); // forged / tampered / expired
+    return response;
   }
 
-  if (!canAccess(pathname, role)) {
+  if (!canAccess(pathname, claims.role)) {
     if (isApi) {
       return NextResponse.json(
         {
@@ -43,6 +45,12 @@ export function proxy(request: NextRequest) {
   }
 
   return NextResponse.next();
+}
+
+function loginUrl(request: NextRequest, pathname: string, search: string): URL {
+  const login = new URL("/login", request.url);
+  if (pathname !== "/") login.searchParams.set("next", `${pathname}${search}`);
+  return login;
 }
 
 export const config = {

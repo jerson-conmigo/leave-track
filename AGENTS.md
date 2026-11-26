@@ -3,11 +3,12 @@
 Cross-tool project rules for every contributor, human or AI. Read this before writing code.
 Detailed standards: `knowledge/rules/coding-standards.md` · Design system: `knowledge/design-system.md`.
 
-> ## ⚠️ MOCK AUTH — DO NOT SHIP
+> ## ⚠️ MOCK SIGN-IN — DEV/TEST ONLY
 >
-> Sign-in currently **accepts any email and password** and lets you pick any seeded user
-> (ADR-LeaveTrack-E001). It exists only so role-gating works from commit one. It must be
-> replaced by a real provider (Day 1) before any deployment that real staff can reach.
+> Sign-in still **accepts any email and password** and lets you pick any seeded user. Since
+> TASK-023 the session itself is a **signed** cookie (forged or tampered cookies are rejected),
+> and a deployed environment **refuses to start** with the mock sign-in
+> (ADR-LeaveTrack-E004). A real provider (TASK-024) is required before any deployment.
 
 ## Project
 
@@ -22,16 +23,16 @@ document's "Revision v1.1" section and `docs/dev-tasks/epic-2-hardening-and-reso
 
 ## Stack
 
-| Layer   | Choice                                                                        |
-| ------- | ----------------------------------------------------------------------------- |
-| App     | Next.js 16 App Router, React 19, TypeScript (strict)                          |
-| UI      | Tailwind CSS v4 (hsl tokens), shadcn/ui (new-york, Radix), lucide-react icons |
-| Forms   | react-hook-form + zod                                                         |
-| Data    | Supabase Postgres via **pooled** connection; migrations in `supabase/`        |
-| Auth    | Day 0 mock cookie session (`mock-role` + `mock-user-id`, httpOnly, 8h)        |
-| Logging | pino (JSON) — `lib/logger.ts`                                                 |
-| Tests   | vitest (`tests/`)                                                             |
-| Deploy  | Vercel (app + Cron) · Supabase (Postgres)                                     |
+| Layer   | Choice                                                                                                         |
+| ------- | -------------------------------------------------------------------------------------------------------------- |
+| App     | Next.js 16 App Router, React 19, TypeScript (strict)                                                           |
+| UI      | Tailwind CSS v4 (hsl tokens), shadcn/ui (new-york, Radix), lucide-react icons                                  |
+| Forms   | react-hook-form + zod                                                                                          |
+| Data    | Supabase Postgres via **pooled** connection; migrations in `supabase/`                                         |
+| Auth    | Signed session cookie `lt-session` (HMAC, httpOnly, 8h) via `lib/auth/provider.ts`; mock sign-in dev/test only |
+| Logging | pino (JSON) — `lib/logger.ts`                                                                                  |
+| Tests   | vitest (`tests/`)                                                                                              |
+| Deploy  | Vercel (app + Cron) · Supabase (Postgres)                                                                      |
 
 ## Where things go
 
@@ -97,7 +98,12 @@ document's "Revision v1.1" section and `docs/dev-tasks/epic-2-hardening-and-reso
 
 ## Security rules
 
-- Session cookies: httpOnly, `SameSite=Lax`, `Secure` in production, 8h max age.
+- Session cookies: httpOnly, `SameSite=Lax`, `Secure` in production, 8h max age. The session
+  is one **signed** cookie (`lt-session`, HMAC-SHA256 with `SESSION_SECRET`, verified in
+  constant time). Authorization always comes from the `users` row (`getSession`), never from
+  token claims; the role in the token only routes `proxy.ts`. Tokens are created and verified only
+  through `lib/auth/provider.ts`; only `proxy.ts`, `lib/auth/session.ts` and the login/logout
+  actions touch the `lt-session` cookie (pinned by `tests/auth/session-boundary.test.ts`).
 - `proxy.ts` guards every non-public route; role-gated pages **also** call `requireRole()`.
 - Redirect targets go through `safeRedirectPath()` (no open redirects).
 - Security headers (CSP, HSTS, frame-ancestors none, nosniff…) live in `next.config.ts`.

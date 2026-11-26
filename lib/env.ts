@@ -10,7 +10,8 @@ import { z } from "zod";
  * A deployment is APP_ENV=production|staging or VERCEL_ENV=production|preview —
  * if either says "deployed", the strict rules apply (TASK-019):
  *   - every variable in REQUIRED_WHEN_DEPLOYED must be set (no silent in-memory store),
- *   - E2E_RESET_TOKEN must NOT be set.
+ *   - E2E_RESET_TOKEN must NOT be set,
+ *   - AUTH_PROVIDER must not be "mock" (ADR-LeaveTrack-E004; TASK-023).
  * Everything stays optional for local development, tests, CI and local e2e.
  */
 const optionalUrl = z.url().optional();
@@ -20,7 +21,7 @@ const optionalSecret = z.string().min(1).optional();
  * Variables a deployed environment refuses to start without. TASK-023/024 append
  * their auth secrets here (tests/env.test.ts pins this list on purpose).
  */
-export const REQUIRED_WHEN_DEPLOYED = ["DATABASE_URL", "CRON_SECRET"] as const;
+export const REQUIRED_WHEN_DEPLOYED = ["DATABASE_URL", "CRON_SECRET", "SESSION_SECRET"] as const;
 
 const DEPLOYED_APP_ENVS = ["production", "staging"];
 const DEPLOYED_VERCEL_ENVS = ["production", "preview"];
@@ -63,6 +64,15 @@ const EnvSchema = z.object({
 
   // Bearer token Vercel Cron sends to /api/jobs/accrual (TASK-017).
   CRON_SECRET: optionalSecret,
+  // Sign-in adapter (ADR-LeaveTrack-E004). "mock" = DEV/TEST ONLY, refused when deployed;
+  // TASK-024 adds the real provider.
+  AUTH_PROVIDER: z.enum(["mock"]).default("mock"),
+  // HMAC key for the session cookie (TASK-023). Generate: openssl rand -hex 32.
+  // Optional locally (a random per-process key is used); required when deployed.
+  SESSION_SECRET: z
+    .string()
+    .min(32, { error: "SESSION_SECRET must be at least 32 characters" })
+    .optional(),
   // Test-only reset hook (playwright.config.ts). Refused in deployed environments.
   E2E_RESET_TOKEN: optionalSecret,
 });
@@ -89,6 +99,9 @@ export function parseEnv(input: RawEnv): Env {
     const missing = REQUIRED_WHEN_DEPLOYED.filter((name) => !raw[name]);
     if (missing.length > 0) problems.push(`missing ${missing.join(", ")}`);
     if (raw.E2E_RESET_TOKEN) problems.push("E2E_RESET_TOKEN must not be set");
+    if (parsed.data.AUTH_PROVIDER === "mock") {
+      problems.push("mock sign-in (AUTH_PROVIDER=mock) is not allowed (ADR-LeaveTrack-E004)");
+    }
     if (problems.length > 0) {
       const stage = `APP_ENV=${raw.APP_ENV ?? "unset"}, VERCEL_ENV=${raw.VERCEL_ENV ?? "unset"}`;
       throw new Error(

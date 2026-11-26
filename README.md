@@ -20,7 +20,9 @@ Open http://localhost:3000. No `.env` file or external service is needed.
 
 ### Trying each role
 
-On the sign-in page, enter anything for email and password, then pick a person:
+On the sign-in page, enter anything for email and password, then pick a person (mock sign-in —
+local and test only; a deployed environment refuses it). Your session is a signed `lt-session`
+cookie; without `SESSION_SECRET` a random key is used, so restarting the dev server signs you out.
 
 | Person     | Role     | What you can see                                            |
 | ---------- | -------- | ----------------------------------------------------------- |

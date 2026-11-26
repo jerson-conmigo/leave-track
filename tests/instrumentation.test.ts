@@ -42,13 +42,16 @@ describe("instrumentation register()", () => {
     expect(stderrText()).not.toContain("tok\n"); // names only
   });
 
-  it("resolves for a valid deployed environment", async () => {
+  it("exits(1) for a deployed environment with all variables but the mock sign-in (TASK-023)", async () => {
     vi.stubEnv("NEXT_RUNTIME", "nodejs");
     vi.stubEnv("APP_ENV", "production");
     vi.stubEnv("DATABASE_URL", "postgres://u:p@h:6543/db");
     vi.stubEnv("CRON_SECRET", "x");
-    await expect(register()).resolves.toBeUndefined();
-    expect(exit).not.toHaveBeenCalled();
+    vi.stubEnv("SESSION_SECRET", "s".repeat(40));
+    await register();
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(stderrText()).toMatch(/mock sign-in/);
+    expect(stderrText()).not.toMatch(/missing/);
   });
 
   it("resolves for local development with no configuration", async () => {

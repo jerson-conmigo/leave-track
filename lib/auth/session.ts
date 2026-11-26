@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { SESSION_COOKIE } from "@/lib/auth/cookies";
-import { isRole } from "@/lib/auth/roles";
+import { getAuthProvider } from "@/lib/auth/provider";
 import { repository } from "@/lib/data/repositories";
 import type { Role } from "@/lib/data/types";
 
@@ -16,18 +16,20 @@ export type Session = {
 };
 
 /**
- * Resolve the current session from the mock cookies. Returns null when the
- * cookies are missing, malformed, or disagree with the user directory.
- * Memoised per request. Server components call this directly — no Context.
+ * Resolve the current session from the SIGNED session cookie (TASK-023). Returns null
+ * when the cookie is missing, forged, tampered or expired, or when it disagrees with
+ * the user directory. Authorization always comes from the database row, never from the
+ * token. Memoised per request. Server components call this directly — no Context.
  */
 export const getSession = cache(async (): Promise<Session | null> => {
   const jar = await cookies();
-  const role = jar.get(SESSION_COOKIE.role)?.value;
-  const userId = jar.get(SESSION_COOKIE.userId)?.value;
-  if (!isRole(role) || !userId) return null;
+  const claims = getAuthProvider().readSessionToken(jar.get(SESSION_COOKIE)?.value);
+  if (!claims) return null;
 
-  const user = await repository.getUserById(userId);
-  if (!user || user.role !== role) return null;
+  const user = await repository.getUserById(claims.uid);
+  // A role changed since sign-in invalidates the session. TODO(TASK-043): also reject
+  // deactivated users here.
+  if (!user || user.role !== claims.role) return null;
 
   return {
     userId: user.id,

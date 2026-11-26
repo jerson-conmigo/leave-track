@@ -238,3 +238,18 @@ Guard repository-hygiene rules with a test that asks git itself
 deleted `.gitignore` line or a re-tracked cache file fails CI instead of resurfacing as noise.
 Check that a mutation probe really changes behaviour: a no-op mutation (`if (false) i++;`)
 stays green and proves nothing.
+
+### Signed sessions: verify before parsing, authorize from the database (from TASK-023)
+
+- Token = `v1.<payload>.<HMAC>` with a fixed algorithm; check the signature (constant time,
+  against the fixed digest size) **before** `JSON.parse`, then validate the claims. Test
+  invalid claims with a _valid_ signature (re-sign test payloads with the real key) —
+  otherwise a "malformed" test only proves the signature check.
+- Never authorize from claims: `getSession` re-reads the user and drops the session if the
+  role changed. The role in the token only lets the proxy route without a DB call.
+- Keep a pure token module (no `server-only`, relative imports) so the proxy, the server and
+  the Playwright helper share one implementation; e2e signs cookies with a per-run secret.
+- Pin the boundary structurally (which files touch the cookie / sign tokens) so a shortcut
+  around the auth port fails CI.
+- A constant-time convention test may flag a harmless length comparison; prefer changing
+  the code to compare against a constant (digest size) over weakening the test.

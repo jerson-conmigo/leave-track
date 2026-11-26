@@ -6,6 +6,7 @@ import {
   type Locator,
   type Page,
 } from "@playwright/test";
+import { signSessionToken } from "../lib/auth/session-token";
 
 export const USERS = {
   ana: "00000000-0000-4000-8000-000000000101", // employee (Ben's team)
@@ -33,12 +34,24 @@ export const test = base.extend<{ resetData: void }>({
 });
 export { expect };
 
+/**
+ * Sign in by setting the SIGNED session cookie directly (TASK-023), signed with the
+ * per-run SESSION_SECRET that playwright.config.ts also gives the server.
+ */
 export async function signInAs(context: BrowserContext, role: Role, userId: string) {
   const url = test.info().project.use.baseURL!;
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) throw new Error("SESSION_SECRET must be set by playwright.config.ts");
+  const iat = Math.floor(Date.now() / 1000);
   await context.clearCookies();
   await context.addCookies([
-    { name: "mock-role", value: role, url },
-    { name: "mock-user-id", value: userId, url },
+    {
+      name: "lt-session",
+      value: signSessionToken({ uid: userId, role, iat, exp: iat + 8 * 60 * 60 }, secret),
+      url,
+      httpOnly: true,
+      sameSite: "Lax",
+    },
   ]);
 }
 

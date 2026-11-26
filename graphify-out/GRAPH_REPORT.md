@@ -1,23 +1,23 @@
 # Graph Report - leave-track  (2026-11-26)
 
 ## Corpus Check
-- 215 files · ~88,295 words
+- 224 files · ~91,911 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 11 file(s) not represented in the graph (top: (none) 6, .csv 2, .example 1)
 
 ## Summary
-- 1304 nodes · 2988 edges · 89 communities (78 shown, 11 thin omitted)
-- Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 81 edges (avg confidence: 0.93)
+- 1344 nodes · 3107 edges · 96 communities (81 shown, 15 thin omitted)
+- Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 83 edges (avg confidence: 0.93)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `ab306ad3`
+- Built from commit: `eb40b281`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - Business Requirements Document — LeaveTrack v1.0
-- api/errors.ts
+- cn
 - ADR-LeaveTrack-E001 — Auth & Session Strategy
 - Product Requirements Document — LeaveTrack v1.0
 - package.json
@@ -41,10 +41,10 @@
 - Review Checklist
 - Review Checklist
 - Steps
-- decide.ts
+- independence.test.ts
 - Steps
 - Steps
-- concurrency.test.ts
+- memory-parity.test.ts
 - .prettierrc.json
 - pr-verifier.md
 - Steps
@@ -52,61 +52,68 @@
 - nexus
 - extends
 - postcss.config.mjs
-- memory-parity.test.ts
+- db/helpers.ts
 - approval-queue.tsx
-- cn
+- request-form.tsx
 - app/layout.tsx
 - Revision v1.1 — EPIC 2 (2026-11-26)
-- repository.ts
+- decision-dialog.tsx
 - roles.ts
-- decide-memory.test.ts
-- new/actions.ts
-- login-form.tsx
+- with-error-handler.ts
+- decide.ts
+- accrual/route.ts
 - Prove the test can fail (from TASK-010)
-- balance-card.tsx
+- repositories.ts
 - set-task-status.mjs
-- request-form.tsx
-- independence.test.ts
+- Coding Standards — LeaveTrack
+- leave-requests/route.ts
 - implement-api-route.md
 - implement-ui-component.md
 - write-migration.md
 - e2e/helpers.ts
 - Steps
 - mobile-nav.tsx
-- leave-requests/route.ts
-- decision-dialog.tsx
-- next
+- AppError
+- sidebar-nav.tsx
+- LeaveTrack UI — Design System
 - decide.test.ts
-- Button
-- proxy.ts
+- types.ts
+- leave-request.ts
 - LeaveTrack
-- audit/page.tsx
+- Notifier
 - vercel.json
 - login/actions.ts
 - vitest
 - env.ts
 - /scaffold
-- types.ts
-- schema.test.ts
-- utils.ts
-- Notifier
+- postgres-repository.ts
+- repository.ts
+- Button
+- approvals/actions.ts
 - set-task-status.test.ts
+- utils.ts
+- decimal.ts
 - Retro — Day 0 scaffold (2026-11-24)
-- withErrorHandler
 - ADR-LeaveTrack-E005 — Approval Routing: direct manager, HR for managers, HR peer for HR
 - ADR-LeaveTrack-E006 — Balance Ledger and Negative-Balance Resolutions
-- requireRole
+- eslint.config.mjs
+- engines
+- repo-hygiene.test.ts
+- proxy.ts
+- postgres.ts
 - coverage-summary.test.ts
+- SubmitStore
+- ActionResult
 - balance-writers.test.ts
-- ref_node_fs
+- coverage-summary.mjs
 - ref_node_path
 - security-conventions.test.ts
-- no-name-logic.test.ts
+- action-errors.test.ts
 
 ## God Nodes (most connected - your core abstractions)
 1. `cn()` - 93 edges
-2. `vitest` - 42 edges
-3. `next` - 37 edges
+2. `vitest` - 47 edges
+3. `next` - 38 edges
 4. `Button()` - 31 edges
 5. `lucide-react` - 29 edges
 6. `RequestForm()` - 24 edges
@@ -120,25 +127,25 @@
   knowledge/rules/coding-standards.md → lib/api/with-error-handler.ts
 - `Security changes` --references--> `safeRedirectPath()`  [INFERRED]
   docs/arch-docs/ARCH-LeaveTrack-v1.0.md → lib/auth/roles.ts
+- `Frontend standards` --references--> `requireRole()`  [INFERRED]
+  AGENTS.md → lib/auth/session.ts
 - `Where data goes` --references--> `getSql()`  [INFERRED]
   README.md → lib/db/postgres.ts
-- `Options considered` --references--> `SqlClient`  [INFERRED]
-  docs/arch-docs/ADR-LeaveTrack-E003-Data-Access.md → lib/db/sql.ts
 - `Security-scoped queries: assert the scope structurally (from TASK-013)` --references--> `SqlClient`  [INFERRED]
   knowledge/patterns/implement-and-test.md → lib/db/sql.ts
 
 ## Import Cycles
 - None detected.
 
-## Communities (89 total, 11 thin omitted)
+## Communities (96 total, 15 thin omitted)
 
 ### Community 0 - "Business Requirements Document — LeaveTrack v1.0"
 Cohesion: 0.09
 Nodes (21): Additional Functional Requirements, Additional Risks, Additional Stakeholder Concerns, Additional Success Criteria, Assumptions, Business Context, Business Requirements Document — LeaveTrack v1.0, Constraints (+13 more)
 
-### Community 1 - "api/errors.ts"
-Cohesion: 0.18
-Nodes (12): dynamic, GET, ERROR_STATUS, ErrorCode, ApiFailure, ApiResponse, ApiSuccess, fail() (+4 more)
+### Community 1 - "cn"
+Cohesion: 0.11
+Nodes (28): UserMenu(), UserMenuProps, Avatar(), AvatarBadge(), AvatarFallback(), AvatarGroup(), AvatarGroupCount(), AvatarImage() (+20 more)
 
 ### Community 2 - "ADR-LeaveTrack-E001 — Auth & Session Strategy"
 Cohesion: 0.33
@@ -150,7 +157,7 @@ Nodes (11): Business Rules (EPIC 2), Non-Functional Requirements, Non-Functional
 
 ### Community 4 - "package.json"
 Cohesion: 0.07
-Nodes (29): description, engines, node, @commitlint/config-conventional, name, private, version, @axe-core/playwright (+21 more)
+Nodes (27): description, @commitlint/config-conventional, name, private, version, @axe-core/playwright, class-variance-authority, clsx (+19 more)
 
 ### Community 5 - "Architecture Document — LeaveTrack v1.0"
 Cohesion: 0.10
@@ -232,9 +239,9 @@ Nodes (8): API & Network, Application Code, Caching, Database & I/O, Infrastruct
 Cohesion: 0.25
 Nodes (7): 1 — Implement exactly what the plan says, 2 — The knowledge graph stays current automatically, 3 — Stay in scope, 4 — When done, /apply, Prerequisite, Steps
 
-### Community 25 - "decide.ts"
-Cohesion: 0.14
-Nodes (17): Session, DecideLeaveRequestResult, DecideWarning, SubmitLeaveRequestResult, SubmitWarning, DecideDeps, RequestIdSchema, LeaveRequestDecidedNotice (+9 more)
+### Community 25 - "independence.test.ts"
+Cohesion: 0.10
+Nodes (18): createMockDb(), resetMockDb(), memoryDecideStore, DecideStore, BEN, ManagerSession, MAYA, notifier (+10 more)
 
 ### Community 26 - "Steps"
 Cohesion: 0.25
@@ -244,9 +251,9 @@ Nodes (7): 1 — Orient with your knowledge graph (if one exists), 2 — Load co
 Cohesion: 0.25
 Nodes (7): 1 — Blast radius check, 2 — Write the implementation blueprint, 3 — State constraints, 4 — Stop and wait, /plan, Prerequisite, Steps
 
-### Community 28 - "concurrency.test.ts"
-Cohesion: 0.06
-Nodes (46): authorized(), GET, handler(), POST, ADR-LeaveTrack-E003 — Data Access: postgres.js over the pooled URL, behind a SQL port, Consequences, Context, Decision (+38 more)
+### Community 28 - "memory-parity.test.ts"
+Cohesion: 0.15
+Nodes (20): memoryAccrualStore, currentPeriod(), monthsToAccrue(), nextPeriod(), createPostgresAccrualStore(), AccrualDeps, MAX_CATCH_UP_MONTHS, runMonthlyAccrual() (+12 more)
 
 ### Community 29 - ".prettierrc.json"
 Cohesion: 0.25
@@ -268,17 +275,17 @@ Nodes (5): 1 — Resolve the target, 2 — Delegate to the pr-verifier agent, 3 
 Cohesion: 0.50
 Nodes (3): uvx, nexus, nexus-mcp
 
-### Community 36 - "memory-parity.test.ts"
-Cohesion: 0.12
-Nodes (17): users, SqlClient, SqlRow, @electric-sql/pglite, SCRIPT, dbs, insertPending(), MIA_REPORTS (+9 more)
+### Community 36 - "db/helpers.ts"
+Cohesion: 0.07
+Nodes (27): ADR-LeaveTrack-E003 — Data Access: postgres.js over the pooled URL, behind a SQL port, Consequences, Context, Decision, Options considered, leaveRequests, users, AUDIT_LOG_LIMIT (+19 more)
 
 ### Community 37 - "approval-queue.tsx"
-Cohesion: 0.16
-Nodes (35): metadata, PoliciesPage(), ApprovalQueue(), ApprovalQueueProps, BalanceHint(), ActionBadge(), AuditTable(), EmptyState() (+27 more)
+Cohesion: 0.21
+Nodes (29): ApprovalQueue(), ApprovalQueueProps, BalanceHint(), ActionBadge(), AuditTable(), EmptyState(), EmptyStateProps, LeaveTypeBadge() (+21 more)
 
-### Community 38 - "cn"
-Cohesion: 0.14
-Nodes (23): UserMenu(), UserMenuProps, Avatar(), AvatarBadge(), AvatarFallback(), AvatarGroup(), AvatarGroupCount(), AvatarImage() (+15 more)
+### Community 38 - "request-form.tsx"
+Cohesion: 0.13
+Nodes (34): ALL_EMPLOYEES, AuditFilters(), AuditFiltersProps, LoginForm(), LoginFormProps, MockUserOption, ROLE_ORDER, EMPTY (+26 more)
 
 ### Community 39 - "app/layout.tsx"
 Cohesion: 0.22
@@ -286,135 +293,139 @@ Nodes (6): metadata, RootLayout(), viewport, Toaster(), geist, sonner
 
 ### Community 40 - "Revision v1.1 — EPIC 2 (2026-11-26)"
 Cohesion: 0.12
-Nodes (15): API Design (selected), Architecture Document — LeaveTrack v1.0, Considered and not adopted, Data Model, Data model additions (planned), Deployment changes, Deployment Topology, EPIC 2 decisions (adopted 2026-11-26) (+7 more)
+Nodes (16): API additions (planned), API Design (selected), Architecture Document — LeaveTrack v1.0, Considered and not adopted, Data Model, Data model additions (planned), Deployment changes, Deployment Topology (+8 more)
 
-### Community 41 - "repository.ts"
-Cohesion: 0.16
-Nodes (17): availableForRequest(), buildBalanceSummaries(), PendingRange, byId(), toView(), typeOf(), userName(), createPostgresRepository() (+9 more)
+### Community 41 - "decision-dialog.tsx"
+Cohesion: 0.24
+Nodes (13): DecisionDialog(), confirm(), handleOpenChange(), DecisionDialogProps, Dialog(), DialogContent(), DialogDescription(), DialogFooter() (+5 more)
 
 ### Community 42 - "roles.ts"
-Cohesion: 0.24
-Nodes (10): NEVER_REDIRECT_TO, PUBLIC_PATHS, REDIRECT_BASES, REDIRECT_GUARDS, redirectRejection(), resolveRedirect(), ROLE_LABEL, ROUTE_ACCESS (+2 more)
+Cohesion: 0.19
+Nodes (13): Security rules, TypeScript, isRole(), MAX_REDIRECT_LENGTH, NEVER_REDIRECT_TO, PUBLIC_PATHS, REDIRECT_BASES, REDIRECT_GUARDS (+5 more)
 
-### Community 43 - "decide-memory.test.ts"
-Cohesion: 0.09
-Nodes (18): RequestStatus, toIso(), memoryDecideStore, DecidedRow, RequestRow, toLeaveRequest(), BalanceContext, DecideInput (+10 more)
+### Community 43 - "with-error-handler.ts"
+Cohesion: 0.11
+Nodes (19): AGENTS.md — LeaveTrack, Backend standards, Frontend standards, Git conventions, Project, Quality gates (must pass before merge), Stack, Task tracking (+11 more)
 
-### Community 44 - "new/actions.ts"
-Cohesion: 0.23
-Nodes (10): submitLeaveRequestAction(), isAppError(), ActionResult, getSubmitDeps(), submitLeaveRequest(), DecisionInput, LeaveRequestInput, LeaveRequestSchema (+2 more)
+### Community 44 - "decide.ts"
+Cohesion: 0.15
+Nodes (18): DecideLeaveRequestResult, DecideWarning, SubmitLeaveRequestResult, SubmitWarning, DecideDeps, RequestIdSchema, LeaveRequestDecidedNotice, LeaveRequestSubmittedNotice (+10 more)
 
-### Community 45 - "login-form.tsx"
-Cohesion: 0.23
-Nodes (18): AuditFilters(), AuditFiltersProps, LoginForm(), LoginFormProps, MockUserOption, ROLE_ORDER, Input(), Label() (+10 more)
+### Community 45 - "accrual/route.ts"
+Cohesion: 0.22
+Nodes (8): authorized(), GET, handler(), POST, getAccrualDeps(), AccrualTrigger, OK, runMonthlyAccrual
 
 ### Community 46 - "Prove the test can fail (from TASK-010)"
-Cohesion: 0.10
-Nodes (19): DialogTrigger(), "Authorize before any database access" — prove it with a repository spy (from TASK-015), Browser e2e recipe (from TASK-016), Changing tooling versions: diff the resolved config, measure before thresholding (from TASK-021), Cross-cutting invariants: matrix + writer registry (from TASK-018), Defense in depth for "exactly once" writes (from TASK-014), Fail-closed configuration: test build time and runtime separately (from TASK-019), Headless browser tests with Radix overlays (+11 more)
+Cohesion: 0.11
+Nodes (18): DialogTrigger(), "Authorize before any database access" — prove it with a repository spy (from TASK-015), Browser e2e recipe (from TASK-016), Changing tooling versions: diff the resolved config, measure before thresholding (from TASK-021), Cross-cutting invariants: matrix + writer registry (from TASK-018), Defense in depth for "exactly once" writes (from TASK-014), Fail-closed configuration: test build time and runtime separately (from TASK-019), Headless browser tests with Radix overlays (+10 more)
 
-### Community 48 - "balance-card.tsx"
-Cohesion: 0.19
-Nodes (22): BalancePage(), metadata, DashboardPage(), metadata, StatCard(), Loading(), metadata, NewRequestPage() (+14 more)
+### Community 48 - "repositories.ts"
+Cohesion: 0.07
+Nodes (54): ApprovalsPage(), metadata, AuditPage(), metadata, one(), BalancePage(), metadata, DashboardPage() (+46 more)
 
 ### Community 50 - "set-task-status.mjs"
 Cohesion: 0.20
 Nodes (6): RFC-4180, matches, previous, STATUSES, [taskId, status, csvArg], temp
 
-### Community 52 - "request-form.tsx"
-Cohesion: 0.19
-Nodes (16): LEAVE_TYPE_META, EMPTY, RequestForm(), RequestFormProps, FormControl(), FormDescription(), FormField(), FormFieldContext (+8 more)
+### Community 52 - "Coding Standards — LeaveTrack"
+Cohesion: 0.22
+Nodes (8): API route handlers, Coding Standards — LeaveTrack, Dependencies, Hard-won rules (from Day 0 VALIDATE), Logging, Next.js 16, Testing, UI
 
-### Community 53 - "independence.test.ts"
-Cohesion: 0.15
-Nodes (13): createMockDb(), resetMockDb(), ANA, BEN, dbs, decide(), Harness, HARNESSES (+5 more)
+### Community 53 - "leave-requests/route.ts"
+Cohesion: 0.27
+Nodes (9): ListQuerySchema, NO_STORE, POST, submitLeaveRequestAction(), MyLeaveContext, TeamQueue, getSubmitDeps(), submitLeaveRequest() (+1 more)
 
 ### Community 57 - "e2e/helpers.ts"
-Cohesion: 0.25
-Nodes (15): enlargeText(), expectNoHorizontalOverflow(), expectNotUnderHeader(), expectTapTargets(), expectVisibleFocus(), focusedLabel(), focusIndicatorChange(), Role (+7 more)
+Cohesion: 0.08
+Nodes (34): enlargeText(), expectNoHorizontalOverflow(), expectNotUnderHeader(), expectTapTargets(), expectVisibleFocus(), focusedLabel(), focusIndicatorChange(), Role (+26 more)
 
 ### Community 58 - "Steps"
 Cohesion: 0.25
 Nodes (7): 1 — Inspect changes, 2 — Stage deliberately, 3 — Write the commit message, 4 — Confirm, /commit, Steps, When to use
 
 ### Community 59 - "mobile-nav.tsx"
-Cohesion: 0.07
-Nodes (39): AuthenticatedLayout(), HIGHLIGHTS, LoginPage(), metadata, AppShell(), AppShellProps, Brand(), MobileNav() (+31 more)
+Cohesion: 0.33
+Nodes (10): MobileNav(), Sheet(), SheetContent(), SheetDescription(), SheetFooter(), SheetHeader(), SheetOverlay(), SheetPortal() (+2 more)
 
-### Community 60 - "leave-requests/route.ts"
-Cohesion: 0.23
-Nodes (15): GET, POST, GET, ListQuerySchema, NO_STORE, POST, decideLeaveRequestAction(), AppError (+7 more)
+### Community 60 - "AppError"
+Cohesion: 0.19
+Nodes (15): GET, ParamsSchema, QuerySchema, dynamic, GET, POST, GET, AppError (+7 more)
 
-### Community 61 - "decision-dialog.tsx"
-Cohesion: 0.22
-Nodes (15): DecisionDialog(), confirm(), handleOpenChange(), DecisionDialogProps, Dialog(), DialogContent(), DialogDescription(), DialogFooter() (+7 more)
+### Community 61 - "sidebar-nav.tsx"
+Cohesion: 0.33
+Nodes (8): activeHref(), NAV_ITEMS, NavItem, navItemsFor(), GROUP_LABEL, SidebarNav(), SidebarNavProps, Role
 
-### Community 62 - "next"
-Cohesion: 0.17
-Nodes (9): ParamsSchema, QuerySchema, metadata, repository, csp, nextConfig, securityHeaders, next (+1 more)
+### Community 62 - "LeaveTrack UI — Design System"
+Cohesion: 0.13
+Nodes (14): Backlog, Color tokens, Components, Core, Iconography, Layout & breakpoints, Leave types, LeaveTrack UI — Design System (+6 more)
 
 ### Community 63 - "decide.test.ts"
 Cohesion: 0.15
 Nodes (15): createPostgresDecideStore(), createPostgresSubmitStore(), ANA, audit(), balance(), BEN, CARLA, dbs (+7 more)
 
-### Community 64 - "Button"
-Cohesion: 0.27
-Nodes (10): AppError(), metadata, MyRequestsPage(), ForbiddenPage(), metadata, NotFound(), StatusScreen(), StatusScreenProps (+2 more)
+### Community 64 - "types.ts"
+Cohesion: 0.07
+Nodes (27): LeaveRepository, AUDIT_ACTIONS, AuditAction, AuditEntryView, AuditEvent, AuditHistoryFilter, AuditRequestRecord, BalanceSummary (+19 more)
 
-### Community 65 - "proxy.ts"
-Cohesion: 0.27
-Nodes (9): APPLY — Generate the Complete Boilerplate, SESSION_COOKIE, SESSION_MAX_AGE_SECONDS, canAccess(), isPublicPath(), isRole(), matches(), config (+1 more)
+### Community 65 - "leave-request.ts"
+Cohesion: 0.28
+Nodes (7): DecisionInput, DecisionSchema, LeaveRequestInput, LeaveRequestSchema, RejectReasonSchema, zod, valid
 
 ### Community 66 - "LeaveTrack"
 Cohesion: 0.14
 Nodes (13): Accrual job (TASK-017), Database, Environment, HR audit (TASK-015), Known limitations, Leave types are independent (TASK-018 / US-08), LeaveTrack, Project layout (+5 more)
 
-### Community 67 - "audit/page.tsx"
-Cohesion: 0.38
-Nodes (8): AuditPage(), metadata, one(), ALL_EMPLOYEES, Alert(), AlertDescription(), AlertTitle(), alertVariants
+### Community 67 - "Notifier"
+Cohesion: 0.29
+Nodes (5): ADR-LeaveTrack-E007 — Notifications: transactional outbox plus in-app inbox, Consequences, Context, Decision, Notifier
 
 ### Community 69 - "login/actions.ts"
-Cohesion: 0.25
-Nodes (8): loginAction(), LoginSchema, LoginState, logoutAction(), sessionCookieOptions(), MAX_REDIRECT_LENGTH, isProduction, Day 1 hand-off notes
+Cohesion: 0.24
+Nodes (10): loginAction(), LoginSchema, LoginState, logoutAction(), LEGACY_SESSION_COOKIES, SESSION_COOKIE, SESSION_MAX_AGE_SECONDS, sessionCookieOptions() (+2 more)
 
 ### Community 70 - "vitest"
 Cohesion: 0.07
-Nodes (31): accrualRuns, auditLog, BALANCE_ROWS, LAST_ACCRUAL_AT, LEAVE_TYPE_IDS, leaveBalances, leavePolicies, leaveRequests (+23 more)
+Nodes (30): accrualRuns, auditLog, BALANCE_ROWS, LAST_ACCRUAL_AT, LEAVE_TYPE_IDS, leaveBalances, leavePolicies, leaveTypes (+22 more)
 
 ### Community 71 - "env.ts"
-Cohesion: 0.06
-Nodes (33): notFound(), POST(), tokenMatches(), ADR-LeaveTrack-E002 — Monthly Accrual: Idempotency, Catch-up, and Triggering, Consequences, Context, Decision, Options considered (+25 more)
+Cohesion: 0.09
+Nodes (23): notFound(), POST(), tokenMatches(), ADR-LeaveTrack-E002 — Monthly Accrual: Idempotency, Catch-up, and Triggering, Consequences, Context, Decision, Options considered (+15 more)
 
 ### Community 72 - "/scaffold"
-Cohesion: 0.29
-Nodes (6): Ecosystem reference, EVALUATE — Understand the Architecture and Design, PLAN — Boilerplate + UI Shell + Project Rules, Prerequisites, /scaffold, VALIDATE — Validate Infrastructure + Design Fidelity
+Cohesion: 0.25
+Nodes (7): APPLY — Generate the Complete Boilerplate, Ecosystem reference, EVALUATE — Understand the Architecture and Design, PLAN — Boilerplate + UI Shell + Project Rules, Prerequisites, /scaffold, VALIDATE — Validate Infrastructure + Design Fidelity
 
-### Community 73 - "types.ts"
-Cohesion: 0.10
-Nodes (23): Backlog (deferred, owner = Day 1 team), LeaveRepository, selectRepository(), AccrualRun, AUDIT_LOG_LIMIT, AuditAction, AuditEntryView, AuditEvent (+15 more)
+### Community 73 - "postgres-repository.ts"
+Cohesion: 0.16
+Nodes (18): Backlog (deferred, owner = Day 1 team), availableForRequest(), buildBalanceSummaries(), PendingRange, createPostgresRepository(), UserRow, LeaveRequest, LeaveType (+10 more)
 
-### Community 74 - "schema.test.ts"
-Cohesion: 0.14
-Nodes (11): AUDIT_ACTIONS, LEAVE_TYPE_NAMES, REQUEST_STATUSES, MIGRATION_FILES, MIGRATIONS, SEED, ARCH_TABLES, attempt() (+3 more)
+### Community 74 - "repository.ts"
+Cohesion: 0.15
+Nodes (12): Database, utcDay(), utcMonthBounds(), withinUtcDays(), byId(), mockRepository, toView(), typeOf() (+4 more)
 
-### Community 75 - "utils.ts"
-Cohesion: 0.33
-Nodes (4): badgeVariants, Separator(), class-variance-authority, radix-ui
+### Community 75 - "Button"
+Cohesion: 0.34
+Nodes (9): AppError(), ForbiddenPage(), metadata, NotFound(), StatusScreen(), StatusScreenProps, Button(), buttonVariants (+1 more)
 
-### Community 76 - "Notifier"
-Cohesion: 0.29
-Nodes (5): ADR-LeaveTrack-E007 — Notifications: transactional outbox plus in-app inbox, Consequences, Context, Decision, Notifier
+### Community 76 - "approvals/actions.ts"
+Cohesion: 0.36
+Nodes (7): decideLeaveRequestAction(), isAppError(), Decision, decideLeaveRequest(), getDecideDeps(), run(), decide()
 
 ### Community 77 - "set-task-status.test.ts"
 Cohesion: 0.29
 Nodes (3): dir, root, script
 
-### Community 78 - "Retro — Day 0 scaffold (2026-11-24)"
+### Community 78 - "utils.ts"
+Cohesion: 0.43
+Nodes (4): STATUS_META, Badge(), badgeVariants, RequestStatus
+
+### Community 79 - "decimal.ts"
+Cohesion: 0.73
+Nodes (4): addDays(), fromHundredths(), sumDays(), toHundredths()
+
+### Community 80 - "Retro — Day 0 scaffold (2026-11-24)"
 Cohesion: 0.33
 Nodes (5): Coverage baseline (TASK-021, 2026-11-26), EPIC 2 planning (2026-11-26), Fixed in VALIDATE, Retro — Day 0 scaffold (2026-11-24), What went well
-
-### Community 79 - "withErrorHandler"
-Cohesion: 0.18
-Nodes (10): Backend standards, API additions (planned), Example — TASK-014 (approve/reject), withErrorHandler(), toAppError(), getSession, input, service (+2 more)
 
 ### Community 81 - "ADR-LeaveTrack-E005 — Approval Routing: direct manager, HR for managers, HR peer for HR"
 Cohesion: 0.40
@@ -424,45 +435,53 @@ Nodes (4): ADR-LeaveTrack-E005 — Approval Routing: direct manager, HR for mana
 Cohesion: 0.40
 Nodes (4): ADR-LeaveTrack-E006 — Balance Ledger and Negative-Balance Resolutions, Consequences, Context, Decision
 
-### Community 85 - "requireRole"
-Cohesion: 0.12
-Nodes (16): AGENTS.md — LeaveTrack, Frontend standards, Git conventions, Project, Quality gates (must pass before merge), Security rules, Stack, Task tracking (+8 more)
+### Community 85 - "repo-hygiene.test.ts"
+Cohesion: 0.50
+Nodes (3): git(), ignored(), root
 
-### Community 88 - "coverage-summary.test.ts"
-Cohesion: 0.18
-Nodes (5): dir, script, git(), ignored(), root
+### Community 86 - "proxy.ts"
+Cohesion: 0.48
+Nodes (6): canAccess(), isPublicPath(), matches(), config, loginUrl(), proxy()
+
+### Community 87 - "postgres.ts"
+Cohesion: 0.33
+Nodes (6): selectRepository(), Driver, getSql(), globalForDb, wrap(), env
+
+### Community 90 - "ActionResult"
+Cohesion: 0.67
+Nodes (3): delay(), mockSubmit(), ActionResult
 
 ### Community 92 - "balance-writers.test.ts"
 Cohesion: 0.31
 Nodes (8): appFiles, files(), MOCK_FIELD, normalise(), root, Table, writersOf(), writesTable()
 
 ### Community 96 - "security-conventions.test.ts"
-Cohesion: 0.50
-Nodes (3): files(), root, UNSAFE_COMPARE
+Cohesion: 0.40
+Nodes (4): rel(), files(), root, UNSAFE_COMPARE
 
-### Community 97 - "no-name-logic.test.ts"
-Cohesion: 0.50
-Nodes (4): appFiles, files(), rel(), root
+### Community 97 - "action-errors.test.ts"
+Cohesion: 0.22
+Nodes (7): getSession, input, service, appFiles, code(), files(), root
 
 ## Knowledge Gaps
-- **553 isolated node(s):** `@commitlint/config-conventional`, `uvx`, `nexus-mcp`, `semi`, `singleQuote` (+548 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 648 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **11 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **559 isolated node(s):** `@commitlint/config-conventional`, `uvx`, `nexus-mcp`, `semi`, `singleQuote` (+554 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 660 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **15 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `vitest` connect `vitest` to `api/errors.ts`, `package.json`, `decide.ts`, `concurrency.test.ts`, `memory-parity.test.ts`, `approval-queue.tsx`, `repository.ts`, `roles.ts`, `decide-memory.test.ts`, `new/actions.ts`, `independence.test.ts`, `decide.test.ts`, `env.ts`, `schema.test.ts`, `set-task-status.test.ts`, `withErrorHandler`, `coverage-summary.test.ts`, `balance-writers.test.ts`, `ref_node_path`, `security-conventions.test.ts`, `no-name-logic.test.ts`?**
-  _High betweenness centrality (0.120) - this node is a cross-community bridge._
-- **Why does `next` connect `next` to `Button`, `api/errors.ts`, `proxy.ts`, `audit/page.tsx`, `package.json`, `approval-queue.tsx`, `login/actions.ts`, `env.ts`, `app/layout.tsx`, `vitest`, `new/actions.ts`, `login-form.tsx`, `leave-requests/route.ts`, `withErrorHandler`, `balance-card.tsx`, `decide.ts`, `mobile-nav.tsx`, `concurrency.test.ts`?**
-  _High betweenness centrality (0.076) - this node is a cross-community bridge._
-- **Why does `cn()` connect `cn` to `Button`, `audit/page.tsx`, `approval-queue.tsx`, `env.ts`, `utils.ts`, `login-form.tsx`, `balance-card.tsx`, `request-form.tsx`, `mobile-nav.tsx`, `decision-dialog.tsx`?**
-  _High betweenness centrality (0.031) - this node is a cross-community bridge._
+- **Why does `vitest` connect `vitest` to `package.json`, `independence.test.ts`, `memory-parity.test.ts`, `db/helpers.ts`, `approval-queue.tsx`, `roles.ts`, `decide.ts`, `accrual/route.ts`, `e2e/helpers.ts`, `AppError`, `decide.test.ts`, `types.ts`, `leave-request.ts`, `env.ts`, `postgres-repository.ts`, `repository.ts`, `set-task-status.test.ts`, `decimal.ts`, `repo-hygiene.test.ts`, `coverage-summary.test.ts`, `balance-writers.test.ts`, `ref_node_path`, `security-conventions.test.ts`, `action-errors.test.ts`?**
+  _High betweenness centrality (0.110) - this node is a cross-community bridge._
+- **Why does `next` connect `repositories.ts` to `package.json`, `login/actions.ts`, `request-form.tsx`, `env.ts`, `app/layout.tsx`, `approval-queue.tsx`, `repository.ts`, `Button`, `approvals/actions.ts`, `accrual/route.ts`, `with-error-handler.ts`, `vitest`, `leave-requests/route.ts`, `proxy.ts`, `db/helpers.ts`, `e2e/helpers.ts`, `AppError`, `sidebar-nav.tsx`?**
+  _High betweenness centrality (0.058) - this node is a cross-community bridge._
+- **Why does `cn()` connect `cn` to `approval-queue.tsx`, `request-form.tsx`, `decision-dialog.tsx`, `Button`, `utils.ts`, `repositories.ts`, `Coding Standards — LeaveTrack`, `mobile-nav.tsx`, `sidebar-nav.tsx`?**
+  _High betweenness centrality (0.032) - this node is a cross-community bridge._
 - **What connects `@commitlint/config-conventional`, `uvx`, `nexus-mcp` to the rest of the system?**
-  _553 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _559 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Business Requirements Document — LeaveTrack v1.0` be split into smaller, more focused modules?**
   _Cohesion score 0.09090909090909091 - nodes in this community are weakly interconnected._
+- **Should `cn` be split into smaller, more focused modules?**
+  _Cohesion score 0.1126984126984127 - nodes in this community are weakly interconnected._
 - **Should `package.json` be split into smaller, more focused modules?**
-  _Cohesion score 0.06666666666666667 - nodes in this community are weakly interconnected._
-- **Should `Architecture Document — LeaveTrack v1.0` be split into smaller, more focused modules?**
-  _Cohesion score 0.1 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.07142857142857142 - nodes in this community are weakly interconnected._

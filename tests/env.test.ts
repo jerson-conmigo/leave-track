@@ -8,7 +8,8 @@ import { isDeployedEnv, parseEnv, REQUIRED_WHEN_DEPLOYED } from "@/lib/env";
  */
 const DB = "postgres://user:s3cret-db-pass@db.example.com:6543/postgres";
 const CRON = "cron-s3cret-value";
-const full = { DATABASE_URL: DB, CRON_SECRET: CRON };
+const SESSION = "s".repeat(32) + "-session-s3cret";
+const full = { DATABASE_URL: DB, CRON_SECRET: CRON, SESSION_SECRET: SESSION };
 
 describe("not deployed: everything optional (AC4)", () => {
   it.each([
@@ -46,12 +47,55 @@ describe("deployed: required configuration (AC1, AC2)", () => {
     expect(() => parseEnv({ ...stage, DATABASE_URL: DB })).toThrow(/missing CRON_SECRET/);
   });
 
-  it.each(DEPLOYED)("%s with everything required → starts", (_l, stage) => {
-    expect(parseEnv({ ...stage, ...full }).DATABASE_URL).toBe(DB);
+  it.each(DEPLOYED)("%s without SESSION_SECRET → refuses (TASK-023)", (_l, stage) => {
+    expect(() => parseEnv({ ...stage, DATABASE_URL: DB, CRON_SECRET: CRON })).toThrow(
+      /missing SESSION_SECRET/,
+    );
+  });
+
+  // Until TASK-024 adds a real provider, AUTH_PROVIDER can only be "mock" — which a
+  // deployed environment refuses (ADR-LeaveTrack-E004). So with every required variable
+  // present, the ONLY remaining problem is the mock sign-in.
+  it.each(DEPLOYED)(
+    "%s with everything required → refuses only the mock sign-in (AC2)",
+    (_l, stage) => {
+      let message = "";
+      try {
+        parseEnv({ ...stage, ...full });
+      } catch (e) {
+        message = (e as Error).message;
+      }
+      expect(message).toMatch(/mock sign-in \(AUTH_PROVIDER=mock\) is not allowed/);
+      expect(message).not.toMatch(/missing/);
+    },
+  );
+
+  it("refuses an explicit AUTH_PROVIDER=mock when deployed", () => {
+    expect(() => parseEnv({ APP_ENV: "production", ...full, AUTH_PROVIDER: "mock" })).toThrow(
+      /mock sign-in/,
+    );
+  });
+
+  it("allows the mock sign-in when not deployed (local, CI, e2e)", () => {
+    expect(parseEnv({ NODE_ENV: "production", AUTH_PROVIDER: "mock" }).AUTH_PROVIDER).toBe("mock");
+    expect(parseEnv({}).AUTH_PROVIDER).toBe("mock");
+  });
+
+  it("rejects a SESSION_SECRET shorter than 32 characters, without echoing it", () => {
+    let message = "";
+    try {
+      parseEnv({ SESSION_SECRET: "short-s3cret" });
+    } catch (e) {
+      message = (e as Error).message;
+    }
+    expect(message).toMatch(/SESSION_SECRET must be at least 32 characters/);
+    expect(message).not.toContain("short-s3cret");
   });
 
   it("lists every missing variable at once", () => {
-    expect(() => parseEnv({ APP_ENV: "production" })).toThrow(/missing DATABASE_URL, CRON_SECRET/);
+    expect(() => parseEnv({ APP_ENV: "production" })).toThrow(
+      /missing DATABASE_URL, CRON_SECRET, SESSION_SECRET/,
+    );
   });
 
   it("an empty-string DATABASE_URL counts as missing", () => {
@@ -87,7 +131,7 @@ describe("error messages never leak values", () => {
 
 describe("structure", () => {
   it("REQUIRED_WHEN_DEPLOYED is exactly this list (TASK-023/024 add auth secrets on purpose)", () => {
-    expect([...REQUIRED_WHEN_DEPLOYED]).toEqual(["DATABASE_URL", "CRON_SECRET"]);
+    expect([...REQUIRED_WHEN_DEPLOYED]).toEqual(["DATABASE_URL", "CRON_SECRET", "SESSION_SECRET"]);
   });
 
   it("isDeployedEnv recognises only deployment stages", () => {

@@ -3,16 +3,18 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth/cookies";
+import { LEGACY_SESSION_COOKIES, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth/cookies";
+import { getAuthProvider } from "@/lib/auth/provider";
 import { MAX_REDIRECT_LENGTH, safeRedirectPath } from "@/lib/auth/roles";
 import { repository } from "@/lib/data/repositories";
 import { isProduction } from "@/lib/env";
 import { logger } from "@/lib/logger";
 
 /**
- * ⚠️ MOCK AUTH (ADR-LeaveTrack-E001) — accepts ANY email/password; no
- * credentials are checked. Picks a seeded user and sets the session cookies.
- * Day 1 replaces only the body of loginAction with a real provider.
+ * ⚠️ MOCK SIGN-IN (dev/test only; refused in deployed environments by lib/env.ts) —
+ * accepts ANY email/password; no credentials are checked. Picks a seeded user and sets
+ * a SIGNED session cookie through the auth port (TASK-023, ADR-LeaveTrack-E004).
+ * TASK-024 replaces the sign-in step with a real provider.
  */
 
 export type LoginState = { error?: string };
@@ -38,8 +40,9 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
 
   const jar = await cookies();
   const opts = sessionCookieOptions(isProduction);
-  jar.set(SESSION_COOKIE.role, user.role, opts);
-  jar.set(SESSION_COOKIE.userId, user.id, opts);
+  // A new signed token on every sign-in (TASK-023); drop any Day 0 unsigned cookies.
+  jar.set(SESSION_COOKIE, getAuthProvider().createSessionToken(user), opts);
+  for (const legacy of LEGACY_SESSION_COOKIES) jar.delete(legacy);
   logger.info({ userId: user.id, role: user.role }, "mock sign-in");
 
   redirect(safeRedirectPath(parsed.data.next));
@@ -47,7 +50,7 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
 
 export async function logoutAction(): Promise<void> {
   const jar = await cookies();
-  jar.delete(SESSION_COOKIE.role);
-  jar.delete(SESSION_COOKIE.userId);
+  jar.delete(SESSION_COOKIE);
+  for (const legacy of LEGACY_SESSION_COOKIES) jar.delete(legacy);
   redirect("/login");
 }

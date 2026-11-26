@@ -1,12 +1,14 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { defineConfig } from "@playwright/test";
 
 /**
  * TASK-016 — mobile e2e against the PRODUCTION build in memory mode (no
  * DATABASE_URL, no external services). Workers inherit this process's env, so
- * the per-run reset token below is shared by the server and every test.
+ * the per-run reset token and session secret below are shared by the server and every
+ * test (signInAs signs its session cookie with the same SESSION_SECRET — TASK-023).
  */
 process.env.E2E_RESET_TOKEN ??= randomUUID();
+process.env.SESSION_SECRET ??= randomBytes(32).toString("hex");
 const PORT = 3100;
 const isCI = !!process.env.CI;
 
@@ -51,6 +53,7 @@ export default defineConfig({
     timeout: 240_000,
     env: {
       E2E_RESET_TOKEN: process.env.E2E_RESET_TOKEN,
+      SESSION_SECRET: process.env.SESSION_SECRET,
       DATABASE_URL: "",
       LOG_LEVEL: "warn",
     },
