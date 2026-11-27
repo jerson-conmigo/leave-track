@@ -4,6 +4,11 @@ import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/auth/login-form";
 import { PasswordLoginForm } from "@/components/auth/password-login-form";
 import { Brand } from "@/components/layout/brand";
+import {
+  devLoginAccountsEnabled,
+  LOCAL_DEV_PASSWORD,
+  toDevAccounts,
+} from "@/lib/auth/dev-accounts";
 import { getAuthProvider } from "@/lib/auth/provider";
 import { getSession } from "@/lib/auth/session";
 import { repository } from "@/lib/data/repositories";
@@ -29,6 +34,11 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const isMock = getAuthProvider().name === "mock";
   // The mock picker lists every seeded user — never rendered with a real provider.
   const users = isMock ? await repository.listUsers() : [];
+  // TASK-056: the local development account dropdown — decided on the server for THIS request.
+  // When any guard fails, neither the password nor the account list is passed (so neither
+  // reaches the page).
+  const devLogin = !isMock && devLoginAccountsEnabled(process.env);
+  const devAccounts = devLogin ? toDevAccounts(await repository.listUsers()) : undefined;
 
   return (
     <div className="grid min-h-dvh lg:grid-cols-2">
@@ -69,6 +79,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
             <PasswordLoginForm
               next={nextPath}
               notice={typeof error === "string" ? NOTICES[error] : undefined}
+              {...(devLogin ? { devAccounts, devPassword: LOCAL_DEV_PASSWORD } : {})}
             />
           )}
         </div>

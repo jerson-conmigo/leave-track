@@ -3,6 +3,7 @@ import {
   expect,
   expectNoHorizontalOverflow,
   expectNotUnderHeader,
+  expectSelectsNotClipped,
   expectTapTargets,
   expectVisibleFocus,
   focusedLabel,
@@ -105,6 +106,13 @@ test.describe("submit-request form on mobile", () => {
   test("200% text: still no horizontal overflow (WCAG 1.4.4 / 1.4.10)", async ({ page }) => {
     await enlargeText(page);
     await expectNoHorizontalOverflow(page);
+  });
+
+  test("200% text: the leave-type field wraps — nothing clipped, still a 44px target (TASK-055)", async ({
+    page,
+  }) => {
+    await enlargeText(page);
+    await expectSelectsNotClipped(page);
   });
 
   test("keyboard only: logical order, operable select, submit with Enter", async ({ page }) => {

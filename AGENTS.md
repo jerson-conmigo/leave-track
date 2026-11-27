@@ -53,6 +53,8 @@ document's "Revision v1.1" section and `docs/dev-tasks/epic-2-hardening-and-reso
 1. **Error envelope everywhere.** Non-2xx responses are exactly
    `{ success: false, error: { code, message } }`; 2xx are `{ success: true, data }`.
    Use `ok()` / `fail()` from `lib/api/response.ts` and codes from `lib/api/errors.ts`.
+   The one exception is `GET /api/openapi.json` (TASK-057), which returns the raw OpenAPI
+   document for tools; its errors still use the envelope.
 2. **Wrap every route handler** in `withErrorHandler`. Throw `AppError` for expected failures.
    Never return stack traces, SQL, or raw provider errors.
    Database constraint violations reach clients through `toAppError` (`lib/db/errors.ts`):
@@ -75,6 +77,12 @@ document's "Revision v1.1" section and `docs/dev-tasks/epic-2-hardening-and-reso
    a unique violation means it already ran (US-07).
 9. **Pooled DB URL only** (`DATABASE_URL`, port 6543). `DIRECT_URL` is for migrations.
 10. **Log with pino** (`logger.info({ ...context }, "message")`). `console.*` fails lint.
+11. **Document every API route** (TASK-057). A new or changed route updates
+    `lib/api/openapi.ts` (operation, per-operation security, the statuses it really returns)
+    and `lib/api/schemas.ts` (response zod schemas). Query/params schemas live in
+    `lib/validation/`. `tests/api/openapi.test.ts` fails on any undocumented route or method,
+    and `tests/api/contract.test.ts` checks real responses against the schemas. The docs
+    (`/api-docs`, `/api/openapi.json`) are development only: 404 when deployed.
 
 ## Frontend standards
 
@@ -122,7 +130,10 @@ document's "Revision v1.1" section and `docs/dev-tasks/epic-2-hardening-and-reso
   which always passes `--remote` — Supabase CLI 3.x defaults to the local database). In
   development `lib/env.ts` refuses non-local `DATABASE_URL` / `DIRECT_URL` /
   `NEXT_PUBLIC_SUPABASE_URL` unless `ALLOW_REMOTE_DATABASE=true`. Never pass `--no-backup` to
-  `supabase stop`.
+  `supabase stop`. The sign-in page's local account menu (TASK-056, `DEV_LOGIN_ACCOUNTS=true`)
+  only FILLS the form, is decided on the server per request (`lib/auth/dev-accounts.ts`:
+  opt-in, not deployed, Supabase provider, `localhost`/`127.0.0.1` URLs only) and is refused
+  when deployed; it never reaches a page otherwise.
 - `proxy.ts` guards every non-public route; role-gated pages **also** call `requireRole()`.
 - Redirect targets go through `safeRedirectPath()` (no open redirects); emailed-link routes
   use a fixed destination and ignore any target in the URL.

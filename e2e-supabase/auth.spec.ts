@@ -1,4 +1,6 @@
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import postgres from "postgres";
@@ -10,6 +12,7 @@ import {
   type Env,
   invite,
 } from "./harness";
+import { enlargeText, expectNoHorizontalOverflow, expectSelectsNotClipped } from "../e2e/helpers";
 import { accessTokenFromCookies, testEmail } from "./identities";
 
 /**
@@ -29,6 +32,11 @@ const env: Env = {
 const ANON_KEY = process.env.SUPABASE_E2E_ANON_KEY!;
 const PASSWORD = "a-strong-local-test-password";
 const RUN = `${Date.now().toString(36)}${randomBytes(3).toString("hex")}`;
+// TASK-056: the documented local password, read from its single source (server-only module).
+const DEV_PASSWORD = readFileSync(
+  path.resolve(__dirname, "../lib/auth/dev-accounts.ts"),
+  "utf8",
+).match(/export const LOCAL_DEV_PASSWORD = "([^"]+)"/)![1]!;
 
 const noSession = { auth: { autoRefreshToken: false, persistSession: false } };
 const admin = createClient(env.apiUrl, env.serviceKey, noSession);
@@ -44,11 +52,20 @@ test.afterEach(async () => {
 test.afterAll(async () => sql.end({ timeout: 5 }));
 
 /**
- * The app's alert (components/ui/alert.tsx renders role="alert" + data-slot="alert").
+ * The app's ERROR alert (components/ui/alert.tsx renders role="alert" + data-slot="alert").
  * A bare getByRole("alert") also matches Next.js's empty route announcer
  * (#__next-route-announcer__, also role="alert"), which makes the locator ambiguous.
+ * TASK-056: with DEV_LOGIN_ACCOUNTS=true the sign-in page also shows the informational
+ * "Local development only" notice (the same Alert component), so it is excluded by its text.
+ * Strict mode still fails if any OTHER second alert appears, and if the notice's wording ever
+ * changes this stops excluding it and the tests fail loudly (pinned by the harness test).
  */
-const appAlert = (page: Page) => page.getByRole("alert").and(page.locator('[data-slot="alert"]'));
+export const DEV_NOTICE_TEXT = "Local development only";
+const appAlert = (page: Page) =>
+  page
+    .getByRole("alert")
+    .and(page.locator('[data-slot="alert"]'))
+    .filter({ hasNotText: DEV_NOTICE_TEXT });
 
 async function signIn(page: Page, email: string, password = PASSWORD) {
   await page.goto("/login");
@@ -106,6 +123,111 @@ test("AC2: a provider user with no linked users row cannot use the app", async (
   await page.goto("/dashboard");
   await expect(page).toHaveURL(/\/login\?next=%2Fdashboard$/);
 });
+
+test("TASK-056: the local account menu fills the form — sign-in still goes through Supabase", async ({
+  page,
+}) => {
+  const email = testEmail("dev-menu-hr", RUN);
+  await createLinkedUser(sql, admin, {
+    email,
+    name: "E2E Dev Menu",
+    role: "hr_admin",
+    password: DEV_PASSWORD,
+  });
+
+  await page.goto("/login");
+  await page.getByLabel("Fill in a local account").click();
+  await page.getByRole("option", { name: new RegExp(email.replace(/[.]/g, "\\.")) }).click();
+  // Filled, NOT submitted: still on /login until Sign in is pressed.
+  await expect(page.getByLabel("Work email")).toHaveValue(email);
+  await expect(page.getByLabel("Password", { exact: true })).toHaveValue(DEV_PASSWORD);
+  await expect(page).toHaveURL(/\/login$/);
+
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await page.goto("/audit");
+  await expect(page).toHaveURL(/\/audit$/); // role from the users row
+});
+
+test("TASK-056: the menu cannot bypass the password — an edited password is refused", async ({
+  page,
+}) => {
+  const email = testEmail("dev-menu-employee", RUN);
+  await createLinkedUser(sql, admin, {
+    email,
+    name: "E2E Dev Menu Two",
+    role: "employee",
+    password: DEV_PASSWORD,
+  });
+
+  await page.goto("/login");
+  await page.getByLabel("Fill in a local account").click();
+  await page.getByRole("option", { name: new RegExp(email.replace(/[.]/g, "\\.")) }).click();
+  await page.getByLabel("Password", { exact: true }).fill("not-the-right-password");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(appAlert(page)).toHaveText("Email or password is incorrect.");
+  await expect(page).toHaveURL(/\/login/);
+});
+
+test("TASK-056: picking an account with the KEYBOARD fills the form and submits nothing", async ({
+  page,
+}) => {
+  const email = testEmail("dev-menu-keys", RUN);
+  await createLinkedUser(sql, admin, {
+    email,
+    name: "E2E Dev Keys",
+    role: "employee",
+    password: DEV_PASSWORD,
+  });
+  const posts: string[] = [];
+  page.on("request", (r) => {
+    if (r.method() !== "GET") posts.push(`${r.method()} ${new URL(r.url()).pathname}`);
+  });
+
+  await page.goto("/login");
+  const trigger = page.getByLabel("Fill in a local account");
+  await trigger.focus();
+  await page.keyboard.press("Enter");
+  const option = page.getByRole("option", { name: new RegExp(email.replace(/[.]/g, "\\.")) });
+  await option.focus();
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(500); // room for a wrong submit to fire
+
+  expect(posts, "choosing an account must not submit").toEqual([]);
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByLabel("Work email")).toHaveValue(email);
+  await expect(page.getByLabel("Password", { exact: true })).toHaveValue(DEV_PASSWORD);
+  await expect(trigger).toBeFocused(); // focus stays on the menu, not on Sign in
+});
+
+for (const [width, height] of [
+  [375, 667],
+  [320, 568],
+] as const) {
+  test.describe(`TASK-056 at 200% text (${width}px)`, () => {
+    test.use({ viewport: { width, height }, isMobile: true, hasTouch: true });
+
+    test("the notice, the menu, a long chosen email and the password row wrap — no overflow, nothing clipped", async ({
+      page,
+    }) => {
+      const email = testEmail(`dev-menu-a-rather-long-local-part-${width}`, RUN);
+      await createLinkedUser(sql, admin, {
+        email,
+        name: "E2E Dev Wide",
+        role: "employee",
+        password: DEV_PASSWORD,
+      });
+      await page.goto("/login");
+      await enlargeText(page);
+      await expectNoHorizontalOverflow(page); // before choosing: notice + password row
+      await page.getByLabel("Fill in a local account").click();
+      await page.getByRole("option", { name: new RegExp(email.replace(/[.]/g, "\\.")) }).click();
+      await enlargeText(page);
+      await expectNoHorizontalOverflow(page); // after choosing: the long email in the field
+      await expectSelectsNotClipped(page);
+    });
+  });
+}
 
 test("AC3: sign-out revokes the session — Supabase rejects the old token and replayed cookies fail", async ({
   page,

@@ -54,6 +54,12 @@ Sign in as any seeded person (e.g. `carla.diaz@leavetrack.test` — HR Admin, or
 Supabase Auth; your role comes from the `users` table. Emails (invites, password resets)
 appear in Mailpit at http://localhost:54324.
 
+**Optional — account menu (TASK-056):** add `DEV_LOGIN_ACCOUNTS=true` to `.env.local` and restart
+`npm run dev`. The sign-in page then shows _Fill in a local account_: picking someone fills in
+their email and the local password; you still press **Sign in**, which goes through Supabase.
+It only appears with a local stack (`localhost` / `127.0.0.1` URLs) and is refused in any
+deployed environment.
+
 | Command                           | What it does                                                         |
 | --------------------------------- | -------------------------------------------------------------------- |
 | `npm run local:start`             | Start the local stack (skips services the app doesn't use)           |
@@ -201,6 +207,22 @@ psql "$DIRECT_URL" -f supabase/checks/untracked_type_rows.sql
 If it returns rows, fix them with HR first — the migration refuses to run on bad data and
 changes nothing. Constraint violations surface to clients as 400/409 envelopes
 (`lib/db/errors.ts`), never as 500s.
+
+### API documentation (TASK-057)
+
+With the app running locally (`npm run dev`), open <http://localhost:3000/api-docs> for Swagger
+UI, or fetch the raw OpenAPI 3.1 document from `/api/openapi.json` (for Postman or other tools).
+Both are **development only**: they return 404 in every deployed environment.
+
+- Documented: `GET /api/health`, `GET`/`POST /api/leave-requests`,
+  `POST /api/leave-requests/{id}/decision`, `GET /api/audit/{userId}` and
+  `GET`/`POST /api/jobs/accrual`. The test-only reset hook and server actions (sign-in,
+  forms) are not APIs and aren't listed.
+- Authentication per operation: the `lt-session` cookie from signing in on the site (Swagger
+  UI's "Try it out" sends your own cookie), a Bearer `CRON_SECRET` for the accrual job, or
+  none for the health check.
+- The document is generated from the zod schemas (`lib/api/openapi.ts`, `lib/api/schemas.ts`)
+  and checked against the OpenAPI 3.1 schema and the real handlers by `tests/api/`.
 
 ### Known limitations
 

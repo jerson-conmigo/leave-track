@@ -181,7 +181,7 @@ describe("structure: the harness can only ever touch test identities", () => {
       .join("\n");
     const bare = [
       ...code.matchAll(
-        /getByRole\(\s*["'`]alert["'`]\s*\)(?!\.and\(\s*page\.locator\(\s*'\[data-slot="alert"\]'\s*\)\s*\))/g,
+        /getByRole\(\s*["'`]alert["'`]\s*\)(?!\s*\.and\(\s*page\.locator\(\s*'\[data-slot="alert"\]'\s*\)\s*\))/g,
       ),
     ];
     expect(bare.map((m) => m[0])).toEqual([]);
@@ -191,6 +191,19 @@ describe("structure: the harness can only ever touch test identities", () => {
     expect(sources["auth.spec.ts"]).toMatch(
       /appAlert\(page\)\)\.toHaveText\(\/isn't set up for LeaveTrack\/\)/,
     );
+  });
+
+  it("appAlert excludes exactly the TASK-056 local-dev notice — by text that really is in it", () => {
+    const spec = sources["auth.spec.ts"]!;
+    const text = spec.match(/export const DEV_NOTICE_TEXT = "([^"]+)";/)?.[1];
+    expect(text).toBeTruthy();
+    expect(spec).toMatch(/\.filter\(\{ hasNotText: DEV_NOTICE_TEXT \}\)/);
+    // The excluded text must be the notice's own wording, or the exclusion silently goes stale.
+    const form = readFileSync(path.join(root, "components/auth/password-login-form.tsx"), "utf8");
+    expect(form).toMatch(new RegExp(`>\\s*${text}\\.`));
+    // Only that one exclusion: no other hasNotText / nth() shortcuts on the alert locator.
+    expect(spec.match(/hasNotText/g)).toHaveLength(1);
+    expect(spec).not.toMatch(/appAlert\(page\)\.(nth|first|last)\(/);
   });
 
   it("no seeded people are used by the suite (code, not comments)", () => {

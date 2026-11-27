@@ -65,6 +65,8 @@ export default defineConfig({
     timeout: 240_000,
     env: {
       AUTH_PROVIDER: "supabase",
+      // TASK-056: the local development account menu (local stack only).
+      DEV_LOGIN_ACCOUNTS: "true",
       NEXT_PUBLIC_SUPABASE_URL: local.API_URL ?? "",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: local.ANON_KEY ?? "",
       NEXT_PUBLIC_APP_URL: `http://localhost:${PORT}`,

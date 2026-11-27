@@ -311,3 +311,23 @@ stays green and proves nothing.
   arguments, so tests prove a refused command never reached the real tool.
 - When `.env.local` can switch modes (mock ↔ Supabase), pin the mode in each test server's
   own environment. Process values beat `.env.local` in Next.
+
+### Measure layout only after it settles (from TASK-055)
+
+- A check that injects a style (for example 200% text) and measures straight away can pass
+  falsely. Here the reduced-motion rule gave every element a one-frame transition, so the first
+  frame still had the old geometry. A fast laptop measured in that frame and passed; slower CI
+  measured later and failed.
+- Wait until the page's size is unchanged for several consecutive frames. A fixed number of
+  frames isn't enough (2 frames still passed falsely at 320 px). Then assert once. Never retry
+  a layout assertion until it passes: that would accept the first-frame false pass.
+- Prove the fix with the order "stricter test first (fails like CI), then the fix (passes)",
+  and repeat the run to show it's deterministic.
+- `FormControl` (Radix Slot) overrides a child's `data-slot`, so a form's Select trigger is
+  `data-slot="form-control"`. Style it through the component's classes, not that attribute.
+- `whitespace-nowrap` plus a fixed `h-*` on a grid item with `min-width: auto` can't shrink at
+  large text. `whitespace-normal` plus `min-h-*` lets it wrap and grow: wrap, don't truncate
+  (WCAG 1.4.4). Probes showed `min-w-0` and the value's `line-clamp` change made no difference
+  (`display:flex` disables `line-clamp`). Swapping `h-*` for `min-h-*` can add height (padding
+  - line height + border), so check the normal-size height too (here `py-2` → `py-1.5` kept
+    36 px).

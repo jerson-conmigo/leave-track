@@ -71,6 +71,28 @@ export async function expectNoHorizontalOverflow(page: Page) {
   expect(r.scroll, `horizontal overflow: ${r.offenders.join(" | ")}`).toBeLessThanOrEqual(r.vw);
 }
 
+/**
+ * TASK-055: every visible Select trigger shows its whole value — nothing clipped horizontally or
+ * vertically (wrap, don't truncate: WCAG 1.4.4) — and stays a ≥44px tap target.
+ */
+export async function expectSelectsNotClipped(page: Page) {
+  const bad = await page.evaluate(() =>
+    [...document.querySelectorAll('button[role="combobox"]')]
+      .filter((t) => t.getBoundingClientRect().width > 0)
+      .flatMap((t) => {
+        const value = t.querySelector('[data-slot="select-value"]') ?? t;
+        const clipped = [t, value].some(
+          (el) => el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1,
+        );
+        const h = t.getBoundingClientRect().height;
+        return clipped || h < 44
+          ? [`"${(t.textContent ?? "").trim()}" ${clipped ? "clipped" : ""} h=${Math.round(h)}`]
+          : [];
+      }),
+  );
+  expect(bad, `select content clipped or too small: ${bad.join(" | ")}`).toEqual([]);
+}
+
 /** Visible interactive controls are ≥44px tall and fully inside the viewport width. */
 export async function expectTapTargets(page: Page, scope = "header, main") {
   const bad = await page.evaluate((scope) => {
@@ -227,4 +249,27 @@ export async function seriousA11yViolations(page: Page) {
 /** Simulate 200% text size (WCAG 1.4.4): Tailwind sizes are rem-based. */
 export async function enlargeText(page: Page) {
   await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+  // TASK-055: measure the SETTLED layout. With reduced motion (playwright.config) every element
+  // has a 0.01ms transition (app/globals.css, B34), so for the first frame(s) after the style
+  // is injected the page keeps its old geometry — a measurement there passes falsely. Wait
+  // until the page's size is unchanged for 3 consecutive frames (at least 4 frames, at most ~60).
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        const size = () =>
+          `${document.documentElement.scrollWidth}x${document.body.getBoundingClientRect().height}`;
+        let last = size();
+        let stable = 0;
+        let frames = 0;
+        const tick = () => {
+          frames++;
+          const now = size();
+          stable = now === last ? stable + 1 : 0;
+          last = now;
+          if ((stable >= 3 && frames >= 4) || frames >= 60) resolve();
+          else requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }),
+  );
 }

@@ -19,7 +19,8 @@ import { createClient } from "@supabase/supabase-js";
 import postgres from "postgres";
 import { assertLocal, exitWith, readLocalStatus } from "./lib/local-only.mjs";
 
-/** Local development only — documented in the README; meets the 12-character minimum. */
+/** Local development only — documented in the README; meets the 12-character minimum.
+ *  Pinned equal to LOCAL_DEV_PASSWORD in lib/auth/dev-accounts.ts (TASK-056 dropdown). */
 export const LOCAL_DEV_PASSWORD = "leavetrack-local-dev";
 /** Identities of the real-Supabase e2e (e2e-supabase/identities.ts) are never seeded. */
 const TEST_DOMAIN = "@e2e-auth.leavetrack.test";

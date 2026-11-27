@@ -1,6 +1,10 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import {
+  enlargeText,
   expect,
   expectNoHorizontalOverflow,
+  expectSelectsNotClipped,
   expectTapTargets,
   focusIndicatorChange,
   focusedLabel,
@@ -31,6 +35,15 @@ for (const width of [375, 320]) {
       await expectTapTargets(page, "main");
     });
 
+    // TASK-055: the shared Select (here the mock "Sign in as" picker) must wrap, not overflow,
+    // at 200% text (WCAG 1.4.4 / 1.4.10). /audit is not checked yet — known issue B33.
+    test("login page at 200% text: no horizontal overflow", async ({ page }) => {
+      await page.goto("/login");
+      await enlargeText(page);
+      await expectNoHorizontalOverflow(page);
+      await expectSelectsNotClipped(page);
+    });
+
     for (const [role, id, paths] of PAGES) {
       for (const path of paths) {
         test(`${role} ${path}: no overflow, tap targets, visible focus on tab stops`, async ({
@@ -56,6 +69,22 @@ for (const width of [375, 320]) {
     }
   });
 }
+
+// TASK-056: in mock mode (and whenever any guard fails) the local development account menu does
+// not exist — neither the dev password nor the menu reaches the page HTML or its inline data.
+test("login page never ships the local dev password or the dev-account menu", async ({ page }) => {
+  const source = readFileSync(path.resolve(__dirname, "../lib/auth/dev-accounts.ts"), "utf8");
+  const devPassword = source.match(/export const LOCAL_DEV_PASSWORD = "([^"]+)"/)?.[1];
+  expect(devPassword).toBeTruthy();
+  const res = await page.request.get("/login");
+  const html = await res.text();
+  expect(res.ok()).toBe(true);
+  expect(html).not.toContain(devPassword!);
+  expect(html).not.toContain("Fill in a local account");
+  await page.goto("/login");
+  expect(await page.content()).not.toContain(devPassword!);
+  await expect(page.getByLabel("Fill in a local account")).toHaveCount(0);
+});
 
 test("mobile nav sheet lists the role's links (HR)", async ({ context, page }) => {
   await signInAs(context, "hr_admin", USERS.carla);

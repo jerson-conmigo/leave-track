@@ -10,7 +10,7 @@ import { z } from "zod";
  * A deployment is APP_ENV=production|staging or VERCEL_ENV=production|preview —
  * if either says "deployed", the strict rules apply (TASK-019):
  *   - every variable in REQUIRED_WHEN_DEPLOYED must be set (no silent in-memory store),
- *   - E2E_RESET_TOKEN must NOT be set,
+ *   - E2E_RESET_TOKEN must NOT be set, nor DEV_LOGIN_ACCOUNTS=true (TASK-056),
  *   - AUTH_PROVIDER must not be "mock" (ADR-LeaveTrack-E004; TASK-023).
  * AUTH_PROVIDER=supabase needs its project URL, anon key and DATABASE_URL in ANY
  * environment (TASK-024; TASK-054: no silent in-memory store behind real sign-in).
@@ -116,6 +116,9 @@ const EnvSchema = z.object({
   // Local development only: allow a NON-local database / Supabase URL (TASK-054). Leave
   // unset: by default development refuses hosted URLs so they can't be used by accident.
   ALLOW_REMOTE_DATABASE: z.enum(["true", "false"]).optional(),
+  // Local development only: show the "Fill in a local account" dropdown on the Supabase sign-in
+  // form (TASK-056; lib/auth/dev-accounts.ts). Refused in deployed environments.
+  DEV_LOGIN_ACCOUNTS: z.enum(["true", "false"]).optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -162,6 +165,7 @@ export function parseEnv(input: RawEnv): Env {
     const missing = REQUIRED_WHEN_DEPLOYED.filter((name) => !raw[name]);
     if (missing.length > 0) problems.push(`missing ${missing.join(", ")}`);
     if (raw.E2E_RESET_TOKEN) problems.push("E2E_RESET_TOKEN must not be set");
+    if (raw.DEV_LOGIN_ACCOUNTS === "true") problems.push("DEV_LOGIN_ACCOUNTS must not be set");
     if (parsed.data.AUTH_PROVIDER === "mock") {
       problems.push("mock sign-in (AUTH_PROVIDER=mock) is not allowed (ADR-LeaveTrack-E004)");
     }

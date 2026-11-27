@@ -232,6 +232,37 @@ describe("local development refuses remote database/Supabase URLs (TASK-054, C2)
   });
 });
 
+describe("DEV_LOGIN_ACCOUNTS (TASK-056): local only", () => {
+  it.each([
+    ["APP_ENV=production", { APP_ENV: "production" }],
+    ["APP_ENV=staging", { APP_ENV: "staging" }],
+    ["VERCEL_ENV=production", { VERCEL_ENV: "production" }],
+    ["VERCEL_ENV=preview", { VERCEL_ENV: "preview" }],
+  ])("%s with DEV_LOGIN_ACCOUNTS=true → refuses, naming it", (_l, stage) => {
+    expect(() =>
+      parseEnv({ ...stage, ...full, AUTH_PROVIDER: "supabase", DEV_LOGIN_ACCOUNTS: "true" }),
+    ).toThrow(/DEV_LOGIN_ACCOUNTS must not be set/);
+  });
+
+  it("deployed with DEV_LOGIN_ACCOUNTS=false or unset → fine", () => {
+    for (const v of ["false", undefined]) {
+      expect(() =>
+        parseEnv({
+          APP_ENV: "production",
+          ...full,
+          AUTH_PROVIDER: "supabase",
+          DEV_LOGIN_ACCOUNTS: v,
+        }),
+      ).not.toThrow();
+    }
+  });
+
+  it("allowed locally, and only true/false are valid", () => {
+    expect(parseEnv({ DEV_LOGIN_ACCOUNTS: "true" }).DEV_LOGIN_ACCOUNTS).toBe("true");
+    expect(() => parseEnv({ DEV_LOGIN_ACCOUNTS: "yes" })).toThrow(/DEV_LOGIN_ACCOUNTS/);
+  });
+});
+
 describe("error messages never leak values", () => {
   it.each([
     ["missing CRON_SECRET", { APP_ENV: "production", DATABASE_URL: DB }],

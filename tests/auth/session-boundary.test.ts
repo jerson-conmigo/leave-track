@@ -27,6 +27,9 @@ const using = (pattern: RegExp) =>
 describe("session boundary", () => {
   it("only completeSignIn writes the session cookie; only proxy.ts and getSession read it", () => {
     expect(using(/\bSESSION_COOKIE\b|["'`]lt-session["'`]/)).toEqual([
+      // TASK-057: names `lt-session` in the OpenAPI cookieAuth scheme for documentation only —
+      // it never reads, writes or manages the session cookie.
+      "lib/api/openapi.ts",
       "lib/auth/cookies.ts",
       "lib/auth/session.ts",
       "lib/auth/sign-in.ts",

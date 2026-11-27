@@ -1,5 +1,4 @@
 import type { NextRequest } from "next/server";
-import { z } from "zod";
 import { AppError } from "@/lib/api/errors";
 import { ok } from "@/lib/api/response";
 import { withErrorHandler } from "@/lib/api/with-error-handler";
@@ -7,6 +6,7 @@ import { getSession } from "@/lib/auth/session";
 import { repository } from "@/lib/data/repositories";
 import type { MyLeaveContext, TeamQueue } from "@/lib/data/types";
 import { getSubmitDeps, submitLeaveRequest } from "@/lib/leave-requests";
+import { ListQuerySchema } from "@/lib/validation/api";
 
 /**
  * POST /api/leave-requests — submit a leave request (US-01, TASK-011).
@@ -29,12 +29,6 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 
   const result = await submitLeaveRequest(session, body, getSubmitDeps());
   return ok(result, { status: 201 });
-});
-
-const ListQuerySchema = z.object({
-  scope: z.enum(["mine", "team"], { error: "Unsupported scope." }),
-  // Only meaningful for scope=team: the queue shows pending requests by default.
-  status: z.enum(["pending", "all"], { error: "Unsupported status." }).default("pending"),
 });
 
 const NO_STORE = { headers: { "Cache-Control": "private, no-store" } };
