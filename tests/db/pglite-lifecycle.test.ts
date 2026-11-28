@@ -136,6 +136,7 @@ describe("structure: every test file that creates databases is reviewed and clos
     "tests/data/balance-ledger.test.ts",
     "tests/data/postgres-repository.test.ts",
     "tests/db/pglite-lifecycle.test.ts",
+    "tests/db/resolutions.test.ts",
     "tests/db/users-auth-link.test.ts",
     "tests/leave-requests/approval-routing.test.ts",
     "tests/leave-requests/cancel.test.ts",

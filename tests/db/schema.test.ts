@@ -93,6 +93,15 @@ const EXPECTED_FKS: [string, string, string][] = [
   ["notification_outbox", "notification_id", "notifications"],
   ["notification_outbox", "recipient_id", "users"],
   ["leave_requests", "cancelled_by", "users"], // TASK-028
+  // TASK-031: resolution schema
+  ["app_settings", "updated_by", "users"],
+  ["balance_resolutions", "user_id", "users"],
+  ["balance_resolutions", "leave_type_id", "leave_types"],
+  ["balance_resolutions", "supersedes_id", "balance_resolutions"],
+  ["balance_resolutions", "proposed_by", "users"],
+  ["balance_recoveries", "resolution_id", "balance_resolutions"],
+  ["balance_resolution_events", "resolution_id", "balance_resolutions"],
+  ["balance_resolution_events", "actor_id", "users"],
 ];
 
 const ANA = USER_IDS.ana;
@@ -210,6 +219,10 @@ describe("AC2 — all 6 tables exist with FKs matching the arch doc", () => {
         "balance_ledger",
         "notifications", // TASK-030
         "notification_outbox", // TASK-030
+        "app_settings", // TASK-031
+        "balance_resolutions", // TASK-031
+        "balance_recoveries", // TASK-031
+        "balance_resolution_events", // TASK-031
       ].sort(),
     );
   });

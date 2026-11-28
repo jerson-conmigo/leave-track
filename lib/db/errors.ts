@@ -71,6 +71,72 @@ const BY_CONSTRAINT: Record<string, { sqlstate: string; code: ErrorCode; message
     code: "CONFLICT",
     message: "A cancelled request can't be changed.",
   },
+  // TASK-031: resolution schema (US-09, ADR-E006).
+  balance_resolutions_status_valid: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "Unknown resolution status.",
+  },
+  balance_resolutions_deficit_positive: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "A resolution needs a deficit to resolve.",
+  },
+  balance_resolutions_amounts_nonnegative: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "Resolution amounts can't be negative.",
+  },
+  balance_resolutions_amounts_match_deficit: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "Unpaid and recovery days must add up to the deficit.",
+  },
+  balance_resolutions_recovery_schedule: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "A recovery needs a start month and at least one month.",
+  },
+  balance_resolutions_proposal_number_range: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "A deficit can be proposed at most twice.",
+  },
+  balance_resolutions_one_open: {
+    sqlstate: "23505",
+    code: "CONFLICT",
+    message: "There's already an open resolution for this balance.",
+  },
+  balance_recoveries_resolution_period_key: {
+    sqlstate: "23505",
+    code: "CONFLICT",
+    message: "This month's recovery is already scheduled.",
+  },
+  balance_recoveries_amount_positive: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "A recovery amount must be positive.",
+  },
+  balance_recoveries_period_month: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "A recovery period must be the first of a month.",
+  },
+  balance_resolution_events_action_valid: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "Unknown resolution event.",
+  },
+  balance_resolution_events_append_only: {
+    sqlstate: "23001",
+    code: "CONFLICT",
+    message: "Resolution history can't be changed.",
+  },
+  app_settings_resolution_response_days_range: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "The response deadline must be 1 to 14 days.",
+  },
   leave_requests_date_range: {
     sqlstate: "23514",
     code: "VALIDATION_ERROR",

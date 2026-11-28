@@ -61,3 +61,6 @@ is unchanged (Proposed) pending architect-of-record sign-off.
 
 Cancellation (TASK-028) is the third writer: cancelling approved leave reverses that approval's
 ledger delta (`cancellation:<request>`), in the same statement as the balance credit.
+
+TASK-031 built the resolution schema (§2–§7 tables, constraints, one-open index, append-only events,
+`app_settings`); the state machine, deadline, recovery and conversion logic follow in TASK-032–036.

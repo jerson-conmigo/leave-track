@@ -702,9 +702,9 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1795873860.9497294,
-    "seen": 1795874013.213155,
-    "ast_hash": "7650c44bffa4d4ee355c0033dc99af35",
+    "mtime": 1795874635.9864385,
+    "seen": 1795874721.6388109,
+    "ast_hash": "7f624b5fc4f11c2ac3ab5d2170530f3a",
     "semantic_hash": ""
   },
   "README.md": {
@@ -756,9 +756,9 @@
     "semantic_hash": ""
   },
   "tests/db/schema.test.ts": {
-    "mtime": 1795871077.6553943,
-    "seen": 1795871082.77284,
-    "ast_hash": "02ce65d10f15f29c81f35185c7ae8c1e",
+    "mtime": 1795874615.705424,
+    "seen": 1795874629.6579509,
+    "ast_hash": "1fd763385cd57862362fb4e89faab698",
     "semantic_hash": ""
   },
   "scripts/set-task-status.mjs": {
@@ -1140,9 +1140,9 @@
     "semantic_hash": ""
   },
   "lib/db/errors.ts": {
-    "mtime": 1795870807.1587703,
-    "seen": 1795870813.253398,
-    "ast_hash": "2a679add703dc065c9cfd88a30a104f6",
+    "mtime": 1795874745.5211263,
+    "seen": 1795874749.7070148,
+    "ast_hash": "67f147b82c6c5448cf37a7a296e7e82b",
     "semantic_hash": ""
   },
   "tests/db/errors.test.ts": {
@@ -1194,9 +1194,9 @@
     "semantic_hash": ""
   },
   "docs/arch-docs/ADR-LeaveTrack-E006-Balance-Ledger-and-Resolutions.md": {
-    "mtime": 1795871267.8830822,
-    "seen": 1795871271.6767502,
-    "ast_hash": "dabd35005a15ccf5d3c2d368576889f1",
+    "mtime": 1795874635.9866722,
+    "seen": 1795874721.638954,
+    "ast_hash": "63824e221c11b88953f0911baf2c68f3",
     "semantic_hash": ""
   },
   "docs/arch-docs/ADR-LeaveTrack-E007-Notification-Outbox.md": {
@@ -1464,9 +1464,9 @@
     "semantic_hash": ""
   },
   "tests/db/pglite-lifecycle.test.ts": {
-    "mtime": 1795871125.1473422,
-    "seen": 1795871136.940638,
-    "ast_hash": "427d81ab3aac6fdd9c530f6640871574",
+    "mtime": 1795874615.7057261,
+    "seen": 1795874629.657949,
+    "ast_hash": "cf4a5472ba506d244bcb5fbd1cff259e",
     "semantic_hash": ""
   },
   "e2e-supabase/identities.ts": {
@@ -1923,6 +1923,12 @@
     "mtime": 1795873836.7170904,
     "seen": 1795873851.337566,
     "ast_hash": "9f4a02ed1659976a3d612de3f3c9ba43",
+    "semantic_hash": ""
+  },
+  "tests/db/resolutions.test.ts": {
+    "mtime": 1795874616.2430768,
+    "seen": 1795874629.65795,
+    "ast_hash": "7d533700cd1d265f3d060f579ea22f82",
     "semantic_hash": ""
   }
 }

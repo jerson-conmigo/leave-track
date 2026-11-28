@@ -119,6 +119,11 @@ document's "Revision v1.1" section and `docs/dev-tasks/epic-2-hardening-and-reso
     ledger, the `cancelled` audit row and the approvers' notification are one transaction.
     `cancelled_by` / `cancelled_at` record it; the approval's `decided_*` stay. A cancelled
     request is final (trigger). "Not yours" (403) is checked before "started" (409).
+15. **Balance resolutions** (TASK-031, ADR-E006): `balance_resolutions` (tracked types only;
+    unpaid + recovery days = the deficit; ONE open — proposed or declined — per user and type),
+    `balance_recoveries` (one per resolution and month), append-only `balance_resolution_events`
+    and `app_settings` (`resolution_response_days` 1–14, default 3). Status/action are text +
+    CHECK, not enums. Every new constraint is mapped in `toAppError` (test-pinned).
 
 ## Frontend standards
 
