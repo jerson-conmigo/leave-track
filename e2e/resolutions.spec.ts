@@ -118,3 +118,103 @@ test("mobile: no overflow, 44px targets, no serious axe violations on each tab",
   await expectNoHorizontalOverflow(page);
   expect(await seriousA11yViolations(page)).toEqual([]);
 });
+
+// ── TASK-033 (US-10): the employee responds; HR re-proposes once or decides ──────────────────
+const VACATION = "10000000-0000-4000-8000-000000000001";
+async function proposed(context: BrowserContext, page: Page) {
+  await samInDeficit(context, page);
+  await signInAs(context, "hr_admin", USERS.carla);
+  const res = await page.request.post("/api/resolutions", {
+    data: { userId: SAM, leaveTypeId: VACATION, unpaidDays: 1.25, recoveryDays: 0 },
+  });
+  expect(res.status()).toBe(201);
+}
+
+test("Sam accepts on /balance; the amounts apply and HR is notified (US-10 AC1)", async ({
+  context,
+  page,
+}) => {
+  await proposed(context, page);
+  await signInAs(context, "employee", SAM);
+  await page.goto("/balance");
+  const card = page.getByRole("region", { name: "Negative balance resolution" });
+  await expect(card).toContainText("1.25 days converted to Unpaid");
+  await card.getByRole("button", { name: "Accept" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Accept resolution" }).click();
+  await expect(page.locator("[data-sonner-toast]")).toContainText("Resolution accepted");
+  await expect(card).toContainText("You accepted. Applied: 1.25 days converted to Unpaid");
+  await expect(card.getByRole("button", { name: "Accept" })).toHaveCount(0);
+
+  await signInAs(context, "hr_admin", USERS.carla);
+  await page.goto("/notifications");
+  await expect(page.getByText(/accepted the Vacation resolution/)).toBeVisible();
+});
+
+test("decline → re-propose → decline → final decision (US-10 AC2, AC3)", async ({
+  context,
+  page,
+}) => {
+  await proposed(context, page);
+  const declineOnBalance = async (reason: string) => {
+    await signInAs(context, "employee", SAM);
+    await page.goto("/balance");
+    await page.getByRole("button", { name: "Decline" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("button", { name: "Decline resolution" }).click();
+    await expect(dialog.getByRole("alert")).toContainText("at least 3 characters");
+    await dialog.getByLabel("Reason for declining").fill(reason);
+    await dialog.getByRole("button", { name: "Decline resolution" }).click();
+    await expect(page.locator("[data-sonner-toast]")).toContainText("HR will review it");
+  };
+  await declineOnBalance("I'd rather recover it");
+
+  await signInAs(context, "hr_admin", USERS.carla);
+  await page.goto("/resolutions?tab=declined");
+  await expect(page.getByText("“I'd rather recover it”")).toBeVisible();
+  await page.getByRole("button", { name: /Re-propose for Sam/ }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Send second proposal" }).click();
+  await expect(page.locator("[data-sonner-toast]")).toContainText("Second proposal sent");
+
+  await declineOnBalance("Still no, sorry");
+
+  await signInAs(context, "hr_admin", USERS.carla);
+  await page.goto("/resolutions?tab=declined");
+  await expect(page.getByRole("button", { name: /Re-propose for Sam/ })).toHaveCount(0);
+  await page.getByRole("button", { name: /Final decision for Sam/ }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Reason for the decision").fill("Policy: convert after two declines");
+  await dialog.getByRole("button", { name: "Record final decision" }).click();
+  await expect(page.locator("[data-sonner-toast]")).toContainText("Final decision recorded");
+
+  await signInAs(context, "employee", SAM);
+  await page.goto("/balance");
+  await expect(page.getByRole("region", { name: "Negative balance resolution" })).toContainText(
+    "HR's final decision: Policy: convert after two declines",
+  );
+});
+
+test("mobile: the card and the declined review have no overflow, 44px targets, no serious axe", async ({
+  context,
+  page,
+}) => {
+  await proposed(context, page);
+  await signInAs(context, "employee", SAM);
+  await page.goto("/balance");
+  await expectNoHorizontalOverflow(page);
+  await expectTapTargets(page);
+  expect(await seriousA11yViolations(page)).toEqual([]);
+  await page.getByRole("button", { name: "Decline" }).click();
+  await page.getByRole("dialog").getByLabel("Reason for declining").fill("Not this way");
+  await page.getByRole("dialog").getByRole("button", { name: "Decline resolution" }).click();
+  await expect(page.locator("[data-sonner-toast]")).toBeVisible();
+
+  await signInAs(context, "hr_admin", USERS.carla);
+  await page.goto("/resolutions?tab=declined");
+  await expectNoHorizontalOverflow(page);
+  await expectTapTargets(page);
+  expect(await seriousA11yViolations(page)).toEqual([]);
+  const reopen = page.getByRole("button", { name: /Re-propose for Sam/ });
+  await reopen.click();
+  await page.keyboard.press("Escape");
+  await expect(reopen).toBeFocused();
+});

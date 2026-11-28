@@ -71,6 +71,22 @@ const BY_CONSTRAINT: Record<string, { sqlstate: string; code: ErrorCode; message
     code: "CONFLICT",
     message: "A cancelled request can't be changed.",
   },
+  // TASK-033: responses and HR review.
+  balance_resolutions_applied_consistent: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "Applied amounts don't match the resolution's status.",
+  },
+  balance_resolutions_closed_consistent: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "Only open resolutions can be left without a closing time.",
+  },
+  balance_resolutions_final_reason_length: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "The reason must be 3 to 500 characters.",
+  },
   // TASK-031: resolution schema (US-09, ADR-E006).
   balance_resolutions_status_valid: {
     sqlstate: "23514",

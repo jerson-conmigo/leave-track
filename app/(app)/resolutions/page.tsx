@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/page-header";
+import { type DeclinedItem, DeclinedReview } from "@/components/resolutions/declined-review";
 import { ResolutionQueue } from "@/components/resolutions/resolution-queue";
 import { ResolutionTable } from "@/components/resolutions/resolution-table";
 import {
@@ -9,6 +10,35 @@ import {
 } from "@/components/resolutions/resolution-tabs";
 import { requireRole } from "@/lib/auth/session";
 import { repository } from "@/lib/data/repositories";
+import type { ResolutionView } from "@/lib/resolutions/types";
+
+/**
+ * TASK-033 — what the HR dialog needs for a declined resolution: the leave type id, the current
+ * balance and accrual. Re-proposing splits the CURRENT deficit; a final decision splits the
+ * deficit the proposal was about (the server clamps it to the current one).
+ */
+async function declinedItems(rows: ResolutionView[]): Promise<DeclinedItem[]> {
+  return Promise.all(
+    rows.map(async (r) => {
+      const b = (await repository.getBalances(r.userId)).find(
+        (x) => x.leaveType.name === r.leaveType,
+      );
+      const balance = b?.confirmed ?? 0;
+      return {
+        resolution: r,
+        row: {
+          userId: r.userId,
+          userName: r.userName,
+          leaveTypeId: b?.leaveType.id ?? "",
+          leaveType: r.leaveType,
+          balance,
+          deficit: r.proposalNumber >= 2 ? r.deficit : Math.max(0, -balance),
+          accrualPerMonth: b?.accrualPerMonth ?? 0,
+        },
+      };
+    }),
+  );
+}
 
 export const metadata: Metadata = { title: "Resolutions" };
 
@@ -43,7 +73,7 @@ export default async function ResolutionsPage({ searchParams }: PageProps<"/reso
             empty="No proposals awaiting a response"
           />
         ) : tab === "declined" ? (
-          <ResolutionTable resolutions={declined} label={label} empty="No declined proposals" />
+          <DeclinedReview items={await declinedItems(declined)} currentUserId={session.userId} />
         ) : (
           <ResolutionTable
             resolutions={await repository.listResolutions("history")}

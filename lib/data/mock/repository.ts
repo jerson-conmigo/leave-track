@@ -11,11 +11,8 @@ import {
 } from "@/lib/data/types";
 import { toRequestView } from "@/lib/data/views";
 import { approverLabel, canDecide } from "@/lib/leave-requests/approver";
-import {
-  monthlyDeduction,
-  OPEN_RESOLUTION_STATUSES,
-  RESOLUTION_GROUP_STATUSES,
-} from "@/lib/resolutions/types";
+import { OPEN_RESOLUTION_STATUSES, RESOLUTION_GROUP_STATUSES } from "@/lib/resolutions/types";
+import { toMemoryResolutionView } from "@/lib/resolutions/views";
 import { countDays } from "@/lib/format";
 
 // Same array instances as mockDb, so in-memory writes are visible to every read.
@@ -229,25 +226,22 @@ export const mockRepository: LeaveRepository = {
     return mockDb.balanceResolutions
       .filter((r) => wanted.includes(r.status))
       .sort((a, b) => b.proposedAt.localeCompare(a.proposedAt) || a.id.localeCompare(b.id))
-      .map((r) => ({
-        id: r.id,
-        userId: r.userId,
-        userName: userName(r.userId) ?? "Unknown",
-        leaveType: typeOf(r.leaveTypeId).name,
-        status: r.status,
-        deficit: r.deficitAtProposal,
-        unpaidDays: r.unpaidDaysProposed,
-        recoveryDays: r.recoveryDaysProposed,
-        monthlyDeduction:
-          r.recoveryDaysProposed > 0 && r.recoveryMonths
-            ? monthlyDeduction(r.recoveryDaysProposed, r.recoveryMonths)
-            : null,
-        recoveryStartPeriod: r.recoveryStartPeriod,
-        recoveryMonths: r.recoveryMonths,
-        respondBy: r.respondBy,
-        proposedByName: userName(r.proposedBy) ?? "Unknown",
-        proposedAt: r.proposedAt,
-      }));
+      .map((r) => toMemoryResolutionView(r));
+  },
+
+  async getMyResolution(userId) {
+    const cutoff = Date.now() - 30 * 86_400_000;
+    const mine = mockDb.balanceResolutions
+      .filter(
+        (r) =>
+          r.userId === userId &&
+          r.status !== "superseded" &&
+          (r.status === "proposed" ||
+            r.status === "declined" ||
+            (r.closedAt !== null && Date.parse(r.closedAt) > cutoff)),
+      )
+      .sort((a, b) => b.proposedAt.localeCompare(a.proposedAt) || a.id.localeCompare(b.id));
+    return mine[0] ? toMemoryResolutionView(mine[0]) : null;
   },
 
   // TASK-030: only the recipient's own rows (mirrors WHERE recipient_id = $1).

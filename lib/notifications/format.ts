@@ -16,6 +16,29 @@ export function notificationText(n: Notification): string {
     ].filter(Boolean);
     return `HR proposed how to resolve your ${r.leaveType} deficit of ${formatDays(r.deficit)}: ${parts.join(" and ")}. Please respond by ${formatDate(r.respondBy)}.`;
   }
+  if (n.type === "resolution.accepted") {
+    const r = n.payload;
+    return `${r.employeeName} accepted the ${r.leaveType} resolution: ${appliedText(r.unpaidApplied, r.recoveryApplied)}.`;
+  }
+  if (n.type === "resolution.declined") {
+    const r = n.payload;
+    const next = r.proposalNumber >= 2 ? "A final decision is needed." : "You can re-propose once.";
+    return `${r.employeeName} declined the ${r.leaveType} resolution. Reason: ${r.reason} ${next}`;
+  }
+  if (n.type === "resolution.expired") {
+    const r = n.payload;
+    const what =
+      r.unpaidApplied > 0
+        ? `${formatDays(r.unpaidApplied)} converted to Unpaid`
+        : "nothing was left to convert";
+    return n.recipientId === r.employeeId
+      ? `Your ${r.leaveType} resolution wasn't answered by the deadline: ${what}.`
+      : `${r.employeeName}'s ${r.leaveType} resolution wasn't answered by the deadline: ${what}.`;
+  }
+  if (n.type === "resolution.finalized") {
+    const r = n.payload;
+    return `HR made a final decision on your ${r.leaveType} deficit: ${appliedText(r.unpaidApplied, r.recoveryApplied)}. Reason: ${r.reason}`;
+  }
   const p = n.payload;
   const when = formatDateRange(p.startDate, p.endDate);
   if (n.type === "request.submitted") {
@@ -34,9 +57,22 @@ export function notificationText(n: Notification): string {
   return `Your ${d.leaveType} request (${when}) was ${verb} by ${d.decidedByName}.${reason}`;
 }
 
+function appliedText(unpaid: number, recovery: number): string {
+  const parts = [
+    unpaid > 0 ? `${formatDays(unpaid)} converted to Unpaid` : null,
+    recovery > 0 ? `${formatDays(recovery)} to be recovered from accruals` : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(" and ") : "nothing left to resolve";
+}
+
 /** Where acting on it happens: approvers go to Approvals, requesters to My requests. */
 export function notificationHref(n: Notification): string {
-  if (n.type === "resolution.proposed") return "/balance"; // the response page comes with TASK-033
+  if (n.type === "resolution.proposed" || n.type === "resolution.finalized") return "/balance";
+  if (n.type === "resolution.expired") {
+    return n.recipientId === n.payload.employeeId ? "/balance" : "/resolutions?tab=history";
+  }
+  if (n.type === "resolution.accepted") return "/resolutions?tab=history";
+  if (n.type === "resolution.declined") return "/resolutions?tab=declined";
   return n.type === "request.decided" ? "/requests" : "/approvals";
 }
 

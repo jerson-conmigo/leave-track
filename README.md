@@ -207,7 +207,14 @@ item, links and focus rings take your role's colour too; status colours never ch
   accruals (from next month, at most the monthly accrual rate). The two must add up to the
   deficit, which is re-checked when you send. The employee is notified and has the configured
   number of days (default 3) to respond. You can't propose for your own balance.
-- Accepting, declining, expiry and applying the plan arrive with TASK-033–036.
+- The employee answers on **Balance** before the deadline: **Accept** applies what is still below
+  zero (converted days and recovered days are credited now; the recovery is deducted monthly), or
+  **Decline** with a reason. After the deadline the proposal is read-only.
+- A decline goes to _Declined – review_: HR can **Re-propose** once; after a second decline HR
+  records a binding **Final decision** with a reason.
+- If nobody answers by the deadline, a daily job (`/api/jobs/resolution-expiry`, 03:00 UTC,
+  same `CRON_SECRET` as accrual) converts what is still below zero to Unpaid, closes the
+  proposal and tells the employee and HR. The monthly recovery deductions arrive with TASK-035.
 
 ### Notifications (TASK-030)
 

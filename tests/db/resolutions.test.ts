@@ -64,7 +64,8 @@ describe("TASK-031 — resolution schema", () => {
     expect(await propose()).toMatchObject({ constraint: "balance_resolutions_one_open" });
     await db.query(`update balance_resolutions set status = 'declined'`);
     expect(await propose()).toMatchObject({ constraint: "balance_resolutions_one_open" });
-    await db.query(`update balance_resolutions set status = 'finalized', closed_at = now()`);
+    await db.query(`update balance_resolutions set status = 'finalized', closed_at = now(),
+         unpaid_days_applied = 4, recovery_days_applied = 2`);
     expect(await propose()).toBeNull(); // closed → a new one may be opened
   });
 
@@ -116,10 +117,12 @@ describe("TASK-031 — resolution schema", () => {
 
   it("AC5: every constraint/trigger name the migration defines is mapped in toAppError", () => {
     const root = path.resolve(import.meta.dirname, "../..");
-    const sql = readFileSync(
-      path.join(root, "supabase/migrations/20261208000000_balance_resolutions.sql"),
-      "utf8",
-    );
+    const sql = [
+      "20261208000000_balance_resolutions.sql",
+      "20261210000000_resolution_responses.sql", // TASK-033
+    ]
+      .map((f) => readFileSync(path.join(root, "supabase/migrations", f), "utf8"))
+      .join("\n");
     const names = [
       ...sql.matchAll(/constraint (\w+) (?:check|unique)/g),
       ...sql.matchAll(/create unique index (\w+)/g),

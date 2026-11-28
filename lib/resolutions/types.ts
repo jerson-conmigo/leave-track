@@ -36,6 +36,14 @@ export type ResolutionView = {
   respondBy: string;
   proposedByName: string;
   proposedAt: string;
+  // TASK-033
+  proposalNumber: number;
+  unpaidApplied: number | null;
+  recoveryApplied: number | null;
+  responseReason: string | null;
+  finalReason: string | null;
+  /** The deadline has passed (responses are refused even before the expiry job runs). */
+  expired: boolean;
 };
 
 /** Memory-store rows (mirror the SQL tables). */
@@ -54,6 +62,22 @@ export type MockResolution = {
   proposedBy: string;
   proposedAt: string;
   closedAt: string | null;
+  // TASK-033
+  supersedesId: string | null;
+  unpaidDaysApplied: number | null;
+  recoveryDaysApplied: number | null;
+  responseReason: string | null;
+  decidedBy: string | null;
+  finalReason: string | null;
+};
+
+/** TASK-033 — the recovery schedule rows (mirrors balance_recoveries). */
+export type MockRecovery = {
+  id: string;
+  resolutionId: string;
+  period: string;
+  amount: number;
+  appliedAt: string | null;
 };
 
 export type MockResolutionEvent = {

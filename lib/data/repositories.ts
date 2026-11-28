@@ -65,6 +65,8 @@ export interface LeaveRepository {
   listResolutionQueue(): Promise<ResolutionQueueRow[]>;
   /** TASK-032 (HR only): resolutions by tab — awaiting (proposed), declined, history (closed). */
   listResolutions(group: ResolutionGroup): Promise<ResolutionView[]>;
+  /** TASK-033: the employee's OWN latest resolution (open, or closed in the last 30 days). */
+  getMyResolution(userId: string): Promise<ResolutionView | null>;
 }
 
 function selectRepository(): LeaveRepository {

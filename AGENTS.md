@@ -127,7 +127,17 @@ document's "Revision v1.1" section and `docs/dev-tasks/epic-2-hardening-and-reso
     `lib/resolutions/`): HR only and never their own balance; the store locks and RE-READS the
     balance and checks unpaid + recovery = the current deficit and monthly recovery ≤ the accrual
     rate (start ≥ next month, UTC) inside the transaction; `respond_by` comes from `app_settings`
-    in SQL, never from the client; resolution + event + notification are one transaction.
+    in SQL, never from the client; resolution + event + notification are one transaction. Responding
+    (TASK-033): every transition locks the row and re-checks status AND `respond_by > now()` in
+    SQL, then runs a guarded `UPDATE … WHERE status = <expected> … RETURNING` whose empty result
+    means "already answered". Applied amounts are clamped to the CURRENT deficit (recovery
+    first); each credit is its own balance + ledger statement (`resolution:<id>:conversion|recovery`),
+    and the schedule's last month takes the remainder. One re-proposal (supersede, then insert);
+    after a second decline only HR's final decision. Expiry (TASK-034,
+    `/api/jobs/resolution-expiry`, daily): `isCronAuthorized` FIRST (lib/jobs/cron-auth.ts, the
+    only CRON_SECRET check — every job route uses it, test-pinned); due rows are claimed with
+    `FOR UPDATE SKIP LOCKED`, re-checked, and converted ENTIRELY to Unpaid (no recovery without
+    consent), clamped, one transaction per row, actor null; employee and HR are notified.
 
 ## Frontend standards
 

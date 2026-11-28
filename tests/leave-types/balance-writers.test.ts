@@ -140,6 +140,8 @@ describe("registry — the reviewed writers, and nothing else", () => {
       "lib/data/mock/store.ts", // resetMockDb (test isolation only)
       "lib/leave-requests/memory-store.ts", // decide (memory) — `leaveType.tracksBalance`
       "lib/leave-requests/postgres-store.ts", // decide — `row.tracks_balance`
+      "lib/resolutions/memory-store.ts", // TASK-033 accept/finalize credits (memory)
+      "lib/resolutions/postgres-store.ts", // TASK-033 accept/finalize — `t.tracks_balance`
     ]);
   });
 
@@ -148,7 +150,11 @@ describe("registry — the reviewed writers, and nothing else", () => {
   });
 
   it("every SQL balance write is keyed by its own (user_id, leave_type_id) and gated on tracks_balance", () => {
-    for (const f of ["lib/accrual/postgres-store.ts", "lib/leave-requests/postgres-store.ts"]) {
+    for (const f of [
+      "lib/accrual/postgres-store.ts",
+      "lib/leave-requests/postgres-store.ts",
+      "lib/resolutions/postgres-store.ts", // TASK-033
+    ]) {
       const src = readFileSync(path.join(root, f), "utf8");
       const s = normalise(src);
       expect(s, f).toMatch(
@@ -166,6 +172,10 @@ describe("registry — the reviewed writers, and nothing else", () => {
     expect(
       normalise(readFileSync(path.join(root, "lib/accrual/postgres-store.ts"), "utf8")),
     ).toMatch(/insert into leave_balances.{0,300}where t\.tracks_balance/);
+    // TASK-033: a resolution credit only ever reaches a tracked type's balance
+    expect(
+      normalise(readFileSync(path.join(root, "lib/resolutions/postgres-store.ts"), "utf8")),
+    ).toMatch(/insert into leave_balances.{0,200}where t\.id = \$2 and t\.tracks_balance/);
   });
 });
 
@@ -193,6 +203,8 @@ describe("TASK-029 — balance ledger writers", () => {
       "lib/data/mock/store.ts", // appendLedger (the memory mirror) + resetMockDb
       "lib/leave-requests/memory-store.ts",
       "lib/leave-requests/postgres-store.ts",
+      "lib/resolutions/memory-store.ts", // TASK-033 conversion + recovery rows
+      "lib/resolutions/postgres-store.ts",
     ]);
   });
 
@@ -212,7 +224,11 @@ describe("TASK-029 — balance ledger writers", () => {
   });
 
   it("in SQL the ledger row is written in the SAME statement as the balance change", () => {
-    for (const f of ["lib/accrual/postgres-store.ts", "lib/leave-requests/postgres-store.ts"]) {
+    for (const f of [
+      "lib/accrual/postgres-store.ts",
+      "lib/leave-requests/postgres-store.ts",
+      "lib/resolutions/postgres-store.ts", // TASK-033
+    ]) {
       const s = normalise(readFileSync(path.join(root, f), "utf8"));
       expect(s, f).toMatch(
         /with upserted as \( insert into leave_balances .{0,400}returning user_id, leave_type_id, balance \) insert into balance_ledger/,

@@ -90,11 +90,18 @@ export function NotificationList({ notifications, onMarkRead }: Props) {
                     className="inline-flex min-h-11 items-center rounded-sm underline underline-offset-4 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none md:min-h-0"
                     href={notificationHref(n)}
                   >
-                    {n.type === "resolution.proposed"
+                    {n.type === "resolution.proposed" || n.type === "resolution.finalized"
                       ? "Open my balance"
-                      : n.type === "request.decided"
-                        ? "Open my requests"
-                        : "Open approvals"}
+                      : n.type === "resolution.accepted" ||
+                          n.type === "resolution.declined" ||
+                          (n.type === "resolution.expired" &&
+                            n.recipientId !== n.payload.employeeId)
+                        ? "Open resolutions"
+                        : n.type === "resolution.expired"
+                          ? "Open my balance"
+                          : n.type === "request.decided"
+                            ? "Open my requests"
+                            : "Open approvals"}
                   </Link>
                 </div>
               </div>

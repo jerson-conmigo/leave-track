@@ -146,6 +146,8 @@ describe("structure: every test file that creates databases is reviewed and clos
     "tests/leave-types/independence.test.ts",
     "tests/notifications/notifications.test.ts",
     "tests/resolutions/propose.test.ts",
+    "tests/resolutions/expire.test.ts",
+    "tests/resolutions/respond.test.ts",
   ];
   // One database for the whole file, created in beforeAll and closed in afterAll.
   const PER_FILE = [

@@ -31,26 +31,38 @@ describe("security conventions", () => {
 
   it("finds every file that reads an authenticating secret (guards against a vacuous pass)", () => {
     expect(secretFiles.map((f) => path.relative(root, f)).sort()).toEqual([
-      "app/api/jobs/accrual/route.ts",
       "app/api/test/reset/route.ts",
       "lib/auth/session-secret.ts", // only RESOLVES the key; session-token.ts compares
+      "lib/jobs/cron-auth.ts", // TASK-034: the ONE CRON_SECRET check, shared by every job
     ]);
   });
 
   // Every file that COMPARES a secret-derived value against request input.
-  it.each([
-    "app/api/jobs/accrual/route.ts",
-    "app/api/test/reset/route.ts",
-    "lib/auth/session-token.ts",
-  ])("%s compares its secret with timingSafeEqual, never === / !==", (rel) => {
-    const code = readFileSync(path.join(root, rel), "utf8")
-      .split("\n")
-      .filter((l) => !/^\s*(\*|\/\/|\/\*)/.test(l)) // ignore comments
-      .join("\n");
-    expect(code).toMatch(/import \{[^}]*\btimingSafeEqual\b[^}]*\} from "node:crypto"/);
-    expect(code).toMatch(/timingSafeEqual\(/);
-    for (const pattern of UNSAFE_COMPARE)
-      expect(code, `unsafe compare: ${pattern}`).not.toMatch(pattern);
+  it.each(["lib/jobs/cron-auth.ts", "app/api/test/reset/route.ts", "lib/auth/session-token.ts"])(
+    "%s compares its secret with timingSafeEqual, never === / !==",
+    (rel) => {
+      const code = readFileSync(path.join(root, rel), "utf8")
+        .split("\n")
+        .filter((l) => !/^\s*(\*|\/\/|\/\*)/.test(l)) // ignore comments
+        .join("\n");
+      expect(code).toMatch(/import \{[^}]*\btimingSafeEqual\b[^}]*\} from "node:crypto"/);
+      expect(code).toMatch(/timingSafeEqual\(/);
+      for (const pattern of UNSAFE_COMPARE)
+        expect(code, `unsafe compare: ${pattern}`).not.toMatch(pattern);
+    },
+  );
+
+  it("every scheduled-job route checks isCronAuthorized FIRST, before anything else runs", () => {
+    const jobs = readdirSync(path.join(root, "app/api/jobs"));
+    expect(jobs.sort()).toEqual(["accrual", "resolution-expiry"]);
+    for (const job of jobs) {
+      const code = readFileSync(path.join(root, "app/api/jobs", job, "route.ts"), "utf8");
+      expect(code, job).toMatch(/import \{ isCronAuthorized \} from "@\/lib\/jobs\/cron-auth"/);
+      // The first statement of the handler body is the auth check.
+      expect(code, job).toMatch(
+        /withErrorHandler\(async \(req: NextRequest\) => \{\s*if \(!isCronAuthorized\(req, "[\w-]+"\)\)/,
+      );
+    }
   });
 
   it("SUPABASE_SERVICE_ROLE_KEY is read from the environment only by the invite script (TASK-024/054)", () => {

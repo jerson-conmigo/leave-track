@@ -163,3 +163,88 @@ export function writeResolutionProposedMemory(resolutionId: string, now: string)
   );
   return 1;
 }
+
+/** TASK-033 — mirrors writeResolutionResponse (accepted/declined → other HR Admins; finalized → the employee). */
+export function writeResolutionResponseMemory(
+  resolutionId: string,
+  type:
+    "resolution.accepted" | "resolution.declined" | "resolution.finalized" | "resolution.expired",
+  now: string,
+): number {
+  const r = mockDb.balanceResolutions.find((x) => x.id === resolutionId)!;
+  const employee = mockDb.users.find((u) => u.id === r.userId)!;
+  const leaveType = mockDb.leaveTypes.find((t) => t.id === r.leaveTypeId)!.name;
+  const hr = mockDb.users.filter((u) => u.role === "hr_admin" && u.id !== r.userId);
+  const recipients =
+    type === "resolution.finalized"
+      ? [employee]
+      : type === "resolution.expired"
+        ? [...hr, employee].sort((a, b) => a.id.localeCompare(b.id))
+        : hr;
+  for (const rcpt of recipients) {
+    const base = { id: crypto.randomUUID(), recipientId: rcpt.id, readAt: null, createdAt: now };
+    const key = `${type}:${r.id}:${rcpt.id}`;
+    if (type === "resolution.accepted") {
+      append(
+        {
+          ...base,
+          type,
+          payload: {
+            resolutionId: r.id,
+            employeeName: employee.name,
+            leaveType,
+            unpaidApplied: r.unpaidDaysApplied ?? 0,
+            recoveryApplied: r.recoveryDaysApplied ?? 0,
+          },
+        },
+        key,
+      );
+    } else if (type === "resolution.expired") {
+      append(
+        {
+          ...base,
+          type,
+          payload: {
+            resolutionId: r.id,
+            employeeId: r.userId,
+            employeeName: employee.name,
+            leaveType,
+            unpaidApplied: r.unpaidDaysApplied ?? 0,
+          },
+        },
+        key,
+      );
+    } else if (type === "resolution.declined") {
+      append(
+        {
+          ...base,
+          type,
+          payload: {
+            resolutionId: r.id,
+            employeeName: employee.name,
+            leaveType,
+            reason: r.responseReason ?? "",
+            proposalNumber: r.proposalNumber,
+          },
+        },
+        key,
+      );
+    } else {
+      append(
+        {
+          ...base,
+          type,
+          payload: {
+            resolutionId: r.id,
+            leaveType,
+            unpaidApplied: r.unpaidDaysApplied ?? 0,
+            recoveryApplied: r.recoveryDaysApplied ?? 0,
+            reason: r.finalReason ?? "",
+          },
+        },
+        key,
+      );
+    }
+  }
+  return recipients.length;
+}

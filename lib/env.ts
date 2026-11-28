@@ -108,7 +108,8 @@ const EnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: optionalSecret,
   SUPABASE_SERVICE_ROLE_KEY: optionalSecret,
 
-  // Bearer token Vercel Cron sends to /api/jobs/accrual (TASK-017).
+  // Bearer token Vercel Cron sends to /api/jobs/accrual (TASK-017) and
+  // /api/jobs/resolution-expiry (TASK-034); checked in lib/jobs/cron-auth.ts.
   CRON_SECRET: optionalSecret,
   // Sign-in adapter (ADR-LeaveTrack-E004). "supabase" = Supabase Auth (TASK-024), required
   // when deployed; "mock" = DEV/TEST ONLY (pick any seeded user), refused when deployed.

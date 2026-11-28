@@ -19,7 +19,9 @@ import {
   SessionTimingSchema,
   CancelLeaveRequestResultSchema,
   ResolutionViewSchema,
+  ResolutionExpiryResultSchema,
 } from "@/lib/api/schemas";
+import type { ResolutionExpiryResult } from "@/lib/resolutions/expire";
 import type { ResolutionView } from "@/lib/resolutions/types";
 import type { SessionTiming } from "@/lib/auth/session";
 import type {
@@ -131,6 +133,12 @@ describe("coverage: exactly the real routes", () => {
         "POST /api/notifications/read", // TASK-030
         "POST /api/leave-requests/{id}/cancel", // TASK-028
         "POST /api/resolutions", // TASK-032
+        "GET /api/jobs/resolution-expiry", // TASK-034
+        "POST /api/jobs/resolution-expiry", // TASK-034
+        "POST /api/resolutions/{id}/accept", // TASK-033
+        "POST /api/resolutions/{id}/decline", // TASK-033
+        "POST /api/resolutions/{id}/repropose", // TASK-033
+        "POST /api/resolutions/{id}/finalize", // TASK-033
       ].sort(),
     );
   });
@@ -157,6 +165,12 @@ describe("security per operation, as the routes enforce it", () => {
     "post /api/notifications/read": [{ cookieAuth: [] }], // TASK-030
     "post /api/leave-requests/{id}/cancel": [{ cookieAuth: [] }], // TASK-028
     "post /api/resolutions": [{ cookieAuth: [] }], // TASK-032
+    "get /api/jobs/resolution-expiry": [{ bearerAuth: [] }], // TASK-034
+    "post /api/jobs/resolution-expiry": [{ bearerAuth: [] }], // TASK-034
+    "post /api/resolutions/{id}/accept": [{ cookieAuth: [] }], // TASK-033
+    "post /api/resolutions/{id}/decline": [{ cookieAuth: [] }], // TASK-033
+    "post /api/resolutions/{id}/repropose": [{ cookieAuth: [] }], // TASK-033
+    "post /api/resolutions/{id}/finalize": [{ cookieAuth: [] }], // TASK-033
   };
 
   it("each operation declares exactly its scheme (no global default to inherit)", () => {
@@ -299,6 +313,9 @@ describe("response schemas mirror the TypeScript types (compile-time drift guard
       Simplify<CancelLeaveRequestResult>
     >();
     expectTypeOf<Inferred<typeof ResolutionViewSchema>>().toEqualTypeOf<Simplify<ResolutionView>>();
+    expectTypeOf<Inferred<typeof ResolutionExpiryResultSchema>>().toEqualTypeOf<
+      Simplify<ResolutionExpiryResult>
+    >();
   });
 });
 

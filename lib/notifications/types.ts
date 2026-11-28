@@ -10,6 +10,10 @@ export const NOTIFICATION_TYPES = [
   "request.decided",
   "request.cancelled",
   "resolution.proposed",
+  "resolution.accepted",
+  "resolution.declined",
+  "resolution.finalized",
+  "resolution.expired",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -52,7 +56,47 @@ export type Notification =
   | NotificationBase<"request.submitted", RequestSubmittedPayload>
   | NotificationBase<"request.decided", RequestDecidedPayload>
   | NotificationBase<"request.cancelled", RequestCancelledPayload>
-  | NotificationBase<"resolution.proposed", ResolutionProposedPayload>;
+  | NotificationBase<"resolution.proposed", ResolutionProposedPayload>
+  | NotificationBase<"resolution.accepted", ResolutionAcceptedPayload>
+  | NotificationBase<"resolution.declined", ResolutionDeclinedPayload>
+  | NotificationBase<"resolution.finalized", ResolutionFinalizedPayload>
+  | NotificationBase<"resolution.expired", ResolutionExpiredPayload>;
+
+/** TASK-034 — to the employee AND HR: nobody answered by the deadline; converted to Unpaid. */
+export type ResolutionExpiredPayload = {
+  resolutionId: string;
+  employeeId: string;
+  employeeName: string;
+  leaveType: LeaveTypeName;
+  unpaidApplied: number;
+};
+
+/** TASK-033 — to HR (every HR Admin but the employee): the employee accepted. */
+export type ResolutionAcceptedPayload = {
+  resolutionId: string;
+  employeeName: string;
+  leaveType: LeaveTypeName;
+  unpaidApplied: number;
+  recoveryApplied: number;
+};
+
+/** TASK-033 — to HR: the employee declined (with their reason); HR re-proposes or decides. */
+export type ResolutionDeclinedPayload = {
+  resolutionId: string;
+  employeeName: string;
+  leaveType: LeaveTypeName;
+  reason: string;
+  proposalNumber: number;
+};
+
+/** TASK-033 — to the employee: HR's binding final decision after a second decline (D6). */
+export type ResolutionFinalizedPayload = {
+  resolutionId: string;
+  leaveType: LeaveTypeName;
+  unpaidApplied: number;
+  recoveryApplied: number;
+  reason: string;
+};
 
 /** TASK-032 — to the employee: HR proposes how a negative balance is resolved. */
 export type ResolutionProposedPayload = {

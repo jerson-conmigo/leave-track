@@ -123,3 +123,46 @@ export async function writeResolutionProposed(
   );
   return rows.length;
 }
+
+/**
+ * TASK-033 — a response or HR's final decision. accepted/declined → every HR Admin except the
+ * employee; finalized → the employee. Runs on the caller's transaction.
+ */
+export async function writeResolutionResponse(
+  tx: SqlClient,
+  resolutionId: string,
+  type:
+    "resolution.accepted" | "resolution.declined" | "resolution.finalized" | "resolution.expired",
+): Promise<number> {
+  // accepted/declined → HR; finalized → the employee; expired (TASK-034) → both.
+  const audience =
+    type === "resolution.finalized" ? "employee" : type === "resolution.expired" ? "both" : "hr";
+  const rows = await tx.query<{ id: string }>(
+    `with n as (
+       insert into notifications (recipient_id, type, payload)
+       select rcpt.id, $2,
+              jsonb_build_object(
+                'resolutionId', r.id, 'employeeId', r.user_id, 'employeeName', u.name,
+                'leaveType', t.name,
+                'unpaidApplied', r.unpaid_days_applied, 'recoveryApplied', r.recovery_days_applied,
+                'reason', coalesce(r.final_reason, r.response_reason),
+                'proposalNumber', r.proposal_number)
+                - case when $2 = 'resolution.accepted' then array['employeeId', 'reason', 'proposalNumber']
+                       when $2 = 'resolution.declined' then array['employeeId', 'unpaidApplied', 'recoveryApplied']
+                       when $2 = 'resolution.expired' then array['recoveryApplied', 'reason', 'proposalNumber']
+                       else array['employeeId', 'employeeName', 'proposalNumber'] end
+         from balance_resolutions r
+         join users u on u.id = r.user_id
+         join leave_types t on t.id = r.leave_type_id
+         join users rcpt on (($3 in ('hr', 'both') and rcpt.role = 'hr_admin' and rcpt.id <> r.user_id)
+                             or ($3 in ('employee', 'both') and rcpt.id = r.user_id))
+        where r.id = $1
+       returning id, recipient_id, payload
+     )
+     insert into notification_outbox (notification_id, recipient_id, idempotency_key, payload)
+     select id, recipient_id, $2 || ':' || $1::text || ':' || recipient_id, payload from n
+     returning id`,
+    [resolutionId, type, audience],
+  );
+  return rows.length;
+}

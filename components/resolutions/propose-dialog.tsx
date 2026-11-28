@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -29,7 +30,16 @@ import {
   earliestRecoveryStart,
   type ProposeResolutionInput,
   ProposeResolutionSchema,
+  ResponseReasonSchema,
 } from "@/lib/resolutions/validation";
+
+/** propose (TASK-032) · repropose: HR's one second proposal · finalize: the binding decision (D6). */
+export type ProposeMode = "propose" | "repropose" | "finalize";
+const COPY: Record<ProposeMode, { title: string; submit: string }> = {
+  propose: { title: "Propose a resolution", submit: "Send proposal" },
+  repropose: { title: "Re-propose (last proposal)", submit: "Send second proposal" },
+  finalize: { title: "Final decision", submit: "Record final decision" },
+};
 
 /** The next 12 months, starting next month (D-2: the current month's accrual is never touched). */
 function recoveryMonthsFrom(now: Date): string[] {
@@ -44,7 +54,8 @@ type ProposeDialogProps = {
   row: ResolutionQueueRow | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (input: ProposeResolutionInput) => Promise<ActionResult>;
+  onConfirm: (input: ProposeResolutionInput & { reason?: string }) => Promise<ActionResult>;
+  mode?: ProposeMode;
   /** Opened from outside (no DialogTrigger): focus goes back here, or to <main> if it left the DOM. */
   returnFocusTo?: HTMLElement | null;
 };
@@ -55,6 +66,7 @@ export function ProposeDialog({
   onOpenChange,
   onConfirm,
   returnFocusTo,
+  mode = "propose",
 }: ProposeDialogProps) {
   const ids = {
     unpaid: useId(),
@@ -69,6 +81,8 @@ export function ProposeDialog({
   const [recovery, setRecovery] = useState("0");
   const [months, setMonths] = useState("1");
   const [start, setStart] = useState(() => periods[0]!);
+  const [reason, setReason] = useState("");
+  const reasonId = useId();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -107,9 +121,21 @@ export function ProposeDialog({
       setError(`The monthly deduction can't exceed ${formatDays(row.accrualPerMonth)} a month.`);
       return;
     }
+    let finalReason: string | undefined;
+    if (mode === "finalize") {
+      const r = ResponseReasonSchema.safeParse(reason);
+      if (!r.success) {
+        setError(r.error.issues[0]?.message ?? "Enter a reason.");
+        return;
+      }
+      finalReason = r.data;
+    }
     setPending(true);
     setError(null);
-    const result = await onConfirm(parsed.data);
+    const result = await onConfirm({
+      ...parsed.data,
+      ...(finalReason ? { reason: finalReason } : {}),
+    });
     setPending(false);
     if (!result.success) {
       setError(result.error.message);
@@ -131,10 +157,11 @@ export function ProposeDialog({
         }}
       >
         <DialogHeader>
-          <DialogTitle>Propose a resolution</DialogTitle>
+          <DialogTitle>{COPY[mode].title}</DialogTitle>
           <DialogDescription>
-            {row.userName} is {formatDays(row.deficit)} below zero. They&apos;ll be asked to accept
-            or decline.
+            {mode === "finalize"
+              ? `${row.userName} declined twice. Split the ${formatDays(row.deficit)} deficit; it is applied now (only what is still below zero) and is binding.`
+              : `${row.userName} is ${formatDays(row.deficit)} below zero. They'll be asked to accept or decline${mode === "repropose" ? "; this is the last proposal" : ""}.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -221,6 +248,19 @@ export function ProposeDialog({
           ) : null}
         </p>
 
+        {mode === "finalize" ? (
+          <div className="grid gap-2">
+            <Label htmlFor={reasonId}>Reason for the decision</Label>
+            <Textarea
+              id={reasonId}
+              rows={3}
+              value={reason}
+              disabled={pending}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </div>
+        ) : null}
+
         {error ? (
           <Alert variant="destructive">
             <CircleAlert aria-hidden />
@@ -234,7 +274,7 @@ export function ProposeDialog({
           </Button>
           <Button onClick={confirm} disabled={pending}>
             {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-            Send proposal
+            {COPY[mode].submit}
           </Button>
         </DialogFooter>
       </DialogContent>

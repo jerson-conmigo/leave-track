@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   AccrualResultSchema,
+  ResolutionExpiryResultSchema,
   BalanceSummarySchema,
   DecideLeaveRequestResultSchema,
   EmployeeAuditHistorySchema,
@@ -22,7 +23,12 @@ import {
 import { MarkReadSchema } from "@/lib/notifications/read";
 import { AuditParamsSchema, AuditQuerySchema, ListQuerySchema } from "@/lib/validation/api";
 import { DecisionSchema, LeaveRequestSchema } from "@/lib/validation/leave-request";
-import { ProposeResolutionSchema } from "@/lib/resolutions/validation";
+import {
+  DeclineResolutionSchema,
+  FinalizeResolutionSchema,
+  ProposeResolutionSchema,
+  ReproposeResolutionSchema,
+} from "@/lib/resolutions/validation";
 import pkg from "../../package.json";
 
 /**
@@ -52,6 +58,7 @@ const COMPONENTS = {
   AuditRequestRecord: AuditRequestRecordSchema,
   EmployeeAuditHistory: EmployeeAuditHistorySchema,
   AccrualResult: AccrualResultSchema,
+  ResolutionExpiryResult: ResolutionExpiryResultSchema,
   SessionTiming: SessionTimingSchema,
   MarkReadResult: MarkReadResultSchema,
   CancelLeaveRequestResult: CancelLeaveRequestResultSchema,
@@ -311,6 +318,126 @@ export function buildOpenApiDocument() {
           },
         },
       },
+      "/api/resolutions/{id}/accept": {
+        post: {
+          tags: ["Resolutions"],
+          operationId: "acceptResolution",
+          summary: "Accept a proposed resolution",
+          description:
+            "The employee, on their own proposal, before its deadline (`respond_by`, checked in SQL). The amounts are clamped to the CURRENT deficit (recovery reduced first) and applied in one transaction: the balance is credited (one ledger row each for conversion and recovery), the monthly recovery schedule is written, and HR is notified. Concurrent accepts apply once.",
+          security: COOKIE,
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              description: "Resolution id",
+              schema: { type: "string", format: "uuid" },
+            },
+          ],
+          responses: {
+            ...success(
+              200,
+              "Accepted (or closed with nothing applied when the deficit is already gone).",
+              ref("ProposeResolutionResult"),
+            ),
+            ...errors([400, 401, 403, 404, 409, 500], {
+              404: "NOT_FOUND — no such resolution, or it isn't yours.",
+              409: "CONFLICT — the deadline has passed, or it has already been answered.",
+            }),
+          },
+        },
+      },
+      "/api/resolutions/{id}/decline": {
+        post: {
+          tags: ["Resolutions"],
+          operationId: "declineResolution",
+          summary: "Decline a proposed resolution",
+          description:
+            "The employee, on their own proposal, before its deadline. A reason of 3–500 characters is required; the resolution returns to HR for review.",
+          security: COOKIE,
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              description: "Resolution id",
+              schema: { type: "string", format: "uuid" },
+            },
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: input(DeclineResolutionSchema) } },
+          },
+          responses: {
+            ...success(200, "Declined.", ref("ProposeResolutionResult")),
+            ...errors([400, 401, 403, 404, 409, 500], {
+              404: "NOT_FOUND — no such resolution, or it isn't yours.",
+              409: "CONFLICT — the deadline has passed, or it has already been answered.",
+            }),
+          },
+        },
+      },
+      "/api/resolutions/{id}/repropose": {
+        post: {
+          tags: ["Resolutions"],
+          operationId: "reproposeResolution",
+          summary: "Re-propose after a first decline",
+          description:
+            "HR Admins only, never for their own balance, and only ONCE: the declined first proposal is superseded by proposal 2 (same rules as proposing, checked against the current deficit). The employee is notified and gets a new deadline.",
+          security: COOKIE,
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              description: "Resolution id",
+              schema: { type: "string", format: "uuid" },
+            },
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: input(ReproposeResolutionSchema) } },
+          },
+          responses: {
+            ...success(201, "Re-proposed (the new proposal).", ref("ProposeResolutionResult")),
+            ...errors([400, 401, 403, 404, 409, 500], {
+              403: "FORBIDDEN — not an HR Admin, or your own balance.",
+              409: "CONFLICT — not declined, or this was already the second proposal (only a final decision remains).",
+            }),
+          },
+        },
+      },
+      "/api/resolutions/{id}/finalize": {
+        post: {
+          tags: ["Resolutions"],
+          operationId: "finalizeResolution",
+          summary: "Record a final decision after a second decline",
+          description:
+            "HR Admins only, never for their own balance, and only after the SECOND proposal was declined. HR splits the proposal's deficit into unpaid and recovery days (same rules) and gives a 3–500 character reason; the amounts are clamped to the current deficit and applied immediately. Binding; the employee is notified.",
+          security: COOKIE,
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              description: "Resolution id",
+              schema: { type: "string", format: "uuid" },
+            },
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: input(FinalizeResolutionSchema) } },
+          },
+          responses: {
+            ...success(200, "Finalized.", ref("ProposeResolutionResult")),
+            ...errors([400, 401, 403, 404, 409, 500], {
+              403: "FORBIDDEN — not an HR Admin, or your own balance.",
+              409: "CONFLICT — not declined, or re-propose first (only the first proposal was declined).",
+            }),
+          },
+        },
+      },
       "/api/audit/{userId}": {
         get: {
           tags: ["Audit"],
@@ -394,6 +521,37 @@ export function buildOpenApiDocument() {
           },
         ]),
       ),
+      "/api/jobs/resolution-expiry": Object.fromEntries(
+        (["get", "post"] as const).map((method) => [
+          method,
+          {
+            tags: ["Jobs"],
+            operationId: method === "get" ? "runResolutionExpiryCron" : "runResolutionExpiryManual",
+            summary:
+              method === "get"
+                ? "Resolution expiry (Vercel Cron)"
+                : "Resolution expiry (manual run)",
+            description:
+              "Bearer token = the server's CRON_SECRET, compared in constant time before any " +
+              "database access; refused when it isn't configured. Every proposal past its " +
+              "deadline is converted to Unpaid (clamped to the current deficit; nothing is " +
+              "recovered) and closed, and the employee and HR are notified — one transaction " +
+              "per proposal. Proposals being answered at that moment are skipped and retried on " +
+              "the next run. Idempotent.",
+            security: [{ bearerAuth: [] }],
+            responses: {
+              ...success(
+                200,
+                "Expired proposals converted (or nothing due).",
+                ref("ResolutionExpiryResult"),
+              ),
+              ...errors([401, 500], {
+                401: "UNAUTHENTICATED — missing or wrong Bearer token.",
+              }),
+            },
+          },
+        ]),
+      ),
     },
     components: {
       schemas: components(),
@@ -410,7 +568,8 @@ export function buildOpenApiDocument() {
           type: "http",
           scheme: "bearer",
           description:
-            "The accrual job's shared secret (CRON_SECRET). Used only by /api/jobs/accrual.",
+            "The scheduled jobs' shared secret (CRON_SECRET). Used only by /api/jobs/accrual " +
+            "and /api/jobs/resolution-expiry.",
         },
       },
     },

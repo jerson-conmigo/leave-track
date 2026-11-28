@@ -30,6 +30,7 @@ export const PUBLIC_PATHS: readonly string[] = [
   "/api/health",
   "/api/test/reset",
   "/api/jobs/accrual",
+  "/api/jobs/resolution-expiry", // TASK-034: same Bearer CRON_SECRET (lib/jobs/cron-auth.ts)
   // TASK-057 API docs: development only — each route answers 404 in every deployed stage.
   "/api/openapi.json",
   "/api-docs",

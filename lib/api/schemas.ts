@@ -192,5 +192,19 @@ export const ResolutionViewSchema = z.object({
   respondBy: z.string().describe("The employee's deadline (ISO 8601), fixed at proposal"),
   proposedByName: z.string(),
   proposedAt: z.string(),
+  proposalNumber: z.number().int().describe("1, or 2 for HR's one re-proposal"),
+  unpaidApplied: z.number().nullable().describe("Days converted when applied (clamped)"),
+  recoveryApplied: z.number().nullable().describe("Days recovered when applied (clamped)"),
+  responseReason: z.string().nullable().describe("The employee's reason for declining"),
+  finalReason: z.string().nullable().describe("HR's reason for a final decision"),
+  expired: z.boolean().describe("The deadline has passed while still proposed"),
 });
+/** POST /api/resolutions and the TASK-033 transitions. */
 export const ProposeResolutionResultSchema = z.object({ resolution: ResolutionViewSchema });
+
+/** GET/POST /api/jobs/resolution-expiry (TASK-034). Mirrors ResolutionExpiryResult. */
+export const ResolutionExpiryResultSchema = z.object({
+  expired: z.number().int().describe("Proposals converted and closed in this run"),
+  convertedDays: z.number().describe("Total days converted to Unpaid in this run"),
+  skipped: z.number().int().describe("Proposals left for the next run"),
+});

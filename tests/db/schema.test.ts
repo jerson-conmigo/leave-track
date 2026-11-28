@@ -99,6 +99,7 @@ const EXPECTED_FKS: [string, string, string][] = [
   ["balance_resolutions", "leave_type_id", "leave_types"],
   ["balance_resolutions", "supersedes_id", "balance_resolutions"],
   ["balance_resolutions", "proposed_by", "users"],
+  ["balance_resolutions", "decided_by", "users"], // TASK-033
   ["balance_recoveries", "resolution_id", "balance_resolutions"],
   ["balance_resolution_events", "resolution_id", "balance_resolutions"],
   ["balance_resolution_events", "actor_id", "users"],

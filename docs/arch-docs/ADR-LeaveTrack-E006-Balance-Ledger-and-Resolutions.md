@@ -67,3 +67,11 @@ TASK-031 built the resolution schema (§2–§7 tables, constraints, one-open in
 
 TASK-032 built proposing (§3): HR-only `POST /api/resolutions` and the `/resolutions` queues; the monthly
 recovery is recovery ÷ months (2 decimals, ≤ the accrual rate), starting next month at the earliest.
+
+TASK-033 built responses (§2/§3/§4/§6): accept/decline with the deadline enforced in SQL, clamping (recovery
+reduced first) with proposed and applied amounts stored, the recovery schedule (last month takes the remainder),
+one re-proposal and HR's binding final decision.
+
+TASK-034 built the expiry (§5): a daily job claims due proposals with `FOR UPDATE SKIP LOCKED`, converts the
+clamped deficit entirely to Unpaid (recovery needs consent), closes them as expired and notifies the employee and
+HR; cron auth is shared with accrual (lib/jobs/cron-auth.ts).

@@ -93,6 +93,17 @@ const notifier: Notifier = {
 };
 afterEach(() => resetMockDb());
 
+/** Assert an AppError's code AND message (toMatchObject doesn't check an Error's message). */
+async function rejectsWith(promise: Promise<unknown>, code: string, message?: RegExp) {
+  const error = await promise.then(
+    () => null,
+    (e: unknown) => e as { code?: string; message?: string },
+  );
+  expect(error, "expected a rejection").not.toBeNull();
+  expect(error!.code).toBe(code);
+  if (message) expect(error!.message).toMatch(message);
+}
+
 describe.each<[string, () => Promise<Backend>]>([
   ["postgres", postgres],
   ["memory", memory],
@@ -131,27 +142,30 @@ describe.each<[string, () => Promise<Backend>]>([
   });
 
   it("AC2: an invalid split, a deduction above the accrual rate, 0 accrual or an early start → 400", async () => {
-    await expect(propose({ unpaidDays: 1, recoveryDays: 0 })).rejects.toMatchObject({
-      code: "VALIDATION_ERROR",
-    });
+    await rejectsWith(propose({ unpaidDays: 1, recoveryDays: 0 }), "VALIDATION_ERROR");
     await b.setAccrual(0.5);
-    await expect(
+    await rejectsWith(
       propose({ unpaidDays: 0.25, recoveryDays: 1, recoveryStartPeriod: start, recoveryMonths: 1 }),
-    ).rejects.toMatchObject({ code: "VALIDATION_ERROR", message: /accrual rate/ });
+      "VALIDATION_ERROR",
+      /accrual rate/,
+    );
     await b.setAccrual(0);
-    await expect(
+    await rejectsWith(
       propose({ unpaidDays: 0, recoveryDays: 1.25, recoveryStartPeriod: start, recoveryMonths: 5 }),
-    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+      "VALIDATION_ERROR",
+    );
     await b.setAccrual(1.25); // isolate the start-month rule from the accrual cap
     const thisMonth = `${new Date().toISOString().slice(0, 7)}-01`;
-    await expect(
+    await rejectsWith(
       propose({
         unpaidDays: 0,
         recoveryDays: 1.25,
         recoveryStartPeriod: thisMonth,
         recoveryMonths: 1,
       }),
-    ).rejects.toMatchObject({ code: "VALIDATION_ERROR", message: /next month/ });
+      "VALIDATION_ERROR",
+      /next month/,
+    );
   });
 
   it("AC3: one transaction — resolution, event, notification; respond_by fixed at +3 days; second → 409", async () => {
@@ -172,9 +186,7 @@ describe.each<[string, () => Promise<Backend>]>([
       deficit: 1.25,
     });
     expect((await b.repo.listResolutions("awaiting")).map((r) => r.id)).toEqual([resolution.id]);
-    await expect(propose({ unpaidDays: 1.25, recoveryDays: 0 })).rejects.toMatchObject({
-      code: "CONFLICT",
-    });
+    await rejectsWith(propose({ unpaidDays: 1.25, recoveryDays: 0 }), "CONFLICT");
   });
 
   it("AC3: a balance that is no longer negative is refused (re-read in the transaction)", async () => {
@@ -198,12 +210,14 @@ describe.each<[string, () => Promise<Backend>]>([
         { userId: ana, role: "employee", name: "Ana" },
       ),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(
+    await rejectsWith(
       proposeResolution(
         HR,
         { userId: carla, leaveTypeId: Vacation, unpaidDays: 1, recoveryDays: 0 },
         { store: b.store },
       ),
-    ).rejects.toMatchObject({ code: "FORBIDDEN", message: /your own balance/ });
+      "FORBIDDEN",
+      /your own balance/,
+    );
   });
 });

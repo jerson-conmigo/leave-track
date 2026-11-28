@@ -14,6 +14,7 @@ import {
   MarkReadResultSchema,
   CancelLeaveRequestResultSchema,
   ProposeResolutionResultSchema,
+  ResolutionExpiryResultSchema,
 } from "@/lib/api/schemas";
 import { mockDb, resetMockDb } from "@/lib/data/mock/store";
 import { LEAVE_TYPE_IDS, USER_IDS } from "@/lib/data/mock/fixtures";
@@ -37,6 +38,13 @@ const { GET: accrualCron, POST: accrualManual } = await import("@/app/api/jobs/a
 const { POST: markRead } = await import("@/app/api/notifications/read/route");
 const { POST: cancelRoute } = await import("@/app/api/leave-requests/[id]/cancel/route");
 const { POST: proposeRoute } = await import("@/app/api/resolutions/route");
+const expiryJob = await import("@/app/api/jobs/resolution-expiry/route");
+const transitions = {
+  accept: (await import("@/app/api/resolutions/[id]/accept/route")).POST,
+  decline: (await import("@/app/api/resolutions/[id]/decline/route")).POST,
+  repropose: (await import("@/app/api/resolutions/[id]/repropose/route")).POST,
+  finalize: (await import("@/app/api/resolutions/[id]/finalize/route")).POST,
+};
 
 const session = (userId: string, role: string, managerId: string | null = null) => ({
   userId,
@@ -271,6 +279,111 @@ describe("contract: TASK-032 POST /api/resolutions", () => {
     getSession.mockResolvedValue(null);
     await expectContract(await post(body), 401, ErrorEnvelopeSchema);
     resetMockDb(); // the deficit and the resolution belong to this test only
+  });
+});
+
+describe("contract: TASK-033 POST /api/resolutions/{id}/accept|decline|repropose|finalize", () => {
+  const SAM = session(USER_IDS.sam, "employee", USER_IDS.maya);
+  const call = (action: keyof typeof transitions, id: string, body?: unknown) =>
+    transitions[action](
+      new NextRequest(`http://localhost/api/resolutions/${id}/${action}`, {
+        method: "POST",
+        ...(body === undefined
+          ? {}
+          : { body: JSON.stringify(body), headers: { "content-type": "application/json" } }),
+      }),
+      { params: Promise.resolve({ id }) },
+    );
+  it("200/201 ProposeResolutionResult; 400; 403; 404; 409; 401", async () => {
+    mockDb.leaveBalances.find(
+      (b) => b.userId === USER_IDS.sam && b.leaveTypeId === LEAVE_TYPE_IDS.Vacation,
+    )!.balance = -1.25;
+    const split = { unpaidDays: 1.25, recoveryDays: 0 };
+    getSession.mockResolvedValue(CARLA);
+    const proposed = await expectContract(
+      await proposeRoute(
+        json("http://localhost/api/resolutions", {
+          userId: USER_IDS.sam,
+          leaveTypeId: LEAVE_TYPE_IDS.Vacation,
+          ...split,
+        }),
+        undefined,
+      ),
+      201,
+      ProposeResolutionResultSchema,
+    );
+    const first = proposed.data.resolution.id as string;
+    getSession.mockResolvedValue(SAM);
+    await expectContract(await call("decline", first, { reason: "x" }), 400, ErrorEnvelopeSchema);
+    await expectContract(
+      await call("decline", first, { reason: "Not now" }),
+      200,
+      ProposeResolutionResultSchema,
+    );
+    await expectContract(await call("accept", first), 409, ErrorEnvelopeSchema);
+    getSession.mockResolvedValue(BEN);
+    await expectContract(await call("repropose", first, split), 403, ErrorEnvelopeSchema);
+    getSession.mockResolvedValue(CARLA);
+    await expectContract(
+      await call("finalize", first, { ...split, reason: "Final" }),
+      409,
+      ErrorEnvelopeSchema,
+    );
+    const second = (
+      await expectContract(
+        await call("repropose", first, split),
+        201,
+        ProposeResolutionResultSchema,
+      )
+    ).data.resolution.id as string;
+    getSession.mockResolvedValue(ANA);
+    await expectContract(await call("accept", second), 404, ErrorEnvelopeSchema);
+    getSession.mockResolvedValue(SAM);
+    await expectContract(
+      await call("decline", second, { reason: "Still no" }),
+      200,
+      ProposeResolutionResultSchema,
+    );
+    getSession.mockResolvedValue(CARLA);
+    await expectContract(
+      await call("finalize", second, { ...split, reason: "Binding decision" }),
+      200,
+      ProposeResolutionResultSchema,
+    );
+    getSession.mockResolvedValue(SAM);
+    await expectContract(
+      await call("accept", "00000000-0000-4000-8000-00000000ffff"),
+      404,
+      ErrorEnvelopeSchema,
+    );
+    getSession.mockResolvedValue(null);
+    await expectContract(await call("accept", second), 401, ErrorEnvelopeSchema);
+    resetMockDb();
+  });
+});
+
+describe("contract: TASK-034 GET/POST /api/jobs/resolution-expiry", () => {
+  const call = (method: "GET" | "POST", token?: string) =>
+    expiryJob[method](
+      new NextRequest("http://localhost/api/jobs/resolution-expiry", {
+        method,
+        headers: token ? { authorization: `Bearer ${token}` } : {},
+      }),
+      undefined,
+    );
+  it("200 ResolutionExpiryResult with the cron secret; 401 without", async () => {
+    await expectContract(
+      await call("GET", "contract-test-cron-secret"),
+      200,
+      ResolutionExpiryResultSchema,
+    );
+    await expectContract(
+      await call("POST", "contract-test-cron-secret"),
+      200,
+      ResolutionExpiryResultSchema,
+    );
+    await expectContract(await call("GET"), 401, ErrorEnvelopeSchema);
+    await expectContract(await call("POST", "wrong"), 401, ErrorEnvelopeSchema);
   });
 });
 

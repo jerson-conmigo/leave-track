@@ -359,3 +359,16 @@ the shifted suite is fully green. Also: PL/pgSQL variables can collide with SQL 
   `:root`, so Radix portals inherit), placed after the dark blocks (equal specificity → order).
   Pin the remapped token list, AA for every pairing per theme, and a hue distance from semantic
   colours; give the brand its own token so it doesn't follow the role.
+- Error assertions: `await expect(p).rejects.toMatchObject({ code, message: /…/ })` does NOT
+  check an Error's `message` (it isn't an enumerable property), so the regex passes for any
+  message. Assert code and message explicitly (a small `rejectsWith(promise, code, /re/)` helper,
+  as in tests/resolutions). Found by a probe that removed the deadline check (TASK-033).
+- Guarded transitions: lock the row, check the state in code, AND make the UPDATE itself
+  conditional (`WHERE status = <expected> … RETURNING`) with "no row" treated as "already
+  answered". Probe by removing BOTH layers; with only one removed, the other (or a unique key
+  downstream) hides the gap.
+- Scheduled jobs share ONE auth helper (`lib/jobs/cron-auth.ts`) and call it as the handler's
+  first statement; a convention test lists `app/api/jobs/*` and pins both, so a new job can't
+  skip auth. Route tests mock the domain module and assert it is never called on 401.
+- What PGlite can't test (a second connection's lock, `SKIP LOCKED`), pin structurally (the SQL
+  text in the store) and log the real-Postgres test as backlog — don't claim it as proven.
