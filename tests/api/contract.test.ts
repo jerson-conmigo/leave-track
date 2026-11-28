@@ -11,6 +11,8 @@ import {
   SubmitLeaveRequestResultSchema,
   successEnvelope,
   TeamQueueSchema,
+  MarkReadResultSchema,
+  CancelLeaveRequestResultSchema,
 } from "@/lib/api/schemas";
 import { LEAVE_TYPE_IDS, USER_IDS } from "@/lib/data/mock/fixtures";
 import { future } from "../support/dates";
@@ -30,6 +32,8 @@ const { GET: list, POST: submit } = await import("@/app/api/leave-requests/route
 const { POST: decide } = await import("@/app/api/leave-requests/[id]/decision/route");
 const { GET: audit } = await import("@/app/api/audit/[userId]/route");
 const { GET: accrualCron, POST: accrualManual } = await import("@/app/api/jobs/accrual/route");
+const { POST: markRead } = await import("@/app/api/notifications/read/route");
+const { POST: cancelRoute } = await import("@/app/api/leave-requests/[id]/cancel/route");
 
 const session = (userId: string, role: string, managerId: string | null = null) => ({
   userId,
@@ -199,6 +203,65 @@ describe("contract: TASK-026 approvals queue for an HR Admin", () => {
       TeamQueueSchema,
     );
     expect(team.data.requests.length).toBeGreaterThan(0);
+  });
+});
+
+describe("contract: TASK-028 POST /api/leave-requests/{id}/cancel", () => {
+  const cancelReq = (id: string) =>
+    cancelRoute(
+      new NextRequest(`http://localhost/api/leave-requests/${id}/cancel`, { method: "POST" }),
+      {
+        params: Promise.resolve({ id }),
+      },
+    );
+  it("200 CancelLeaveRequestResult for the requester; 403 for someone else; 404; 401", async () => {
+    getSession.mockResolvedValue(ANA);
+    const created = await expectContract(
+      await submit(
+        json("http://localhost/api/leave-requests", {
+          leaveTypeId: LEAVE_TYPE_IDS.Vacation,
+          startDate: future("2027-10-04"),
+          endDate: future("2027-10-05"),
+          reason: "Family visit",
+        }),
+        undefined,
+      ),
+      201,
+      SubmitLeaveRequestResultSchema,
+    );
+    const id = created.data.request.id as string;
+    getSession.mockResolvedValue(BEN);
+    await expectContract(await cancelReq(id), 403, ErrorEnvelopeSchema);
+    getSession.mockResolvedValue(ANA);
+    await expectContract(await cancelReq(id), 200, CancelLeaveRequestResultSchema);
+    await expectContract(await cancelReq(id), 409, ErrorEnvelopeSchema);
+    await expectContract(
+      await cancelReq("00000000-0000-4000-8000-00000000ffff"),
+      404,
+      ErrorEnvelopeSchema,
+    );
+    getSession.mockResolvedValue(null);
+    await expectContract(await cancelReq(id), 401, ErrorEnvelopeSchema);
+  });
+});
+
+describe("contract: TASK-030 POST /api/notifications/read", () => {
+  const post = (body?: unknown) =>
+    markRead(
+      new NextRequest("http://localhost/api/notifications/read", {
+        method: "POST",
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        headers: { "content-type": "application/json" },
+      }),
+      undefined,
+    );
+
+  it("200 MarkReadResult (no body = all), 400 for a bad id, 401 without a session", async () => {
+    getSession.mockResolvedValue(BEN);
+    await expectContract(await post(), 200, MarkReadResultSchema);
+    await expectContract(await post({ ids: ["nope"] }), 400, ErrorEnvelopeSchema);
+    getSession.mockResolvedValue(null);
+    await expectContract(await post({}), 401, ErrorEnvelopeSchema);
   });
 });
 

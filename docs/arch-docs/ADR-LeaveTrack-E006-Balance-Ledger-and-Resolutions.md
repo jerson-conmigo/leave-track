@@ -50,3 +50,14 @@ Balances today are mutated in place by the decide and accrual stores, with no pe
   accrual transaction grows; both stores (memory and Postgres) must implement it with parity tests.
 - Risk: highest data-integrity risk in EPIC 2 — concurrency tests (accept vs expiry, accept vs
   accept, accrual vs apply) and break-and-restore probes are mandatory.
+
+## Implementation note (TASK-029)
+
+§1 is built: `balance_ledger` (append-only by trigger; unique `source_key`; tracked types only via
+the TASK-018 guard) is written in the same statement as every balance change — approvals and
+accrual today. Existing balances got one `opening` row each (migration backfill, seed, and the
+mock store), so per (user, type) the ledger sums to the balance from the start. This ADR's status
+is unchanged (Proposed) pending architect-of-record sign-off.
+
+Cancellation (TASK-028) is the third writer: cancelling approved leave reverses that approval's
+ledger delta (`cancellation:<request>`), in the same statement as the balance credit.

@@ -1,4 +1,5 @@
 import "server-only";
+import type { Notification } from "@/lib/notifications/types";
 import { getSql } from "@/lib/db/postgres";
 import { logger } from "@/lib/logger";
 import { mockRepository } from "@/lib/data/mock/repository";
@@ -52,6 +53,13 @@ export interface LeaveRepository {
   listPolicies(): Promise<PolicyView[]>;
   /** `now` defines "this month" (UTC); injectable for tests. */
   getOrgStats(now?: Date): Promise<OrgStats>;
+  /**
+   * TASK-030: the session user's own notifications, newest first. MUST filter
+   * `WHERE recipient_id = :recipientId` in SQL (a user only ever sees their own rows).
+   */
+  listNotifications(recipientId: string, opts?: { limit?: number }): Promise<Notification[]>;
+  /** TASK-030: how many of the user's own notifications are unread (the header bell). */
+  countUnreadNotifications(recipientId: string): Promise<number>;
 }
 
 function selectRepository(): LeaveRepository {

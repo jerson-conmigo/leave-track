@@ -17,9 +17,11 @@ import {
   TeamQueueSchema,
   TeamRequestViewSchema,
   SessionTimingSchema,
+  CancelLeaveRequestResultSchema,
 } from "@/lib/api/schemas";
 import type { SessionTiming } from "@/lib/auth/session";
 import type {
+  CancelLeaveRequestResult,
   AccrualResult,
   BalanceSummary,
   DecideLeaveRequestResult,
@@ -124,6 +126,8 @@ describe("coverage: exactly the real routes", () => {
         "POST /api/leave-requests",
         "POST /api/leave-requests/{id}/decision",
         "POST /api/session/heartbeat",
+        "POST /api/notifications/read", // TASK-030
+        "POST /api/leave-requests/{id}/cancel", // TASK-028
       ].sort(),
     );
   });
@@ -147,6 +151,8 @@ describe("security per operation, as the routes enforce it", () => {
     "get /api/jobs/accrual": [{ bearerAuth: [] }],
     "post /api/jobs/accrual": [{ bearerAuth: [] }],
     "post /api/session/heartbeat": [{ cookieAuth: [] }],
+    "post /api/notifications/read": [{ cookieAuth: [] }], // TASK-030
+    "post /api/leave-requests/{id}/cancel": [{ cookieAuth: [] }], // TASK-028
   };
 
   it("each operation declares exactly its scheme (no global default to inherit)", () => {
@@ -285,6 +291,9 @@ describe("response schemas mirror the TypeScript types (compile-time drift guard
     >();
     expectTypeOf<Inferred<typeof AccrualResultSchema>>().toEqualTypeOf<Simplify<AccrualResult>>();
     expectTypeOf<Inferred<typeof SessionTimingSchema>>().toEqualTypeOf<Simplify<SessionTiming>>();
+    expectTypeOf<Inferred<typeof CancelLeaveRequestResultSchema>>().toEqualTypeOf<
+      Simplify<CancelLeaveRequestResult>
+    >();
   });
 });
 

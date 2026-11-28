@@ -43,6 +43,34 @@ const BY_CONSTRAINT: Record<string, { sqlstate: string; code: ErrorCode; message
     code: "VALIDATION_ERROR",
     message: "This start date is too far in the past for this leave type.",
   },
+  // TASK-029: the balance ledger is append-only and records each change once.
+  balance_ledger_source_key_key: {
+    sqlstate: "23505",
+    code: "CONFLICT",
+    message: "This balance change was already recorded.",
+  },
+  balance_ledger_append_only: {
+    sqlstate: "23001",
+    code: "CONFLICT",
+    message: "Balance history can't be changed.",
+  },
+  // TASK-030: one outbox row per (event, recipient) — a replay is refused.
+  notification_outbox_idempotency_key_key: {
+    sqlstate: "23505",
+    code: "CONFLICT",
+    message: "This notification was already queued.",
+  },
+  // TASK-028: cancellation backstops.
+  audit_log_one_cancellation_per_request: {
+    sqlstate: "23505",
+    code: "CONFLICT",
+    message: "This request has already been cancelled.",
+  },
+  leave_requests_cancel_final: {
+    sqlstate: "23514",
+    code: "CONFLICT",
+    message: "A cancelled request can't be changed.",
+  },
   leave_requests_date_range: {
     sqlstate: "23514",
     code: "VALIDATION_ERROR",

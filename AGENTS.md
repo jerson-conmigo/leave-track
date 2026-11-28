@@ -78,6 +78,11 @@ document's "Revision v1.1" section and `docs/dev-tasks/epic-2-hardening-and-reso
    `tracksBalance`, never on a type's name. Enforced by DB triggers (untracked types can't
    hold balances or policies) and `tests/leave-types/balance-writers.test.ts` — a new
    writer of `leave_balances` must be reviewed and added to that registry.
+   Every `leave_balances` writer also writes ONE `balance_ledger` row in the same statement
+   (TASK-029, ADR-E006 §1): delta, balance after, source and a unique `source_key`
+   (`approval:<request>`, `accrual:<period>:<user>:<type>`, …). The ledger is append-only
+   (UPDATE/DELETE/TRUNCATE refused) and reconciles: per (user, type) the deltas sum to the
+   balance. The registry test fails a balance writer that doesn't write the ledger.
    The same goes for the past-start allowance (TASK-027): it is the
    `leave_types.max_backdate_days` attribute (Sick 30, others 0), never the name "Sick".
 
@@ -99,6 +104,21 @@ document's "Revision v1.1" section and `docs/dev-tasks/epic-2-hardening-and-reso
     `toAppError`. Only `supabase/seed.sql` and test fixtures (`asHistorical`) may load historical
     rows through `leavetrack.allow_backdated`; application code never sets it. Tests write request
     dates with `future()` / `daysFromToday()` so they never go stale.
+13. **Notifications are written in the business transaction** (TASK-030, ADR-E007): the
+    leave-request stores call `lib/notifications` (`writeRequestSubmitted` /
+    `writeRequestDecided`, memory mirror inside `atomically`) after their own rows, so a
+    rolled-back action leaves no notification. Each notification has one `notification_outbox`
+    row (unique `idempotency_key`), delivered by TASK-037. Recipients of "submitted" come from
+    `public.can_decide` (the approval rule). Every read and mark-read is scoped
+    `WHERE recipient_id = :session_user` in SQL. The `Notifier` port is the post-commit log
+    channel only.
+14. **Withdraw / cancel** (TASK-028, US-16): only the requester (`user_id = :session_user` in the
+    UPDATE itself); pending → withdrawn, approved → cancellable only while `start_date > today`
+    (UTC). Approved leave of a tracked type gets back exactly the approval's ledger delta
+    (`cancellation:<request>` row, same statement as the balance credit). Status, balance,
+    ledger, the `cancelled` audit row and the approvers' notification are one transaction.
+    `cancelled_by` / `cancelled_at` record it; the approval's `decided_*` stay. A cancelled
+    request is final (trigger). "Not yours" (403) is checked before "started" (409).
 
 ## Frontend standards
 
@@ -119,6 +139,10 @@ document's "Revision v1.1" section and `docs/dev-tasks/epic-2-hardening-and-reso
    rings, status conveyed by icon + text (never color alone), WCAG AA contrast.
 8. **Icons** come from `lucide-react` only; decorative icons get `aria-hidden`. Centered icons use
    flex or `mx-auto` (Tailwind preflight makes `svg` block-level).
+
+9. **The notification bell** (`components/layout/notification-bell.tsx`) carries the unread
+   count in its accessible name ("Notifications, 3 unread") and as badge text — never colour
+   alone; it keeps a fixed 44px target so the 320px header still fits at 200% text.
 
 ## Security rules
 

@@ -63,6 +63,7 @@ export const LeaveRequestViewSchema = z.object({
   createdAt: isoTimestamp,
   decidedAt: isoTimestamp.nullable(),
   decidedByName: z.string().nullable(),
+  cancellable: z.boolean().describe("You may withdraw (pending) or cancel (approved, not started)"),
   awaiting: z
     .string()
     .nullable()
@@ -154,4 +155,15 @@ export const SessionTimingSchema = z.object({
   idleTimeoutSeconds: z.number().int(),
   warningSeconds: z.number().int(),
   heartbeatIntervalSeconds: z.number().int(),
+});
+
+/** POST /api/notifications/read (TASK-030). */
+export const MarkReadResultSchema = z.object({
+  updated: z.number().int().describe("How many of your unread notifications were marked read"),
+});
+
+/** POST /api/leave-requests/{id}/cancel (TASK-028). Mirrors CancelLeaveRequestResult. */
+export const CancelLeaveRequestResultSchema = z.object({
+  request: LeaveRequestViewSchema,
+  restoredDays: z.number().nullable(),
 });

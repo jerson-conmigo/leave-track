@@ -81,3 +81,30 @@ export interface DecideStore {
    */
   decideWithAudit(input: DecideInput): Promise<DecideOutcome>;
 }
+
+/** TASK-028 — withdraw (pending) or cancel (approved, not started) the ACTOR's own request. */
+export type CancelInput = {
+  requestId: string;
+  /** The session user — only the requester may cancel (checked in the statement itself). */
+  actorId: string;
+  /** Today (UTC, YYYY-MM-DD): approved leave can be cancelled only while start_date > today. */
+  today: string;
+  /** Calendar days of a request (lib/format countDays) — the fallback credit when the approval
+   *  predates the balance ledger (no approval:<id> row to reverse). */
+  daysFor: (startDate: string, endDate: string) => number;
+};
+
+export type CancelOutcome =
+  | {
+      ok: true;
+      request: LeaveRequest;
+      leaveType: LeaveType;
+      wasApproved: boolean;
+      /** Days put back on the balance; null when nothing was restored (pending / untracked). */
+      restoredDays: number | null;
+    }
+  | { ok: false; reason: "not_found" | "not_yours" | "not_cancellable" | "started" };
+
+export interface CancelStore {
+  cancelWithAudit(input: CancelInput): Promise<CancelOutcome>;
+}

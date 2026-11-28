@@ -40,6 +40,15 @@ describe("Postgres store", () => {
     (
       await db.query<{ p: string }>(`select period::text p from accrual_runs order by period`)
     ).rows.map((r) => r.p);
+  /** TASK-029: accrual ledger rows for Ana's Vacation, by period (one per month, never two). */
+  const anaLedgerPeriods = async () =>
+    (
+      await db.query<{ k: string }>(
+        `select source_key k from balance_ledger
+          where source = 'accrual' and user_id = $1 and leave_type_id = $2 order by source_key`,
+        [USER_IDS.ana, LEAVE_TYPE_IDS.Vacation],
+      )
+    ).rows.map((r) => r.k.split(":")[1]);
 
   beforeEach(async () => {
     const t = await createTestDb();
@@ -56,6 +65,7 @@ describe("Postgres store", () => {
     expect(accruedTotal.map((a) => a.period).sort()).toEqual(MONTHS.slice(1)); // no month twice
     expect(await periods()).toEqual(MONTHS);
     expect(Number(await anaVacation())).toBe(before + 3 * 1.25);
+    expect(await anaLedgerPeriods()).toEqual(MONTHS.slice(1)); // TASK-029: one ledger row each
   });
 
   it("staggered overlap (one run claims Dec+Jan, another Dec+Jan+Feb): every month once, none missing", async () => {
@@ -65,6 +75,7 @@ describe("Postgres store", () => {
     expect(accruedTotal.map((a) => a.period).sort()).toEqual(MONTHS.slice(1));
     expect(await periods()).toEqual(MONTHS);
     expect(Number(await anaVacation())).toBe(before + 3 * 1.25);
+    expect(await anaLedgerPeriods()).toEqual(MONTHS.slice(1)); // TASK-029
   });
 });
 
@@ -85,5 +96,17 @@ describe("memory store (parity of the claim-or-skip rule)", () => {
     expect(accruedTotal.map((a) => a.period).sort()).toEqual(MONTHS.slice(1));
     expect(mockDb.accrualRuns.map((r) => r.period).sort()).toEqual(MONTHS);
     expect(anaVacation()).toBe(before + 3.75);
+    // TASK-029: one accrual ledger row per month for Ana's Vacation, never two
+    expect(
+      mockDb.balanceLedger
+        .filter(
+          (e) =>
+            e.source === "accrual" &&
+            e.userId === USER_IDS.ana &&
+            e.leaveTypeId === LEAVE_TYPE_IDS.Vacation,
+        )
+        .map((e) => e.sourceKey.split(":")[1])
+        .sort(),
+    ).toEqual(MONTHS.slice(1));
   });
 });

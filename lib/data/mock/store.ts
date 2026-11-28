@@ -7,6 +7,24 @@ import {
   leaveTypes,
   users,
 } from "@/lib/data/mock/fixtures";
+import type { LeaveBalance, LedgerEntry } from "@/lib/data/types";
+import type { Notification, OutboxEntry } from "@/lib/notifications/types";
+
+/** TASK-029: one opening ledger row per fixture balance (as the migration and seed backfill). */
+function openingLedger(balances: readonly LeaveBalance[]): LedgerEntry[] {
+  return balances.map((b, i) => ({
+    id: `60000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`,
+    userId: b.userId,
+    leaveTypeId: b.leaveTypeId,
+    delta: b.balance,
+    balanceAfter: b.balance,
+    source: "opening",
+    sourceKey: `opening:${b.userId}:${b.leaveTypeId}`,
+    leaveRequestId: null,
+    actorId: null,
+    occurredAt: b.updatedAt,
+  }));
+}
 
 function createMockDb() {
   return {
@@ -17,6 +35,11 @@ function createMockDb() {
     leaveRequests: structuredClone(leaveRequests),
     auditLog: structuredClone(auditLog),
     accrualRuns: structuredClone(accrualRuns),
+    // TASK-029: the append-only balance ledger, starting from the fixtures' opening balances.
+    balanceLedger: openingLedger(leaveBalances),
+    // TASK-030: in-app notifications and their outbox rows (start empty).
+    notifications: [] as Notification[],
+    notificationOutbox: [] as OutboxEntry[],
     // users.auth_user_id links (TASK-024). Empty: the mock sign-in never uses them.
     authLinks: [] as { authUserId: string; userId: string }[],
   };
@@ -48,5 +71,41 @@ export function resetMockDb(): void {
   for (const key of Object.keys(fresh) as (keyof MockDb)[]) {
     const target = mockDb[key] as unknown[];
     target.splice(0, target.length, ...(fresh[key] as unknown[]));
+  }
+}
+
+/**
+ * TASK-029: append one ledger row (memory mirror of balance_ledger). Like the database, a
+ * duplicate source_key is refused with a Postgres-shaped error (23505 +
+ * balance_ledger_source_key_key), so lib/db/errors.ts maps it identically. Entries are never
+ * updated or removed (except resetMockDb, for test isolation).
+ */
+export function appendLedger(entry: Omit<LedgerEntry, "id">): LedgerEntry {
+  if (mockDb.balanceLedger.some((e) => e.sourceKey === entry.sourceKey)) {
+    throw Object.assign(new Error("balance_ledger_source_key_key violated"), {
+      code: "23505",
+      constraint: "balance_ledger_source_key_key",
+    });
+  }
+  const row: LedgerEntry = { id: crypto.randomUUID(), ...entry };
+  mockDb.balanceLedger.push(row);
+  return row;
+}
+
+/**
+ * TASK-030: run a memory store's write section all-or-nothing, like a database transaction —
+ * if `fn` throws, every collection is restored IN PLACE (same arrays; see resetMockDb) to its
+ * state before the call, and the error is rethrown. The mock DB is small, so a snapshot is cheap.
+ */
+export function atomically<T>(fn: () => T): T {
+  const snapshot = structuredClone(mockDb);
+  try {
+    return fn();
+  } catch (error) {
+    for (const key of Object.keys(snapshot) as (keyof MockDb)[]) {
+      const target = mockDb[key] as unknown[];
+      target.splice(0, target.length, ...(snapshot[key] as unknown[]));
+    }
+    throw error;
   }
 }

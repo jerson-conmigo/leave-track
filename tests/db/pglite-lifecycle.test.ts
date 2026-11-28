@@ -133,14 +133,17 @@ describe("structure: every test file that creates databases is reviewed and clos
     "tests/accrual/concurrency.test.ts",
     "tests/accrual/run.test.ts",
     "tests/data/audit.test.ts",
+    "tests/data/balance-ledger.test.ts",
     "tests/data/postgres-repository.test.ts",
     "tests/db/pglite-lifecycle.test.ts",
     "tests/db/users-auth-link.test.ts",
     "tests/leave-requests/approval-routing.test.ts",
+    "tests/leave-requests/cancel.test.ts",
     "tests/leave-requests/decide.test.ts",
     "tests/leave-requests/request-integrity.test.ts",
     "tests/leave-requests/submit.test.ts",
     "tests/leave-types/independence.test.ts",
+    "tests/notifications/notifications.test.ts",
   ];
   // One database for the whole file, created in beforeAll and closed in afterAll.
   const PER_FILE = [

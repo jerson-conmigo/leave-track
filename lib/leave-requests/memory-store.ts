@@ -1,10 +1,16 @@
 import { daysBefore, todayUtc } from "@/lib/data/dates";
-import { mockDb } from "@/lib/data/mock/store";
+import { appendLedger, atomically, mockDb } from "@/lib/data/mock/store";
 import { countDays } from "@/lib/format";
 import { MAX_REQUEST_DAYS } from "@/lib/validation/leave-request";
 import type { LeaveRequest } from "@/lib/data/types";
 import { canDecide, hasApprover } from "@/lib/leave-requests/approver";
-import type { DecideStore, SubmitStore } from "@/lib/leave-requests/store";
+import {
+  writeRequestCancelledMemory,
+  writeRequestDecidedMemory,
+  writeRequestSubmittedMemory,
+} from "@/lib/notifications/memory";
+import { addDays } from "@/lib/data/decimal";
+import type { CancelStore, DecideStore, SubmitStore } from "@/lib/leave-requests/store";
 
 /** Pending/approved, not deleted, any type, overlapping [start, end] (inclusive) — as SQL `&&`. */
 function overlaps(userId: string, startDate: string, endDate: string): boolean {
@@ -99,14 +105,17 @@ export const memorySubmitStore: SubmitStore = {
       isDeleted: false,
       createdAt: now,
     };
-    // Single synchronous section — both rows land together or not at all.
-    mockDb.leaveRequests.push(request);
-    mockDb.auditLog.push({
-      id: crypto.randomUUID(),
-      leaveRequestId: request.id,
-      actorId: input.userId,
-      action: "submitted",
-      occurredAt: now,
+    // One all-or-nothing section: the request, its audit row and its notifications (TASK-030).
+    atomically(() => {
+      mockDb.leaveRequests.push(request);
+      mockDb.auditLog.push({
+        id: crypto.randomUUID(),
+        leaveRequestId: request.id,
+        actorId: input.userId,
+        action: "submitted",
+        occurredAt: now,
+      });
+      writeRequestSubmittedMemory(request.id, now);
     });
     return request;
   },
@@ -128,7 +137,12 @@ export const memoryDecideStore: DecideStore = {
     }
     if (request.status !== "pending") return { ok: false, reason: "already_decided" };
     // Mirrors the DB backstop (audit_log_one_decision_per_request).
-    if (mockDb.auditLog.some((a) => a.leaveRequestId === requestId && a.action !== "submitted")) {
+    if (
+      mockDb.auditLog.some(
+        (a) =>
+          a.leaveRequestId === requestId && (a.action === "approved" || a.action === "rejected"),
+      )
+    ) {
       throw new Error("duplicate decision for request (audit_log_one_decision_per_request)");
     }
     const leaveType = mockDb.leaveTypes.find((t) => t.id === request.leaveTypeId)!;
@@ -137,38 +151,55 @@ export const memoryDecideStore: DecideStore = {
     const now = new Date().toISOString();
     const days = daysFor(request.startDate, request.endDate);
 
-    let balanceAfter: number | null = null;
-    if (decision === "approve" && leaveType.tracksBalance) {
-      let bal = mockDb.leaveBalances.find(
-        (b) => b.userId === request.userId && b.leaveTypeId === request.leaveTypeId,
-      );
-      if (!bal) {
-        bal = {
-          id: crypto.randomUUID(),
+    // One all-or-nothing section: status, balance + ledger, audit row and the notification.
+    const balanceAfter = atomically((): number | null => {
+      let after: number | null = null;
+      if (decision === "approve" && leaveType.tracksBalance) {
+        let bal = mockDb.leaveBalances.find(
+          (b) => b.userId === request.userId && b.leaveTypeId === request.leaveTypeId,
+        );
+        if (!bal) {
+          bal = {
+            id: crypto.randomUUID(),
+            userId: request.userId,
+            leaveTypeId: request.leaveTypeId,
+            balance: 0,
+            updatedAt: now,
+          };
+          mockDb.leaveBalances.push(bal);
+        }
+        bal.balance -= days;
+        bal.updatedAt = now;
+        after = bal.balance;
+        // TASK-029: the ledger row for this change (mirrors the SQL statement).
+        appendLedger({
           userId: request.userId,
           leaveTypeId: request.leaveTypeId,
-          balance: 0,
-          updatedAt: now,
-        };
-        mockDb.leaveBalances.push(bal);
+          delta: -days,
+          balanceAfter: bal.balance,
+          source: "approval",
+          sourceKey: `approval:${request.id}`,
+          leaveRequestId: request.id,
+          actorId,
+          occurredAt: now,
+        });
       }
-      bal.balance -= days;
-      bal.updatedAt = now;
-      balanceAfter = bal.balance;
-    }
 
-    Object.assign(request, {
-      status,
-      decidedBy: actorId,
-      decidedAt: now,
-      decisionReason: reason ?? null,
-    });
-    mockDb.auditLog.push({
-      id: crypto.randomUUID(),
-      leaveRequestId: request.id,
-      actorId,
-      action: status,
-      occurredAt: now,
+      Object.assign(request, {
+        status,
+        decidedBy: actorId,
+        decidedAt: now,
+        decisionReason: reason ?? null,
+      });
+      mockDb.auditLog.push({
+        id: crypto.randomUUID(),
+        leaveRequestId: request.id,
+        actorId,
+        action: status,
+        occurredAt: now,
+      });
+      writeRequestDecidedMemory(request.id, now);
+      return after;
     });
 
     return {
@@ -180,5 +211,77 @@ export const memoryDecideStore: DecideStore = {
       days,
       balanceAfter,
     };
+  },
+};
+
+/**
+ * CancelStore over the in-memory mock DB (TASK-028) — the same rules and outcomes as Postgres
+ * (parity-tested), all-or-nothing via `atomically`.
+ */
+export const memoryCancelStore: CancelStore = {
+  async cancelWithAudit({ requestId, actorId, today, daysFor }) {
+    const request = mockDb.leaveRequests.find((r) => r.id === requestId);
+    if (!request || request.isDeleted) return { ok: false, reason: "not_found" };
+    if (request.userId !== actorId) return { ok: false, reason: "not_yours" };
+    if (request.status === "approved" && request.startDate <= today) {
+      return { ok: false, reason: "started" };
+    }
+    if (request.status !== "pending" && request.status !== "approved") {
+      return { ok: false, reason: "not_cancellable" };
+    }
+    // Mirrors the DB backstop (audit_log_one_cancellation_per_request).
+    if (mockDb.auditLog.some((a) => a.leaveRequestId === requestId && a.action === "cancelled")) {
+      throw new Error("duplicate cancellation (audit_log_one_cancellation_per_request)");
+    }
+    const leaveType = mockDb.leaveTypes.find((t) => t.id === request.leaveTypeId)!;
+    const wasApproved = request.status === "approved";
+    const now = new Date().toISOString();
+
+    const restoredDays = atomically((): number | null => {
+      Object.assign(request, { status: "cancelled", cancelledAt: now });
+      let restored: number | null = null;
+      if (wasApproved && leaveType.tracksBalance) {
+        const approval = mockDb.balanceLedger.find((e) => e.sourceKey === `approval:${request.id}`);
+        const credit = approval ? -approval.delta : daysFor(request.startDate, request.endDate);
+        let bal = mockDb.leaveBalances.find(
+          (b) => b.userId === request.userId && b.leaveTypeId === request.leaveTypeId,
+        );
+        if (!bal) {
+          bal = {
+            id: crypto.randomUUID(),
+            userId: request.userId,
+            leaveTypeId: request.leaveTypeId,
+            balance: 0,
+            updatedAt: now,
+          };
+          mockDb.leaveBalances.push(bal);
+        }
+        bal.balance = addDays(bal.balance, credit);
+        bal.updatedAt = now;
+        appendLedger({
+          userId: request.userId,
+          leaveTypeId: request.leaveTypeId,
+          delta: credit,
+          balanceAfter: bal.balance,
+          source: "cancellation",
+          sourceKey: `cancellation:${request.id}`,
+          leaveRequestId: request.id,
+          actorId,
+          occurredAt: now,
+        });
+        restored = credit;
+      }
+      mockDb.auditLog.push({
+        id: crypto.randomUUID(),
+        leaveRequestId: request.id,
+        actorId,
+        action: "cancelled",
+        occurredAt: now,
+      });
+      writeRequestCancelledMemory(request.id, wasApproved, now);
+      return restored;
+    });
+
+    return { ok: true, request: { ...request }, leaveType, wasApproved, restoredDays };
   },
 };

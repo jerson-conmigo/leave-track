@@ -182,6 +182,32 @@ Design: ADR-LeaveTrack-E003.
 - **Security:** `CRON_SECRET` is required; the Bearer check (constant-time) runs before any
   database access and fails closed if the secret is unset.
 
+### Withdraw and cancel (TASK-028)
+
+- On **My requests**, a pending request has **Withdraw**, and approved leave that hasn't started
+  yet has **Cancel leave** (both ask you to confirm). Only you can cancel your own requests.
+- Cancelling approved leave puts exactly its days back on that leave type's balance; Unpaid
+  has no balance to restore. Leave that has started (today, UTC, or earlier) can't be cancelled.
+- The request shows as **Cancelled**, leaves your approver's queue, and your approver gets a
+  notification. A cancelled request can't be reopened.
+
+### Notifications (TASK-030)
+
+- When you submit a request, whoever can approve it gets a notification (your manager, or every
+  other HR Admin for an HR Admin's request). When it's decided, you get one.
+- The bell in the header shows how many are unread; **Notifications** lists them, newest first,
+  with "Mark as read" and "Mark all as read". You only ever see your own.
+- Each notification is saved in the same transaction as the request or decision, with an
+  outbox entry for email. Email delivery comes with TASK-037; until then outbox entries wait.
+
+### Balance history (TASK-029)
+
+Every change to a leave balance — an approval or a monthly accrual — writes one row to an
+append-only ledger (`balance_ledger`) in the same database statement: how much changed, the
+balance after it, why, and a unique key so the same change can never be recorded twice.
+Balances that existed before the ledger start with one "opening" row, so each person's ledger
+always adds up to their balance. Ledger rows can't be edited or deleted.
+
 ### Request rules (TASK-027)
 
 - You can't request days that overlap one of your own pending or approved requests (any leave

@@ -1,7 +1,7 @@
 import { currentPeriod, monthsToAccrue } from "@/lib/accrual/periods";
 import type { AccrualStore, AccruedPeriod } from "@/lib/accrual/store";
 import { addDays, sumDays } from "@/lib/data/decimal";
-import { mockDb } from "@/lib/data/mock/store";
+import { appendLedger, mockDb } from "@/lib/data/mock/store";
 
 /**
  * AccrualStore over the in-memory mock DB (local dev) — same rules as Postgres,
@@ -45,6 +45,18 @@ export const memoryAccrualStore: AccrualStore = {
         }
         bal.balance = addDays(bal.balance, p.accrualPerMonth);
         bal.updatedAt = ranAt;
+        // TASK-029: one ledger row per (period, user, type) — mirrors the SQL statement.
+        appendLedger({
+          userId: p.userId,
+          leaveTypeId: p.leaveTypeId,
+          delta: p.accrualPerMonth,
+          balanceAfter: bal.balance,
+          source: "accrual",
+          sourceKey: `accrual:${period}:${p.userId}:${p.leaveTypeId}`,
+          leaveRequestId: null,
+          actorId: null,
+          occurredAt: ranAt,
+        });
       }
       const usersAccrued = new Set(policies.map((p) => p.userId)).size;
       const daysAccrued = sumDays(policies.map((p) => p.accrualPerMonth));

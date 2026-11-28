@@ -1,4 +1,5 @@
 import { availableForRequest, buildBalanceSummaries } from "@/lib/data/balance";
+import type { Notification } from "@/lib/notifications/types";
 import { utcMonthBounds } from "@/lib/data/dates";
 import type { LeaveRepository } from "@/lib/data/repositories";
 import {
@@ -418,6 +419,44 @@ export function createPostgresRepository(sql: SqlClient): LeaveRepository {
         .sort(
           (a, b) => a.userName.localeCompare(b.userName) || a.leaveType.localeCompare(b.leaveType),
         );
+    },
+
+    // TASK-030: every statement is scoped to the recipient in SQL (AC3).
+    async listNotifications(recipientId, opts) {
+      const rows = await sql.query<{
+        id: string;
+        recipient_id: string;
+        type: Notification["type"];
+        payload: Notification["payload"];
+        read_at: unknown;
+        created_at: unknown;
+      }>(
+        `select id, recipient_id, type, payload, read_at, created_at
+           from notifications
+          where recipient_id = $1
+          order by created_at desc, id desc
+          limit $2`,
+        [recipientId, Math.min(Math.max(opts?.limit ?? 50, 1), 200)],
+      );
+      return rows.map(
+        (r) =>
+          ({
+            id: r.id,
+            recipientId: r.recipient_id,
+            type: r.type,
+            payload: r.payload,
+            readAt: r.read_at == null ? null : toIso(r.read_at),
+            createdAt: toIso(r.created_at),
+          }) as Notification,
+      );
+    },
+
+    async countUnreadNotifications(recipientId) {
+      const [row] = await sql.query<{ n: number }>(
+        `select count(*)::int n from notifications where recipient_id = $1 and read_at is null`,
+        [recipientId],
+      );
+      return row?.n ?? 0;
     },
 
     async getOrgStats(now = new Date()) {

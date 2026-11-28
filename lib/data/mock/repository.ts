@@ -192,6 +192,21 @@ export const mockRepository: LeaveRepository = {
     };
   },
 
+  // TASK-030: only the recipient's own rows (mirrors WHERE recipient_id = $1).
+  async listNotifications(recipientId, opts) {
+    const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 200);
+    return mockDb.notifications
+      .filter((n) => n.recipientId === recipientId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id))
+      .slice(0, limit)
+      .map((n) => structuredClone(n));
+  },
+
+  async countUnreadNotifications(recipientId) {
+    return mockDb.notifications.filter((n) => n.recipientId === recipientId && n.readAt === null)
+      .length;
+  },
+
   async getOrgStats(now = new Date()) {
     const [monthStart, nextMonth] = utcMonthBounds(now);
     const rows = active();

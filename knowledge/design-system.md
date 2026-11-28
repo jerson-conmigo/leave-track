@@ -40,11 +40,12 @@ modifiers such as `bg-primary/10`). Never use raw hex/rgb/oklch in components.
 
 ### Request status
 
-| Status   | Background token                  | Foreground token                             | Icon          |
-| -------- | --------------------------------- | -------------------------------------------- | ------------- |
-| Pending  | `--status-pending` `43 96% 92%`   | `--status-pending-foreground` `30 85% 28%`   | `Clock`       |
-| Approved | `--status-approved` `142 60% 92%` | `--status-approved-foreground` `142 72% 24%` | `CircleCheck` |
-| Rejected | `--status-rejected` `0 86% 95%`   | `--status-rejected-foreground` `0 72% 38%`   | `CircleX`     |
+| Status               | Background token                   | Foreground token                              | Icon          |
+| -------------------- | ---------------------------------- | --------------------------------------------- | ------------- |
+| Pending              | `--status-pending` `43 96% 92%`    | `--status-pending-foreground` `30 85% 28%`    | `Clock`       |
+| Approved             | `--status-approved` `142 60% 92%`  | `--status-approved-foreground` `142 72% 24%`  | `CircleCheck` |
+| Rejected             | `--status-rejected` `0 86% 95%`    | `--status-rejected-foreground` `0 72% 38%`    | `CircleX`     |
+| Cancelled (TASK-028) | `--status-cancelled` `215 20% 92%` | `--status-cancelled-foreground` `215 25% 27%` | `Ban`         |
 
 The pending palette doubles as the **warning** style (over-balance alert, demo sign-in notice).
 
@@ -124,7 +125,7 @@ Local changes: 44px mobile heights on button/input/select; `sonner` fixed to lig
 | `StatusScreen`   | `components/layout/status-screen.tsx`      | `icon`, `code?`, `title`, `description`    | 404 / 403 / error                                                        |
 | `LoginForm`      | `components/auth/login-form.tsx`           | `mockUsers`, `next?`                       | pending, error, demo notice                                              |
 | `LeaveTypeBadge` | `components/leave/leave-type-badge.tsx`    | `type`                                     | 3 types                                                                  |
-| `StatusBadge`    | `components/leave/status-badge.tsx`        | `status`                                   | pending / approved / rejected                                            |
+| `StatusBadge`    | `components/leave/status-badge.tsx`        | `status`                                   | pending / approved / rejected / cancelled                                |
 | `BalanceCard`    | `components/leave/balance-card.tsx`        | `balance`, `variant`                       | tracked / untracked, pending, skeleton                                   |
 | `RequestList`    | `components/leave/request-list.tsx`        | `requests`, `label?`, empty copy           | cards / table, empty                                                     |
 | `RequestForm`    | `components/leave/request-form.tsx`        | `leaveTypes`, `balances`, `onSubmit?`      | field errors, over-balance warning, loading, submit error, success toast |

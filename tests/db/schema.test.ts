@@ -51,9 +51,24 @@ const EXPECTED_COLUMNS: Record<string, string[]> = {
     "decision_reason",
     "is_deleted",
     "created_at",
+    "cancelled_at", // TASK-028
+    "cancelled_by", // TASK-028
   ],
   audit_log: ["id", "leave_request_id", "actor_id", "action", "occurred_at"],
   accrual_runs: ["id", "period", "ran_at", "trigger", "users_accrued", "days_accrued", "rates"],
+  // TASK-029
+  balance_ledger: [
+    "id",
+    "user_id",
+    "leave_type_id",
+    "delta",
+    "balance_after",
+    "source",
+    "source_key",
+    "leave_request_id",
+    "actor_id",
+    "occurred_at",
+  ],
 };
 
 /** [table, column, referenced table] — every FK the arch doc implies. */
@@ -68,6 +83,16 @@ const EXPECTED_FKS: [string, string, string][] = [
   ["leave_requests", "decided_by", "users"],
   ["audit_log", "leave_request_id", "leave_requests"],
   ["audit_log", "actor_id", "users"],
+  // TASK-029: the balance ledger
+  ["balance_ledger", "user_id", "users"],
+  ["balance_ledger", "leave_type_id", "leave_types"],
+  ["balance_ledger", "leave_request_id", "leave_requests"],
+  ["balance_ledger", "actor_id", "users"],
+  // TASK-030: notifications and the outbox
+  ["notifications", "recipient_id", "users"],
+  ["notification_outbox", "notification_id", "notifications"],
+  ["notification_outbox", "recipient_id", "users"],
+  ["leave_requests", "cancelled_by", "users"], // TASK-028
 ];
 
 const ANA = USER_IDS.ana;
@@ -173,12 +198,19 @@ describe("AC1 — migration runs clean on an empty DB", () => {
 });
 
 describe("AC2 — all 6 tables exist with FKs matching the arch doc", () => {
-  it("creates exactly the arch tables plus accrual_runs and rate_limits (TASK-025)", async () => {
+  it("creates exactly the arch tables plus accrual_runs, rate_limits (TASK-025) and balance_ledger (TASK-029)", async () => {
     const tables = await rows<{ table_name: string }>(
       `select table_name from information_schema.tables where table_schema = 'public' order by 1`,
     );
     expect(tables.map((t) => t.table_name).sort()).toEqual(
-      [...ARCH_TABLES, "accrual_runs", "rate_limits"].sort(),
+      [
+        ...ARCH_TABLES,
+        "accrual_runs",
+        "rate_limits",
+        "balance_ledger",
+        "notifications", // TASK-030
+        "notification_outbox", // TASK-030
+      ].sort(),
     );
   });
 

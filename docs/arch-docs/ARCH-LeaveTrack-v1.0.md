@@ -76,7 +76,7 @@ users                   + auth_user_id uuid unique (TASK-024, done), is_active b
 leave_requests          status + 'cancelled' (TASK-028)
 audit_action            + 'cancelled' (TASK-028)
 balance_ledger          (id, user_id, leave_type_id, delta, balance_after, source, source_key unique,
-                         actor_id nullable, occurred_at)                         -- TASK-029, ADR-E006
+                         actor_id nullable, occurred_at)          -- built in TASK-029, ADR-E006
 balance_resolutions     (id, user_id, leave_type_id, status, deficit_at_proposal,
                          unpaid_days_proposed, recovery_days_proposed, recovery_start_period,
                          recovery_months, unpaid_days_applied, recovery_days_applied,

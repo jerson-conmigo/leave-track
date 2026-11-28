@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireSession } from "@/lib/auth/session";
 import { repository } from "@/lib/data/repositories";
+import { cancelLeaveRequestAction } from "@/app/(app)/requests/actions";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -141,7 +142,11 @@ export default async function DashboardPage() {
             View all
           </Link>
         </div>
-        <RequestList requests={requests.slice(0, 3)} label="Recent leave requests" />
+        <RequestList
+          requests={requests.slice(0, 3)}
+          label="Recent leave requests"
+          onCancel={cancelLeaveRequestAction}
+        />
       </section>
     </>
   );

@@ -31,14 +31,28 @@ export function createPostgresAccrualStore(sql: SqlClient): AccrualStore {
           );
           if (!claim) continue;
 
+          // TASK-029: credit every tracked policy AND write its ledger row in one statement —
+          // delta = the amount added, balance_after = the balance the upsert produced, one row
+          // per (period, user, type). Only reached after this transaction claimed the month, so a
+          // duplicate or overlapping run writes neither balances nor ledger rows.
           await tx.query(
-            `insert into leave_balances (user_id, leave_type_id, balance, updated_at)
-             select p.user_id, p.leave_type_id, p.accrual_per_month, now()
-               from leave_policies p
-               join leave_types t on t.id = p.leave_type_id
-              where t.tracks_balance and p.accrual_per_month > 0
-             on conflict (user_id, leave_type_id)
-             do update set balance = leave_balances.balance + excluded.balance, updated_at = now()`,
+            `with upserted as (
+               insert into leave_balances (user_id, leave_type_id, balance, updated_at)
+               select p.user_id, p.leave_type_id, p.accrual_per_month, now()
+                 from leave_policies p
+                 join leave_types t on t.id = p.leave_type_id
+                where t.tracks_balance and p.accrual_per_month > 0
+               on conflict (user_id, leave_type_id)
+               do update set balance = leave_balances.balance + excluded.balance, updated_at = now()
+               returning user_id, leave_type_id, balance
+             )
+             insert into balance_ledger
+               (user_id, leave_type_id, delta, balance_after, source, source_key)
+             select u.user_id, u.leave_type_id, p.accrual_per_month, u.balance, 'accrual',
+                    'accrual:' || $1::text || ':' || u.user_id || ':' || u.leave_type_id
+               from upserted u
+               join leave_policies p on p.user_id = u.user_id and p.leave_type_id = u.leave_type_id`,
+            [period],
           );
 
           // Audit fields computed in SQL (numeric sum; exact rate snapshot).

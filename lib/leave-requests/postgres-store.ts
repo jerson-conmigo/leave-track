@@ -1,6 +1,11 @@
 import type { LeaveRequest, LeaveTypeName, RequestStatus } from "@/lib/data/types";
 import { type SqlClient, toIso, toNumber } from "@/lib/db/sql";
-import type { DecideStore, SubmitStore } from "@/lib/leave-requests/store";
+import type { CancelStore, DecideStore, SubmitStore } from "@/lib/leave-requests/store";
+import {
+  writeRequestCancelled,
+  writeRequestDecided,
+  writeRequestSubmitted,
+} from "@/lib/notifications/postgres";
 
 type RequestRow = {
   id: string;
@@ -142,6 +147,8 @@ export function createPostgresSubmitStore(sql: SqlClient): SubmitStore {
            select id, user_id, 'submitted', created_at from leave_requests where id = $1`,
           [row.id],
         );
+        // TASK-030: the approvers' notifications + outbox rows, in this same transaction.
+        await writeRequestSubmitted(tx, row.id);
         return toLeaveRequest(row);
       });
     },
@@ -210,13 +217,23 @@ export function createPostgresDecideStore(sql: SqlClient): DecideStore {
         const days = daysFor(row.start_date, row.end_date);
         let balanceAfter: number | null = null;
         if (decision === "approve" && row.tracks_balance) {
+          // TASK-029: the decrement and its ledger row in ONE statement — the ledger's
+          // balance_after is exactly the balance this upsert produced.
           const [bal] = await tx.query<{ balance: unknown }>(
-            `insert into leave_balances (user_id, leave_type_id, balance, updated_at)
-             values ($1, $2, 0 - $3::numeric, now())
-             on conflict (user_id, leave_type_id)
-             do update set balance = leave_balances.balance - $3::numeric, updated_at = now()
-             returning balance`,
-            [row.user_id, row.leave_type_id, days],
+            `with upserted as (
+               insert into leave_balances (user_id, leave_type_id, balance, updated_at)
+               values ($1, $2, 0 - $3::numeric, now())
+               on conflict (user_id, leave_type_id)
+               do update set balance = leave_balances.balance - $3::numeric, updated_at = now()
+               returning user_id, leave_type_id, balance
+             )
+             insert into balance_ledger
+               (user_id, leave_type_id, delta, balance_after, source, source_key, leave_request_id, actor_id)
+             select user_id, leave_type_id, 0 - $3::numeric, balance, 'approval',
+                    'approval:' || $4::text, $4::uuid, $5::uuid
+               from upserted
+             returning balance_after balance`,
+            [row.user_id, row.leave_type_id, days, row.id, actorId],
           );
           balanceAfter = bal ? toNumber(bal.balance) : null;
         }
@@ -226,6 +243,8 @@ export function createPostgresDecideStore(sql: SqlClient): DecideStore {
            values ($1, $2, ($3::text)::public.audit_action, now())`,
           [row.id, actorId, status],
         );
+        // TASK-030: the requester's notification + outbox row, in this same transaction.
+        await writeRequestDecided(tx, row.id);
 
         return {
           ok: true,
@@ -240,6 +259,109 @@ export function createPostgresDecideStore(sql: SqlClient): DecideStore {
           decidedBy: { id: actorId, name: row.manager_name },
           days,
           balanceAfter,
+        } as const;
+      });
+    },
+  };
+}
+
+/**
+ * CancelStore over Postgres (TASK-028). One transaction:
+ *  (a) UPDATE scoped to the requester (`user_id = $actor`) AND guarded by the state:
+ *      pending, or approved with start_date > today (UTC) — so a race with a decision, a second
+ *      cancel or started leave simply updates nothing;
+ *  (b) approved leave of a tracked type: the balance credit and its ledger row in ONE statement.
+ *      The credit REVERSES the approval's own ledger delta (approval:<id>), so exactly what was
+ *      debited comes back; only approvals that predate the ledger fall back to the day count;
+ *  (c) the 'cancelled' audit row; (d) the approvers' notifications (TASK-030);
+ *  on 0 rows, a diagnostic SELECT classifies the outcome (not yours before started).
+ */
+export function createPostgresCancelStore(sql: SqlClient): CancelStore {
+  return {
+    cancelWithAudit({ requestId, actorId, today, daysFor }) {
+      return sql.transaction(async (tx) => {
+        const [row] = await tx.query<RequestRow & { was_approved: boolean }>(
+          `update leave_requests r
+              set status = 'cancelled', cancelled_at = now(), cancelled_by = $2
+            where r.id = $1 and r.user_id = $2 and not r.is_deleted
+              and (r.status = 'pending' or (r.status = 'approved' and r.start_date > $3::date))
+           returning r.id, r.user_id, r.leave_type_id, r.start_date::text, r.end_date::text,
+                     r.reason, r.status::text, r.decided_by, r.decided_at, r.decision_reason,
+                     r.is_deleted, r.created_at, (r.decided_by is not null) was_approved`,
+          [requestId, actorId, today],
+        );
+
+        if (!row) {
+          const [found] = await tx.query<{
+            user_id: string;
+            status: string;
+            is_deleted: boolean;
+            start_date: string;
+          }>(
+            `select user_id, status::text, is_deleted, start_date::text
+               from leave_requests where id = $1`,
+            [requestId],
+          );
+          if (!found || found.is_deleted) return { ok: false, reason: "not_found" } as const;
+          // Not-yours wins over everything else: never reveal another person's request state.
+          if (found.user_id !== actorId) return { ok: false, reason: "not_yours" } as const;
+          if (found.status === "approved" && found.start_date <= today) {
+            return { ok: false, reason: "started" } as const;
+          }
+          return { ok: false, reason: "not_cancellable" } as const;
+        }
+
+        const [type] = await tx.query<{
+          name: LeaveTypeName;
+          tracks_balance: boolean;
+          max_backdate_days: number;
+        }>(`select name, tracks_balance, max_backdate_days from leave_types where id = $1`, [
+          row.leave_type_id,
+        ]);
+
+        let restoredDays: number | null = null;
+        if (row.was_approved && type?.tracks_balance) {
+          const [credit] = await tx.query<{ delta: unknown }>(
+            `with approval as (
+               select coalesce(
+                 (select 0 - delta from balance_ledger where source_key = 'approval:' || $1::text),
+                 $4::numeric) credit
+             ), upserted as (
+               insert into leave_balances (user_id, leave_type_id, balance, updated_at)
+               select $2::uuid, $3::uuid, a.credit, now() from approval a
+               on conflict (user_id, leave_type_id)
+               do update set balance = leave_balances.balance + excluded.balance, updated_at = now()
+               returning user_id, leave_type_id, balance
+             )
+             insert into balance_ledger
+               (user_id, leave_type_id, delta, balance_after, source, source_key, leave_request_id, actor_id)
+             select u.user_id, u.leave_type_id, a.credit, u.balance, 'cancellation',
+                    'cancellation:' || $1::text, $1::uuid, $2::uuid
+               from upserted u cross join approval a
+             returning delta`,
+            [row.id, row.user_id, row.leave_type_id, daysFor(row.start_date, row.end_date)],
+          );
+          restoredDays = credit ? toNumber(credit.delta) : null;
+        }
+
+        await tx.query(
+          `insert into audit_log (leave_request_id, actor_id, action, occurred_at)
+           values ($1, $2, 'cancelled', now())`,
+          [row.id, actorId],
+        );
+        await writeRequestCancelled(tx, row.id, row.was_approved);
+
+        return {
+          ok: true,
+          request: toLeaveRequest(row),
+          leaveType: {
+            id: row.leave_type_id,
+            name: type!.name,
+            tracksBalance: type!.tracks_balance,
+            maxBackdateDays: type!.max_backdate_days,
+          },
+          wasApproved: row.was_approved,
+          restoredDays,
         } as const;
       });
     },

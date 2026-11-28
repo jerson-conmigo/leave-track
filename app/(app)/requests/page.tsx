@@ -6,6 +6,7 @@ import { RequestList } from "@/components/leave/request-list";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
 import { repository } from "@/lib/data/repositories";
+import { cancelLeaveRequestAction } from "./actions";
 
 export const metadata: Metadata = { title: "My requests" };
 
@@ -27,7 +28,7 @@ export default async function MyRequestsPage() {
           </Button>
         }
       />
-      <RequestList requests={requests} />
+      <RequestList requests={requests} onCancel={cancelLeaveRequestAction} />
     </>
   );
 }

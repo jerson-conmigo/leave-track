@@ -307,11 +307,12 @@ describe("postgres only — the trigger and its seed-only escape hatch", () => {
   it("the window is keyed on max_backdate_days, not on the type's name", async () => {
     await postgres();
     await db.query(`update leave_types set max_backdate_days = 10 where id = $1`, [Vacation]);
+    // Dates from the shared helper (UTC today), like every other request date in the tests.
     const insertAt = (offset: number) =>
       db.query(
         `insert into leave_requests (user_id, leave_type_id, start_date, end_date, reason)
-         values ($1, $2, current_date + $3::int, current_date + $3::int, 'x')`,
-        [jordan, Vacation, offset],
+         values ($1, $2, $3::date, $3::date, 'x')`,
+        [jordan, Vacation, d(offset)],
       );
     await expect(insertAt(-10)).resolves.toBeTruthy();
     await expect(insertAt(-11)).rejects.toMatchObject({

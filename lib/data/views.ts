@@ -1,4 +1,5 @@
 import type { LeaveRequest, LeaveRequestView, LeaveTypeName } from "@/lib/data/types";
+import { todayUtc } from "@/lib/data/dates";
 import { countDays } from "@/lib/format";
 
 /** Row → view model shared by every repository and the submit service. */
@@ -24,5 +25,7 @@ export function toRequestView(
     decidedAt: r.decidedAt,
     decidedByName,
     awaiting: r.status === "pending" ? awaiting : null,
+    // TASK-028: pending can be withdrawn; approved can be cancelled until its first day (UTC).
+    cancellable: r.status === "pending" || (r.status === "approved" && r.startDate > todayUtc()),
   };
 }

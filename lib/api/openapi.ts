@@ -14,7 +14,10 @@ import {
   TeamRequestViewSchema,
   AuditRequestRecordSchema,
   SessionTimingSchema,
+  MarkReadResultSchema,
+  CancelLeaveRequestResultSchema,
 } from "@/lib/api/schemas";
+import { MarkReadSchema } from "@/lib/notifications/read";
 import { AuditParamsSchema, AuditQuerySchema, ListQuerySchema } from "@/lib/validation/api";
 import { DecisionSchema, LeaveRequestSchema } from "@/lib/validation/leave-request";
 import pkg from "../../package.json";
@@ -47,6 +50,8 @@ const COMPONENTS = {
   EmployeeAuditHistory: EmployeeAuditHistorySchema,
   AccrualResult: AccrualResultSchema,
   SessionTiming: SessionTimingSchema,
+  MarkReadResult: MarkReadResultSchema,
+  CancelLeaveRequestResult: CancelLeaveRequestResultSchema,
 } as const;
 
 type ComponentName = keyof typeof COMPONENTS;
@@ -145,6 +150,7 @@ export function buildOpenApiDocument() {
       { name: "Audit" },
       { name: "Jobs" },
       { name: "Session" },
+      { name: "Notifications" },
     ],
     paths: {
       "/api/health": {
@@ -245,6 +251,35 @@ export function buildOpenApiDocument() {
           },
         },
       },
+      "/api/leave-requests/{id}/cancel": {
+        post: {
+          tags: ["Leave requests"],
+          operationId: "cancelLeaveRequest",
+          summary: "Withdraw a pending request or cancel approved leave",
+          description:
+            "Only the requester. A PENDING request is withdrawn; APPROVED leave can be cancelled " +
+            "until its first day (UTC) and its days go back to that leave type's balance (exactly " +
+            "what the approval took). Everything — status, balance, history, audit row and the " +
+            "approvers' notifications — happens in one transaction. A cancelled request is final.",
+          security: COOKIE,
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              description: "Leave request id",
+              schema: { type: "string", format: "uuid" },
+            },
+          ],
+          responses: {
+            ...success(200, "Cancelled.", ref("CancelLeaveRequestResult")),
+            ...errors([400, 401, 403, 404, 409, 500], {
+              403: "FORBIDDEN — only the requester can cancel a request.",
+              409: "CONFLICT — the leave has started, the request was rejected, or it's already cancelled.",
+            }),
+          },
+        },
+      },
       "/api/audit/{userId}": {
         get: {
           tags: ["Audit"],
@@ -266,6 +301,25 @@ export function buildOpenApiDocument() {
               403: "FORBIDDEN — HR Admins only.",
               404: "NOT_FOUND — no such employee.",
             }),
+          },
+        },
+      },
+      "/api/notifications/read": {
+        post: {
+          tags: ["Notifications"],
+          operationId: "markNotificationsRead",
+          summary: "Mark your notifications as read",
+          description:
+            "Marks the signed-in user's OWN unread notifications as read: the listed `ids`, or " +
+            "all of them when `ids` is omitted. Ids belonging to someone else are not touched.",
+          security: COOKIE,
+          requestBody: {
+            required: false,
+            content: { "application/json": { schema: input(MarkReadSchema) } },
+          },
+          responses: {
+            ...success(200, "Marked.", ref("MarkReadResult")),
+            ...errors([400, 401, 500]),
           },
         },
       },

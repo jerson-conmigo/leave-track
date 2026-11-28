@@ -1,16 +1,22 @@
 import { Brand } from "@/components/layout/brand";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { NotificationBell } from "@/components/layout/notification-bell";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
 import { UserMenu } from "@/components/layout/user-menu";
 import type { Session } from "@/lib/auth/session";
 
-type AppShellProps = { session: Session; children: React.ReactNode };
+type AppShellProps = {
+  session: Session;
+  /** TASK-030: the user's unread notifications, for the header bell. */
+  unreadNotifications?: number;
+  children: React.ReactNode;
+};
 
 /**
  * Authenticated layout: fixed sidebar ≥ lg, sticky top bar + sheet nav below.
  * Role-aware via `session.role` only — no client-side auth state.
  */
-export function AppShell({ session, children }: AppShellProps) {
+export function AppShell({ session, unreadNotifications = 0, children }: AppShellProps) {
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[16rem_1fr]">
       <a
@@ -30,7 +36,8 @@ export function AppShell({ session, children }: AppShellProps) {
           <MobileNav role={session.role} />
           {/* min-w-0 lets the brand shrink/truncate at 320px with 200% text (WCAG 1.4.10). */}
           <Brand className="min-w-0 lg:hidden" />
-          <div className="ml-auto shrink-0">
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            <NotificationBell unread={unreadNotifications} />
             <UserMenu name={session.name} email={session.email} role={session.role} />
           </div>
         </header>

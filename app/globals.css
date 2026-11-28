@@ -52,6 +52,9 @@
   --status-approved-foreground: hsl(142 72% 24%);
   --status-rejected: hsl(0 86% 95%);
   --status-rejected-foreground: hsl(0 72% 38%);
+  /* TASK-028: cancelled / withdrawn — neutral slate (foreground ≈ 8.6:1 on the background). */
+  --status-cancelled: hsl(215 20% 92%);
+  --status-cancelled-foreground: hsl(215 25% 27%);
 
   /* Leave types */
   --leave-vacation: hsl(199 89% 31%);
@@ -97,6 +100,8 @@
   --color-status-approved-foreground: var(--status-approved-foreground);
   --color-status-rejected: var(--status-rejected);
   --color-status-rejected-foreground: var(--status-rejected-foreground);
+  --color-status-cancelled: var(--status-cancelled);
+  --color-status-cancelled-foreground: var(--status-cancelled-foreground);
 
   --color-leave-vacation: var(--leave-vacation);
   --color-leave-vacation-subtle: var(--leave-vacation-subtle);
