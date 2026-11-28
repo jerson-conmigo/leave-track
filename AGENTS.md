@@ -131,6 +131,9 @@ document's "Revision v1.1" section and `docs/dev-tasks/epic-2-hardening-and-reso
    `app/globals.css` as `hsl()` tokens and into the design-system doc.
 4. **Every hand-written selector in `globals.css` lives in `@layer base`** — unlayered rules beat
    Tailwind utilities app-wide.
+   Exception (TASK-047): token-only blocks (`:root`, `.dark`, the `prefers-color-scheme` block) set
+   custom properties only and stay UNLAYERED — an unlayered `:root` beats a layered `.dark` on
+   `<html>`, which would silently break dark mode.
 5. **Every component covers its states:** default, hover, focus-visible, disabled, loading,
    empty, error.
 6. **Mobile first.** Must work at 320–375px with no horizontal scroll (US-06): tables become
@@ -143,6 +146,17 @@ document's "Revision v1.1" section and `docs/dev-tasks/epic-2-hardening-and-reso
 9. **The notification bell** (`components/layout/notification-bell.tsx`) carries the unread
    count in its accessible name ("Notifications, 3 unread") and as badge text — never colour
    alone; it keeps a fixed 44px target so the 320px header still fits at 200% text.
+
+10. **Themes** (TASK-047): light / dark / system from the `lt-theme` cookie, rendered on the
+    server as `<html class="light|dark">` (no script, so no flash). "System" renders no class and
+    follows `prefers-color-scheme`. Every token has a dark value in BOTH dark blocks of
+    `app/globals.css` (`.dark` and the media query) — identical and AA-checked by
+    `tests/theme/tokens.test.ts`. Role accents (`--role-*`, `ROLE_ACCENT`) are decorative and
+    always sit beside the role's text label. Inside the authenticated shell the role accent
+    is app-wide through ONE override (`:root:has([data-role-accent=…])` in `app/globals.css`):
+    it remaps only the interactive tokens (`--primary`, `--primary-foreground`, `--ring`,
+    `--accent`, `--accent-foreground`). Semantic tokens (status, destructive, leave) and
+    `--brand` are never remapped; role hues stay ≥ 25° from semantic hues (test-pinned).
 
 ## Security rules
 

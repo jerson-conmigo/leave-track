@@ -34,6 +34,16 @@ export const PUBLIC_PATHS: readonly string[] = [
   "/api-docs",
 ];
 
+/**
+ * TASK-047 (US-24 AC3): each role's accent colour — DECORATIVE only, always shown next to the
+ * role's text label (ROLE_LABEL). Static class strings so Tailwind generates them.
+ */
+export const ROLE_ACCENT: Record<Role, { ring: string; border: string }> = {
+  employee: { ring: "ring-role-employee", border: "border-l-role-employee" },
+  manager: { ring: "ring-role-manager", border: "border-l-role-manager" },
+  hr_admin: { ring: "ring-role-hr-admin", border: "border-l-role-hr-admin" },
+};
+
 export const ROLE_LABEL: Record<Role, string> = {
   employee: "Employee",
   manager: "Manager",

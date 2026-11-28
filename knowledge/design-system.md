@@ -157,3 +157,60 @@ passes server actions.
 
 - Dark mode (tokens are structured for a `.dark` override; needs `next-themes` + toggle).
 - Nonce-based CSP (drop `'unsafe-inline'` on `script-src`).
+
+## Dark theme (TASK-047)
+
+Applied by `<html class="dark">` (cookie `lt-theme=dark`) or, for **System**, by
+`prefers-color-scheme: dark` when no `.light` class is set. Both blocks in `app/globals.css` are
+identical and every pairing is AA-checked by `tests/theme/tokens.test.ts`.
+
+| Token                           | Dark value (hsl) |
+| ------------------------------- | ---------------- |
+| `--background`                  | `222 30% 9%`     |
+| `--foreground`                  | `210 20% 96%`    |
+| `--card`                        | `222 28% 12%`    |
+| `--card-foreground`             | `210 20% 96%`    |
+| `--popover`                     | `222 28% 13%`    |
+| `--popover-foreground`          | `210 20% 96%`    |
+| `--primary`                     | `174 60% 42%`    |
+| `--primary-foreground`          | `222 47% 8%`     |
+| `--secondary`                   | `222 20% 20%`    |
+| `--secondary-foreground`        | `210 20% 96%`    |
+| `--muted`                       | `222 22% 16%`    |
+| `--muted-foreground`            | `215 16% 70%`    |
+| `--accent`                      | `174 40% 18%`    |
+| `--accent-foreground`           | `174 60% 80%`    |
+| `--destructive`                 | `0 72% 42%`      |
+| `--destructive-foreground`      | `0 0% 100%`      |
+| `--border`                      | `222 18% 24%`    |
+| `--input`                       | `222 18% 30%`    |
+| `--ring`                        | `174 60% 45%`    |
+| `--status-pending`              | `38 60% 18%`     |
+| `--status-pending-foreground`   | `43 96% 75%`     |
+| `--status-approved`             | `142 40% 16%`    |
+| `--status-approved-foreground`  | `142 60% 70%`    |
+| `--status-rejected`             | `0 45% 18%`      |
+| `--status-rejected-foreground`  | `0 90% 80%`      |
+| `--status-cancelled`            | `215 20% 20%`    |
+| `--status-cancelled-foreground` | `215 20% 80%`    |
+| `--leave-vacation`              | `199 85% 65%`    |
+| `--leave-vacation-subtle`       | `199 60% 16%`    |
+| `--leave-sick`                  | `346 80% 72%`    |
+| `--leave-sick-subtle`           | `346 45% 17%`    |
+| `--leave-unpaid`                | `215 16% 70%`    |
+| `--leave-unpaid-subtle`         | `215 20% 18%`    |
+| `--role-employee`               | `199 85% 60%`    |
+| `--role-manager`                | `262 70% 72%`    |
+| `--role-hr-admin`               | `32 90% 60%`     |
+
+Role accents (TASK-047 revision). Inside the app shell, `:root:has([data-role-accent=…])`
+remaps the interactive tokens — primary buttons, the active nav item, links, focus rings and
+menu/hover highlights follow the signed-in role. Semantic tokens and `--brand` never change.
+
+| Role              | Accent light / dark           | Foreground light / dark | Subtle light / dark           |
+| ----------------- | ----------------------------- | ----------------------- | ----------------------------- |
+| Employee (teal)   | `174 72% 26%` / `174 60% 42%` | white / `222 47% 8%`    | `174 45% 94%` / `174 40% 18%` |
+| Manager (indigo)  | `235 60% 50%` / `235 85% 75%` | white / `222 47% 8%`    | `235 60% 95%` / `235 35% 20%` |
+| HR Admin (violet) | `270 55% 45%` / `270 75% 75%` | white / `222 47% 8%`    | `270 55% 95%` / `270 30% 20%` |
+
+`--brand` (`174 72% 26%` light, `174 60% 42%` dark) is the fixed logo colour.

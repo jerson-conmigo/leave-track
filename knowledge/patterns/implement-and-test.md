@@ -346,3 +346,16 @@ and its spacing, anchored at today + 60 days), and keep historical fixture rows 
 transaction-scoped escape hatch (`asHistorical`) rather than real dates. Re-run the probe until
 the shifted suite is fully green. Also: PL/pgSQL variables can collide with SQL operator keywords
 — a variable named `overlaps` made `overlaps > 0` a syntax error.
+
+### Theming with tokens: watch the cascade, scope by role on :root (from TASK-047)
+
+- Token blocks are unlayered on purpose: a `.dark` inside `@layer base` silently loses to an
+  unlayered `:root` on `<html>`, and a text-parsing test can't see the cascade — prove the theme in
+  a browser with JavaScript disabled (only the server-rendered class can then apply it).
+- "System" needs no script: no class + `@media (prefers-color-scheme: dark) { :root:not(.light) }`,
+  plus a block-form `dark` custom variant so `dark:` utilities fire there too. Keep the two dark
+  copies identical with a test.
+- App-wide accents: remap only the INTERACTIVE tokens via `:root:has([data-role-accent=…])` (on
+  `:root`, so Radix portals inherit), placed after the dark blocks (equal specificity → order).
+  Pin the remapped token list, AA for every pairing per theme, and a hue distance from semantic
+  colours; give the brand its own token so it doesn't follow the role.

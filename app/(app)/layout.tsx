@@ -2,6 +2,8 @@ import { AppShell } from "@/components/layout/app-shell";
 import { IdleSessionGuard } from "@/components/session/idle-session-guard";
 import { getSessionTiming, requireSession } from "@/lib/auth/session";
 import { repository } from "@/lib/data/repositories";
+import { parseTheme, THEME_COOKIE } from "@/lib/theme";
+import { cookies } from "next/headers";
 
 export default async function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
@@ -11,7 +13,11 @@ export default async function AuthenticatedLayout({ children }: { children: Reac
   const unread = await repository.countUnreadNotifications(session.userId);
 
   return (
-    <AppShell session={session} unreadNotifications={unread}>
+    <AppShell
+      session={session}
+      unreadNotifications={unread}
+      theme={parseTheme((await cookies()).get(THEME_COOKIE)?.value)}
+    >
       {children}
       {timing ? (
         <IdleSessionGuard

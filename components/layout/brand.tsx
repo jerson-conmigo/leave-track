@@ -12,7 +12,7 @@ export function Brand({ className }: { className?: string }) {
     >
       <span
         aria-hidden
-        className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground"
+        className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand text-sm font-bold text-brand-foreground"
       >
         L
       </span>

@@ -2,11 +2,19 @@
 @import "tw-animate-css";
 
 /*
- * Light-only on Day 0: `dark:` utilities (present in the shadcn primitives)
- * only apply under an explicit `.dark` class — never via the OS
- * prefers-color-scheme media query, which would half-theme the light UI.
+ * TASK-047: `dark:` utilities apply under an explicit `.dark` class (the lt-theme cookie) AND, for
+ * the "system" choice (no class), under the OS dark preference — never when `.light` is set.
  */
-@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant dark {
+  &:where(.dark, .dark *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not(.light), :root:not(.light) *) {
+      @slot;
+    }
+  }
+}
 
 /*
  * LeaveTrack UI — design tokens.
@@ -63,6 +71,162 @@
   --leave-sick-subtle: hsl(346 72% 96%);
   --leave-unpaid: hsl(215 16% 40%);
   --leave-unpaid-subtle: hsl(215 20% 94%);
+  /* TASK-047: role accents (see the :root:has(...) override below) and the fixed brand colour. */
+  --role-employee: hsl(174 72% 26%);
+  --role-employee-foreground: hsl(0 0% 100%);
+  --role-employee-subtle: hsl(174 45% 94%);
+  --role-employee-subtle-foreground: hsl(174 72% 20%);
+  --role-manager: hsl(235 60% 50%);
+  --role-manager-foreground: hsl(0 0% 100%);
+  --role-manager-subtle: hsl(235 60% 95%);
+  --role-manager-subtle-foreground: hsl(235 60% 35%);
+  --role-hr-admin: hsl(270 55% 45%);
+  --role-hr-admin-foreground: hsl(0 0% 100%);
+  --role-hr-admin-subtle: hsl(270 55% 95%);
+  --role-hr-admin-subtle-foreground: hsl(270 55% 32%);
+  --brand: hsl(174 72% 26%);
+  --brand-foreground: hsl(0 0% 100%);
+  color-scheme: light;
+}
+
+/*
+ * TASK-047 — dark theme. The server renders <html class="dark"> or class="light" from the
+ * lt-theme cookie; "system" renders no class and follows the OS through the media query. The two
+ * dark blocks MUST stay identical (pinned by tests/theme/tokens.test.ts). Unlayered on purpose,
+ * like :root above: a layered .dark would lose to the unlayered :root on <html>.
+ */
+.dark {
+  --background: hsl(222 30% 9%);
+  --foreground: hsl(210 20% 96%);
+  --card: hsl(222 28% 12%);
+  --card-foreground: hsl(210 20% 96%);
+  --popover: hsl(222 28% 13%);
+  --popover-foreground: hsl(210 20% 96%);
+  --primary: hsl(174 60% 42%);
+  --primary-foreground: hsl(222 47% 8%);
+  --secondary: hsl(222 20% 20%);
+  --secondary-foreground: hsl(210 20% 96%);
+  --muted: hsl(222 22% 16%);
+  --muted-foreground: hsl(215 16% 70%);
+  --accent: hsl(174 40% 18%);
+  --accent-foreground: hsl(174 60% 80%);
+  --destructive: hsl(0 72% 42%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --border: hsl(222 18% 24%);
+  --input: hsl(222 18% 30%);
+  --ring: hsl(174 60% 45%);
+  --status-pending: hsl(38 60% 18%);
+  --status-pending-foreground: hsl(43 96% 75%);
+  --status-approved: hsl(142 40% 16%);
+  --status-approved-foreground: hsl(142 60% 70%);
+  --status-rejected: hsl(0 45% 18%);
+  --status-rejected-foreground: hsl(0 90% 80%);
+  --status-cancelled: hsl(215 20% 20%);
+  --status-cancelled-foreground: hsl(215 20% 80%);
+  --leave-vacation: hsl(199 85% 65%);
+  --leave-vacation-subtle: hsl(199 60% 16%);
+  --leave-sick: hsl(346 80% 72%);
+  --leave-sick-subtle: hsl(346 45% 17%);
+  --leave-unpaid: hsl(215 16% 70%);
+  --leave-unpaid-subtle: hsl(215 20% 18%);
+  --role-employee: hsl(174 60% 42%);
+  --role-employee-foreground: hsl(222 47% 8%);
+  --role-employee-subtle: hsl(174 40% 18%);
+  --role-employee-subtle-foreground: hsl(174 60% 80%);
+  --role-manager: hsl(235 85% 75%);
+  --role-manager-foreground: hsl(222 47% 8%);
+  --role-manager-subtle: hsl(235 35% 20%);
+  --role-manager-subtle-foreground: hsl(235 85% 85%);
+  --role-hr-admin: hsl(270 75% 75%);
+  --role-hr-admin-foreground: hsl(222 47% 8%);
+  --role-hr-admin-subtle: hsl(270 30% 20%);
+  --role-hr-admin-subtle-foreground: hsl(270 80% 87%);
+  --brand: hsl(174 60% 42%);
+  --brand-foreground: hsl(222 47% 8%);
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --background: hsl(222 30% 9%);
+    --foreground: hsl(210 20% 96%);
+    --card: hsl(222 28% 12%);
+    --card-foreground: hsl(210 20% 96%);
+    --popover: hsl(222 28% 13%);
+    --popover-foreground: hsl(210 20% 96%);
+    --primary: hsl(174 60% 42%);
+    --primary-foreground: hsl(222 47% 8%);
+    --secondary: hsl(222 20% 20%);
+    --secondary-foreground: hsl(210 20% 96%);
+    --muted: hsl(222 22% 16%);
+    --muted-foreground: hsl(215 16% 70%);
+    --accent: hsl(174 40% 18%);
+    --accent-foreground: hsl(174 60% 80%);
+    --destructive: hsl(0 72% 42%);
+    --destructive-foreground: hsl(0 0% 100%);
+    --border: hsl(222 18% 24%);
+    --input: hsl(222 18% 30%);
+    --ring: hsl(174 60% 45%);
+    --status-pending: hsl(38 60% 18%);
+    --status-pending-foreground: hsl(43 96% 75%);
+    --status-approved: hsl(142 40% 16%);
+    --status-approved-foreground: hsl(142 60% 70%);
+    --status-rejected: hsl(0 45% 18%);
+    --status-rejected-foreground: hsl(0 90% 80%);
+    --status-cancelled: hsl(215 20% 20%);
+    --status-cancelled-foreground: hsl(215 20% 80%);
+    --leave-vacation: hsl(199 85% 65%);
+    --leave-vacation-subtle: hsl(199 60% 16%);
+    --leave-sick: hsl(346 80% 72%);
+    --leave-sick-subtle: hsl(346 45% 17%);
+    --leave-unpaid: hsl(215 16% 70%);
+    --leave-unpaid-subtle: hsl(215 20% 18%);
+    --role-employee: hsl(174 60% 42%);
+    --role-employee-foreground: hsl(222 47% 8%);
+    --role-employee-subtle: hsl(174 40% 18%);
+    --role-employee-subtle-foreground: hsl(174 60% 80%);
+    --role-manager: hsl(235 85% 75%);
+    --role-manager-foreground: hsl(222 47% 8%);
+    --role-manager-subtle: hsl(235 35% 20%);
+    --role-manager-subtle-foreground: hsl(235 85% 85%);
+    --role-hr-admin: hsl(270 75% 75%);
+    --role-hr-admin-foreground: hsl(222 47% 8%);
+    --role-hr-admin-subtle: hsl(270 30% 20%);
+    --role-hr-admin-subtle-foreground: hsl(270 80% 87%);
+    --brand: hsl(174 60% 42%);
+    --brand-foreground: hsl(222 47% 8%);
+    color-scheme: dark;
+  }
+}
+
+/*
+ * TASK-047 — the role accent. Inside the authenticated shell (<header data-role-accent=…>) the
+ * INTERACTIVE tokens follow the signed-in role: primary buttons, the active nav item, links,
+ * focus rings and menu highlights. Semantic tokens (status-*, destructive, leave-*) and the
+ * brand are never remapped. On :root so Radix portals (dialogs, menus, toasts) inherit it.
+ * After the dark blocks on purpose: same specificity as :root:not(.light), so order decides.
+ * The values are var() references, so the role tokens supply the light/dark variant.
+ */
+:root:has([data-role-accent="employee"]) {
+  --primary: var(--role-employee);
+  --primary-foreground: var(--role-employee-foreground);
+  --ring: var(--role-employee);
+  --accent: var(--role-employee-subtle);
+  --accent-foreground: var(--role-employee-subtle-foreground);
+}
+:root:has([data-role-accent="manager"]) {
+  --primary: var(--role-manager);
+  --primary-foreground: var(--role-manager-foreground);
+  --ring: var(--role-manager);
+  --accent: var(--role-manager-subtle);
+  --accent-foreground: var(--role-manager-subtle-foreground);
+}
+:root:has([data-role-accent="hr_admin"]) {
+  --primary: var(--role-hr-admin);
+  --primary-foreground: var(--role-hr-admin-foreground);
+  --ring: var(--role-hr-admin);
+  --accent: var(--role-hr-admin-subtle);
+  --accent-foreground: var(--role-hr-admin-subtle-foreground);
 }
 
 @theme inline {
@@ -102,6 +266,11 @@
   --color-status-rejected-foreground: var(--status-rejected-foreground);
   --color-status-cancelled: var(--status-cancelled);
   --color-status-cancelled-foreground: var(--status-cancelled-foreground);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-role-employee: var(--role-employee);
+  --color-role-manager: var(--role-manager);
+  --color-role-hr-admin: var(--role-hr-admin);
 
   --color-leave-vacation: var(--leave-vacation);
   --color-leave-vacation-subtle: var(--leave-vacation-subtle);

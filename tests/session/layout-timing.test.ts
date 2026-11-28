@@ -19,6 +19,8 @@ vi.mock("@/lib/auth/session", () => ({
   getSessionTiming: async () => timing,
 }));
 vi.mock("@/components/layout/app-shell", () => ({ AppShell: () => null }));
+// TASK-047: the layout also reads the theme cookie.
+vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
 vi.mock("@/components/session/idle-session-guard", () => ({ IdleSessionGuard: () => null }));
 
 const { default: AuthenticatedLayout } = await import("@/app/(app)/layout");

@@ -182,6 +182,14 @@ Design: ADR-LeaveTrack-E003.
 - **Security:** `CRON_SECRET` is required; the Bearer check (constant-time) runs before any
   database access and fails closed if the secret is unset.
 
+### Light and dark theme (TASK-047)
+
+Choose **Light**, **Dark** or **System** in the account menu. The choice is remembered in the
+browser (`lt-theme` cookie) and applied by the server, so pages never flash the wrong theme;
+**System** follows your device. A coloured edge on the header and a ring on your avatar show
+your role (Employee, Manager, HR Admin), always next to the role's name. Buttons, the active menu
+item, links and focus rings take your role's colour too; status colours never change.
+
 ### Withdraw and cancel (TASK-028)
 
 - On **My requests**, a pending request has **Withdraw**, and approved leave that hasn't started
