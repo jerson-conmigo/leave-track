@@ -4,6 +4,18 @@ import { z } from "zod";
  * Leave request input (US-01). Shared by the client form and — on Day 1 — the
  * POST /api/leave-requests handler, which MUST re-validate server-side (AC2).
  */
+/** TASK-027 (ARCH D10): the longest request, in calendar days inclusive. TASK-040 will make it an
+ *  HR setting; until then this constant is the single source (zod, service, DB CHECK = 90). */
+export const MAX_REQUEST_DAYS = 90;
+export const MAX_LENGTH_MESSAGE = `A request can be at most ${MAX_REQUEST_DAYS} days.`;
+export const OVERLAP_MESSAGE =
+  "You already have a pending or approved request for some of these days.";
+
+/** Calendar days in [start, end], inclusive — the same count as lib/format.ts countDays. */
+function spanDays(startDate: string, endDate: string): number {
+  return Math.round((Date.parse(endDate) - Date.parse(startDate)) / 86_400_000) + 1;
+}
+
 export const LeaveRequestSchema = z
   .object({
     leaveTypeId: z.uuid({ error: "Choose a leave type." }),
@@ -18,6 +30,10 @@ export const LeaveRequestSchema = z
   .refine((v) => v.endDate >= v.startDate, {
     path: ["endDate"],
     error: "End date can't be before the start date.",
+  })
+  .refine((v) => v.endDate < v.startDate || spanDays(v.startDate, v.endDate) <= MAX_REQUEST_DAYS, {
+    path: ["endDate"],
+    error: MAX_LENGTH_MESSAGE,
   });
 
 export type LeaveRequestInput = z.infer<typeof LeaveRequestSchema>;

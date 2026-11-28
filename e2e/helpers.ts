@@ -6,6 +6,7 @@ import {
   type Locator,
   type Page,
 } from "@playwright/test";
+import { newSessionId, signSessionToken } from "../lib/auth/session-token";
 
 export const USERS = {
   ana: "00000000-0000-4000-8000-000000000101", // employee (Ben's team)
@@ -33,12 +34,37 @@ export const test = base.extend<{ resetData: void }>({
 });
 export { expect };
 
-export async function signInAs(context: BrowserContext, role: Role, userId: string) {
+/**
+ * Sign in by setting the SIGNED session cookie directly (TASK-023), signed with the
+ * per-run SESSION_SECRET that playwright.config.ts also gives the server.
+ * TASK-025: v2 claims. `signedInSecondsAgo` / `idleSecondsAgo` backdate the sign-in time and
+ * the last activity, to test the absolute and idle limits without waiting.
+ */
+export async function signInAs(
+  context: BrowserContext,
+  role: Role,
+  userId: string,
+  { signedInSecondsAgo = 0, idleSecondsAgo = 0 } = {},
+) {
   const url = test.info().project.use.baseURL!;
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) throw new Error("SESSION_SECRET must be set by playwright.config.ts");
+  const now = Math.floor(Date.now() / 1000);
+  // Last activity can't precede sign-in: an idle-only backdate moves the sign-in back too.
+  const iat = now - Math.max(signedInSecondsAgo, idleSecondsAgo);
+  const lat = now - idleSecondsAgo;
   await context.clearCookies();
   await context.addCookies([
-    { name: "mock-role", value: role, url },
-    { name: "mock-user-id", value: userId, url },
+    {
+      name: "lt-session",
+      value: signSessionToken(
+        { uid: userId, role, sid: newSessionId(), iat, lat, exp: iat + 8 * 60 * 60 },
+        secret,
+      ),
+      url,
+      httpOnly: true,
+      sameSite: "Lax",
+    },
   ]);
 }
 
@@ -56,6 +82,28 @@ export async function expectNoHorizontalOverflow(page: Page) {
     return { scroll: document.documentElement.scrollWidth, vw, offenders };
   });
   expect(r.scroll, `horizontal overflow: ${r.offenders.join(" | ")}`).toBeLessThanOrEqual(r.vw);
+}
+
+/**
+ * TASK-055: every visible Select trigger shows its whole value — nothing clipped horizontally or
+ * vertically (wrap, don't truncate: WCAG 1.4.4) — and stays a ≥44px tap target.
+ */
+export async function expectSelectsNotClipped(page: Page) {
+  const bad = await page.evaluate(() =>
+    [...document.querySelectorAll('button[role="combobox"]')]
+      .filter((t) => t.getBoundingClientRect().width > 0)
+      .flatMap((t) => {
+        const value = t.querySelector('[data-slot="select-value"]') ?? t;
+        const clipped = [t, value].some(
+          (el) => el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1,
+        );
+        const h = t.getBoundingClientRect().height;
+        return clipped || h < 44
+          ? [`"${(t.textContent ?? "").trim()}" ${clipped ? "clipped" : ""} h=${Math.round(h)}`]
+          : [];
+      }),
+  );
+  expect(bad, `select content clipped or too small: ${bad.join(" | ")}`).toEqual([]);
 }
 
 /** Visible interactive controls are ≥44px tall and fully inside the viewport width. */
@@ -214,4 +262,44 @@ export async function seriousA11yViolations(page: Page) {
 /** Simulate 200% text size (WCAG 1.4.4): Tailwind sizes are rem-based. */
 export async function enlargeText(page: Page) {
   await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+  // TASK-055: measure the SETTLED layout. With reduced motion (playwright.config) every element
+  // has a 0.01ms transition (app/globals.css, B34), so for the first frame(s) after the style
+  // is injected the page keeps its old geometry — a measurement there passes falsely. Wait
+  // until the page's size is unchanged for 3 consecutive frames (at least 4 frames, at most ~60).
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        const size = () =>
+          `${document.documentElement.scrollWidth}x${document.body.getBoundingClientRect().height}`;
+        let last = size();
+        let stable = 0;
+        let frames = 0;
+        const tick = () => {
+          frames++;
+          const now = size();
+          stable = now === last ? stable + 1 : 0;
+          last = now;
+          if ((stable >= 3 && frames >= 4) || frames >= 60) resolve();
+          else requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }),
+  );
+}
+
+/**
+ * TASK-027: request dates relative to today (UTC), as tests/support/dates.ts — `future("2027-03-01")`
+ * keeps a readable reference date's spacing but always lies in the future, so specs don't go stale
+ * under the past-start rule.
+ */
+const DAY_MS = 86_400_000;
+export function daysFromToday(days: number): string {
+  const today = Date.parse(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`);
+  return new Date(today + days * DAY_MS).toISOString().slice(0, 10);
+}
+export function future(reference: string): string {
+  const offset = Math.round(
+    (Date.parse(`${reference}T00:00:00Z`) - Date.parse("2027-01-01T00:00:00Z")) / DAY_MS,
+  );
+  return daysFromToday(60 + offset);
 }

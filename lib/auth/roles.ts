@@ -6,23 +6,45 @@ import { ROLES, type Role } from "@/lib/data/types";
  * Routes not listed here are open to every authenticated role.
  */
 export const ROUTE_ACCESS: readonly { prefix: string; roles: readonly Role[] }[] = [
-  { prefix: "/approvals", roles: ["manager"] },
+  // TASK-026: HR Admins decide their managers' and HR peers' requests (scope: SQL can_decide).
+  { prefix: "/approvals", roles: ["manager", "hr_admin"] },
   { prefix: "/audit", roles: ["hr_admin"] },
   { prefix: "/policies", roles: ["hr_admin"] },
+  { prefix: "/resolutions", roles: ["hr_admin"] }, // TASK-032
 ];
 
 /**
  * Reachable without a session. `/api/test/reset` is gated by its own token and is
  * a 404 unless E2E_RESET_TOKEN is set (tests only). `/api/jobs/accrual` is called by
  * Vercel Cron (no cookie) and gated by `Authorization: Bearer $CRON_SECRET`.
+ * The account pages (TASK-024) are reached from emailed links before a LeaveTrack
+ * session exists; each answers 404 unless AUTH_PROVIDER=supabase, and set-password
+ * requires a live provider session of its own.
  */
 export const PUBLIC_PATHS: readonly string[] = [
   "/login",
+  "/forgot-password",
+  "/auth/confirm",
+  "/auth/set-password",
   "/forbidden",
   "/api/health",
   "/api/test/reset",
   "/api/jobs/accrual",
+  "/api/jobs/resolution-expiry", // TASK-034: same Bearer CRON_SECRET (lib/jobs/cron-auth.ts)
+  // TASK-057 API docs: development only — each route answers 404 in every deployed stage.
+  "/api/openapi.json",
+  "/api-docs",
 ];
+
+/**
+ * TASK-047 (US-24 AC3): each role's accent colour — DECORATIVE only, always shown next to the
+ * role's text label (ROLE_LABEL). Static class strings so Tailwind generates them.
+ */
+export const ROLE_ACCENT: Record<Role, { ring: string; border: string }> = {
+  employee: { ring: "ring-role-employee", border: "border-l-role-employee" },
+  manager: { ring: "ring-role-manager", border: "border-l-role-manager" },
+  hr_admin: { ring: "ring-role-hr-admin", border: "border-l-role-hr-admin" },
+};
 
 export const ROLE_LABEL: Record<Role, string> = {
   employee: "Employee",
@@ -47,15 +69,68 @@ export function canAccess(pathname: string, role: Role): boolean {
   return !rule || rule.roles.includes(role);
 }
 
-/** Only allow same-origin relative redirects (blocks `//evil.com`, `https://…`). */
-export function safeRedirectPath(next: unknown, fallback = "/dashboard"): string {
-  if (
-    typeof next !== "string" ||
-    !next.startsWith("/") ||
-    next.startsWith("//") ||
-    next.startsWith("/\\")
-  ) {
-    return fallback;
+export const MAX_REDIRECT_LENGTH = 2048;
+const REDIRECT_BASE = "http://leavetrack.invalid";
+// A same-scheme input like "http:evil.com" resolves as a RELATIVE path against an
+// http base, so the origin check runs against both schemes.
+const REDIRECT_BASES = [REDIRECT_BASE, "https://leavetrack.invalid"];
+// ASCII control characters (browsers silently strip tab/CR/LF) and backslashes
+// (browsers treat "\" as "/"): either can turn a "relative" path into another origin.
+const UNSAFE_REDIRECT_CHARS = /[\u0000-\u001f\u007f\\]/;
+const NEVER_REDIRECT_TO = ["/login", "/api"];
+
+function resolveRedirect(next: string): URL | null {
+  try {
+    return new URL(next, REDIRECT_BASE);
+  } catch {
+    return null;
   }
-  return next;
+}
+
+/**
+ * The redirect guards, in order (TASK-020). Several overlap on purpose (defence in
+ * depth), so each is exported and unit-tested on its own — a guard that the others
+ * happen to cover would otherwise be untested code.
+ */
+export const REDIRECT_GUARDS: readonly { name: string; rejects: (next: string) => boolean }[] = [
+  { name: "length", rejects: (n) => n.length === 0 || n.length > MAX_REDIRECT_LENGTH },
+  { name: "unsafe-characters", rejects: (n) => UNSAFE_REDIRECT_CHARS.test(n) },
+  { name: "not-root-relative", rejects: (n) => !n.startsWith("/") || n.startsWith("//") },
+  {
+    name: "cross-origin",
+    rejects: (n) =>
+      REDIRECT_BASES.some((base) => {
+        try {
+          return new URL(n, base).origin !== base;
+        } catch {
+          return true;
+        }
+      }),
+  },
+  {
+    name: "reserved-path",
+    rejects: (n) => {
+      const url = resolveRedirect(n);
+      return !url || NEVER_REDIRECT_TO.some((prefix) => matches(url.pathname, prefix));
+    },
+  },
+];
+
+/** Name of the first guard that rejects `next`, or null when it is a safe redirect. */
+export function redirectRejection(next: unknown): string | null {
+  if (typeof next !== "string") return "not-a-string";
+  return REDIRECT_GUARDS.find((guard) => guard.rejects(next))?.name ?? null;
+}
+
+/**
+ * Only allow same-origin relative redirects (TASK-020). Anything else returns
+ * `fallback`. Checks, in order: a string of 1–2,048 characters; no control
+ * characters or backslashes; exactly one leading "/"; resolves (WHATWG URL — what
+ * browsers use) to the app's own origin; not /login (loop) or /api/*. Returns the
+ * normalised path + query + hash.
+ */
+export function safeRedirectPath(next: unknown, fallback = "/dashboard"): string {
+  if (redirectRejection(next) !== null) return fallback;
+  const url = resolveRedirect(next as string)!;
+  return `${url.pathname}${url.search}${url.hash}`;
 }

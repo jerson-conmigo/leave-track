@@ -1,9 +1,15 @@
 import "server-only";
 import { getSql } from "@/lib/db/postgres";
 import type { DecideDeps } from "@/lib/leave-requests/decide";
-import { memoryDecideStore, memorySubmitStore } from "@/lib/leave-requests/memory-store";
+import type { CancelDeps } from "@/lib/leave-requests/cancel";
+import {
+  memoryCancelStore,
+  memoryDecideStore,
+  memorySubmitStore,
+} from "@/lib/leave-requests/memory-store";
 import { logNotifier } from "@/lib/leave-requests/notifier";
 import {
+  createPostgresCancelStore,
   createPostgresDecideStore,
   createPostgresSubmitStore,
 } from "@/lib/leave-requests/postgres-store";
@@ -34,3 +40,10 @@ export function getDecideDeps(): DecideDeps {
   const sql = getSql();
   return { store: sql ? createPostgresDecideStore(sql) : memoryDecideStore, notifier: logNotifier };
 }
+
+/** TASK-028: Postgres whenever DATABASE_URL is set (always, when deployed); memory otherwise. */
+export function getCancelDeps(): CancelDeps {
+  const sql = getSql();
+  return { store: sql ? createPostgresCancelStore(sql) : memoryCancelStore };
+}
+export { cancelLeaveRequest } from "@/lib/leave-requests/cancel";

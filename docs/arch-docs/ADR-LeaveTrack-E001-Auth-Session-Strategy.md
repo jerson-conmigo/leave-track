@@ -1,6 +1,8 @@
 # ADR-LeaveTrack-E001 — Auth & Session Strategy
 
-**Status:** Accepted
+**Status:** Accepted — **session format superseded by ADR-LeaveTrack-E004 (TASK-023):** the two
+unsigned cookies (`mock-role`, `mock-user-id`) were replaced by one signed `lt-session` cookie,
+and the mock sign-in is refused in deployed environments. The history below is unchanged.
 
 ## Context
 

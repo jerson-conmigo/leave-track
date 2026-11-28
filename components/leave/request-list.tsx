@@ -2,6 +2,7 @@ import { CalendarPlus, ListChecks } from "lucide-react";
 import Link from "next/link";
 import { EmptyState } from "@/components/leave/empty-state";
 import { LeaveTypeBadge } from "@/components/leave/leave-type-badge";
+import { CancelRequestButton } from "@/components/leave/cancel-request-button";
 import { StatusBadge } from "@/components/leave/status-badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,11 +13,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { LeaveRequestView } from "@/lib/data/types";
+import type { ActionResult, LeaveRequestView } from "@/lib/data/types";
 import { formatDate, formatDateRange, formatDays } from "@/lib/format";
 
 type RequestListProps = {
   requests: LeaveRequestView[];
+  /** TASK-028: server action to withdraw / cancel; when omitted, no buttons are shown. */
+  onCancel?: (requestId: string) => Promise<ActionResult>;
   /** Accessible name for the list/table. */
   label?: string;
   emptyTitle?: string;
@@ -26,6 +29,7 @@ type RequestListProps = {
 /** An employee's own requests: stacked cards below md, a table from md up. */
 export function RequestList({
   requests,
+  onCancel,
   label = "My leave requests",
   emptyTitle = "No leave requests yet",
   emptyDescription = "When you request time off, it shows up here with its approval status.",
@@ -65,7 +69,13 @@ export function RequestList({
               {r.decidedByName && r.decidedAt
                 ? ` · ${r.status === "approved" ? "Approved" : "Rejected"} by ${r.decidedByName}`
                 : ""}
+              {r.status === "pending" && r.awaiting ? ` · Awaiting ${r.awaiting}` : ""}
             </p>
+            {onCancel && r.cancellable ? (
+              <div className="mt-3">
+                <CancelRequestButton request={r} onCancel={onCancel} />
+              </div>
+            ) : null}
           </li>
         ))}
       </ul>
@@ -79,7 +89,12 @@ export function RequestList({
               <TableHead className="text-right">Days</TableHead>
               <TableHead>Reason</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Decided by</TableHead>
+              <TableHead>Approver</TableHead>
+              {onCancel ? (
+                <TableHead>
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              ) : null}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -98,7 +113,16 @@ export function RequestList({
                 <TableCell>
                   <StatusBadge status={r.status} />
                 </TableCell>
-                <TableCell className="text-muted-foreground">{r.decidedByName ?? "—"}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {r.status === "pending" && r.awaiting
+                    ? `Awaiting ${r.awaiting}`
+                    : (r.decidedByName ?? "—")}
+                </TableCell>
+                {onCancel ? (
+                  <TableCell className="text-right">
+                    {r.cancellable ? <CancelRequestButton request={r} onCancel={onCancel} /> : null}
+                  </TableCell>
+                ) : null}
               </TableRow>
             ))}
           </TableBody>

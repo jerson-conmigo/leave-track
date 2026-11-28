@@ -40,11 +40,12 @@ modifiers such as `bg-primary/10`). Never use raw hex/rgb/oklch in components.
 
 ### Request status
 
-| Status   | Background token                  | Foreground token                             | Icon          |
-| -------- | --------------------------------- | -------------------------------------------- | ------------- |
-| Pending  | `--status-pending` `43 96% 92%`   | `--status-pending-foreground` `30 85% 28%`   | `Clock`       |
-| Approved | `--status-approved` `142 60% 92%` | `--status-approved-foreground` `142 72% 24%` | `CircleCheck` |
-| Rejected | `--status-rejected` `0 86% 95%`   | `--status-rejected-foreground` `0 72% 38%`   | `CircleX`     |
+| Status               | Background token                   | Foreground token                              | Icon          |
+| -------------------- | ---------------------------------- | --------------------------------------------- | ------------- |
+| Pending              | `--status-pending` `43 96% 92%`    | `--status-pending-foreground` `30 85% 28%`    | `Clock`       |
+| Approved             | `--status-approved` `142 60% 92%`  | `--status-approved-foreground` `142 72% 24%`  | `CircleCheck` |
+| Rejected             | `--status-rejected` `0 86% 95%`    | `--status-rejected-foreground` `0 72% 38%`    | `CircleX`     |
+| Cancelled (TASK-028) | `--status-cancelled` `215 20% 92%` | `--status-cancelled-foreground` `215 25% 27%` | `Ban`         |
 
 The pending palette doubles as the **warning** style (over-balance alert, demo sign-in notice).
 
@@ -124,7 +125,7 @@ Local changes: 44px mobile heights on button/input/select; `sonner` fixed to lig
 | `StatusScreen`   | `components/layout/status-screen.tsx`      | `icon`, `code?`, `title`, `description`    | 404 / 403 / error                                                        |
 | `LoginForm`      | `components/auth/login-form.tsx`           | `mockUsers`, `next?`                       | pending, error, demo notice                                              |
 | `LeaveTypeBadge` | `components/leave/leave-type-badge.tsx`    | `type`                                     | 3 types                                                                  |
-| `StatusBadge`    | `components/leave/status-badge.tsx`        | `status`                                   | pending / approved / rejected                                            |
+| `StatusBadge`    | `components/leave/status-badge.tsx`        | `status`                                   | pending / approved / rejected / cancelled                                |
 | `BalanceCard`    | `components/leave/balance-card.tsx`        | `balance`, `variant`                       | tracked / untracked, pending, skeleton                                   |
 | `RequestList`    | `components/leave/request-list.tsx`        | `requests`, `label?`, empty copy           | cards / table, empty                                                     |
 | `RequestForm`    | `components/leave/request-form.tsx`        | `leaveTypes`, `balances`, `onSubmit?`      | field errors, over-balance warning, loading, submit error, success toast |
@@ -156,3 +157,60 @@ passes server actions.
 
 - Dark mode (tokens are structured for a `.dark` override; needs `next-themes` + toggle).
 - Nonce-based CSP (drop `'unsafe-inline'` on `script-src`).
+
+## Dark theme (TASK-047)
+
+Applied by `<html class="dark">` (cookie `lt-theme=dark`) or, for **System**, by
+`prefers-color-scheme: dark` when no `.light` class is set. Both blocks in `app/globals.css` are
+identical and every pairing is AA-checked by `tests/theme/tokens.test.ts`.
+
+| Token                           | Dark value (hsl) |
+| ------------------------------- | ---------------- |
+| `--background`                  | `222 30% 9%`     |
+| `--foreground`                  | `210 20% 96%`    |
+| `--card`                        | `222 28% 12%`    |
+| `--card-foreground`             | `210 20% 96%`    |
+| `--popover`                     | `222 28% 13%`    |
+| `--popover-foreground`          | `210 20% 96%`    |
+| `--primary`                     | `174 60% 42%`    |
+| `--primary-foreground`          | `222 47% 8%`     |
+| `--secondary`                   | `222 20% 20%`    |
+| `--secondary-foreground`        | `210 20% 96%`    |
+| `--muted`                       | `222 22% 16%`    |
+| `--muted-foreground`            | `215 16% 70%`    |
+| `--accent`                      | `174 40% 18%`    |
+| `--accent-foreground`           | `174 60% 80%`    |
+| `--destructive`                 | `0 72% 42%`      |
+| `--destructive-foreground`      | `0 0% 100%`      |
+| `--border`                      | `222 18% 24%`    |
+| `--input`                       | `222 18% 30%`    |
+| `--ring`                        | `174 60% 45%`    |
+| `--status-pending`              | `38 60% 18%`     |
+| `--status-pending-foreground`   | `43 96% 75%`     |
+| `--status-approved`             | `142 40% 16%`    |
+| `--status-approved-foreground`  | `142 60% 70%`    |
+| `--status-rejected`             | `0 45% 18%`      |
+| `--status-rejected-foreground`  | `0 90% 80%`      |
+| `--status-cancelled`            | `215 20% 20%`    |
+| `--status-cancelled-foreground` | `215 20% 80%`    |
+| `--leave-vacation`              | `199 85% 65%`    |
+| `--leave-vacation-subtle`       | `199 60% 16%`    |
+| `--leave-sick`                  | `346 80% 72%`    |
+| `--leave-sick-subtle`           | `346 45% 17%`    |
+| `--leave-unpaid`                | `215 16% 70%`    |
+| `--leave-unpaid-subtle`         | `215 20% 18%`    |
+| `--role-employee`               | `199 85% 60%`    |
+| `--role-manager`                | `262 70% 72%`    |
+| `--role-hr-admin`               | `32 90% 60%`     |
+
+Role accents (TASK-047 revision). Inside the app shell, `:root:has([data-role-accent=…])`
+remaps the interactive tokens — primary buttons, the active nav item, links, focus rings and
+menu/hover highlights follow the signed-in role. Semantic tokens and `--brand` never change.
+
+| Role              | Accent light / dark           | Foreground light / dark | Subtle light / dark           |
+| ----------------- | ----------------------------- | ----------------------- | ----------------------------- |
+| Employee (teal)   | `174 72% 26%` / `174 60% 42%` | white / `222 47% 8%`    | `174 45% 94%` / `174 40% 18%` |
+| Manager (indigo)  | `235 60% 50%` / `235 85% 75%` | white / `222 47% 8%`    | `235 60% 95%` / `235 35% 20%` |
+| HR Admin (violet) | `270 55% 45%` / `270 75% 75%` | white / `222 47% 8%`    | `270 55% 95%` / `270 30% 20%` |
+
+`--brand` (`174 72% 26%` light, `174 60% 42%` dark) is the fixed logo colour.

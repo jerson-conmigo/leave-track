@@ -1,4 +1,11 @@
 import { availableForRequest, buildBalanceSummaries } from "@/lib/data/balance";
+import { RESOLUTION_GROUP_STATUSES } from "@/lib/resolutions/types";
+import {
+  RESOLUTION_VIEW_SQL,
+  type ResolutionViewRow,
+  toResolutionView,
+} from "@/lib/resolutions/views";
+import type { Notification } from "@/lib/notifications/types";
 import { utcMonthBounds } from "@/lib/data/dates";
 import type { LeaveRepository } from "@/lib/data/repositories";
 import {
@@ -33,11 +40,21 @@ const toUser = (r: UserRow): User => ({
  */
 export function createPostgresRepository(sql: SqlClient): LeaveRepository {
   async function listLeaveTypes(): Promise<LeaveType[]> {
-    const rows = await sql.query<{ id: string; name: LeaveTypeName; tracks_balance: boolean }>(
-      `select id, name, tracks_balance from leave_types
+    const rows = await sql.query<{
+      id: string;
+      name: LeaveTypeName;
+      tracks_balance: boolean;
+      max_backdate_days: number;
+    }>(
+      `select id, name, tracks_balance, max_backdate_days from leave_types
        order by array_position(array['Vacation', 'Sick', 'Unpaid'], name), name`,
     );
-    return rows.map((r) => ({ id: r.id, name: r.name, tracksBalance: r.tracks_balance }));
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      tracksBalance: r.tracks_balance,
+      maxBackdateDays: r.max_backdate_days,
+    }));
   }
 
   return {
@@ -45,6 +62,14 @@ export function createPostgresRepository(sql: SqlClient): LeaveRepository {
       const [row] = await sql.query<UserRow>(`select ${USER_COLUMNS} from users where id = $1`, [
         id,
       ]);
+      return row ? toUser(row) : null;
+    },
+
+    async getUserByAuthUserId(authUserId) {
+      const [row] = await sql.query<UserRow>(
+        `select ${USER_COLUMNS} from users where auth_user_id = $1`,
+        [authUserId],
+      );
       return row ? toUser(row) : null;
     },
 
@@ -107,9 +132,11 @@ export function createPostgresRepository(sql: SqlClient): LeaveRepository {
         created_at: unknown;
         decided_at: unknown;
         decided_by_name: string | null;
+        awaiting: string | null;
       }>(
         `select r.id, t.name type_name, r.start_date::text, r.end_date::text, r.reason,
-                r.status::text, r.created_at, r.decided_at, d.name decided_by_name
+                r.status::text, r.created_at, r.decided_at, d.name decided_by_name,
+                case when r.status = 'pending' then public.approver_label(r.user_id) end awaiting
          from leave_requests r
          join leave_types t on t.id = r.leave_type_id
          left join users d on d.id = r.decided_by
@@ -130,18 +157,20 @@ export function createPostgresRepository(sql: SqlClient): LeaveRepository {
           },
           r.type_name,
           r.decided_by_name,
+          r.awaiting,
         ),
       );
     },
 
     /**
-     * Manager queue (US-04, BR-02). EVERY statement is scoped in SQL by
-     * `u.manager_id = $1` with the session manager's id — never filtered in app
-     * code. Scope is read from users.manager_id at query time, so an org-chart
-     * change moves pending requests to the new manager's queue (AC2). Three
-     * round trips regardless of team size (no query per row).
+     * Approvals queue (US-04, US-15, BR-02, BR-10). EVERY statement is scoped in SQL by
+     * `public.can_decide($1, <requester>)` with the session user's id — never filtered in app
+     * code (TASK-026: a manager's reports; for an HR Admin the managers reporting to them and HR
+     * peers without a manager; never the viewer's own requests). Scope is read from the users
+     * table at query time, so an org-chart change moves pending requests to the new approver's
+     * queue (US-04 AC2 / US-15 AC5). Three round trips regardless of team size.
      */
-    async listTeamRequests(managerId, opts) {
+    async listTeamRequests(approverId, opts) {
       const status = opts?.status ?? null;
       const [rows, balances, pending] = await Promise.all([
         sql.query<{
@@ -159,26 +188,27 @@ export function createPostgresRepository(sql: SqlClient): LeaveRepository {
           decided_by_name: string | null;
           employee_name: string;
           employee_email: string;
+          awaiting: string | null;
         }>(
           `select r.id, r.user_id, r.leave_type_id, t.name type_name, t.tracks_balance,
                   r.start_date::text, r.end_date::text, r.reason, r.status::text,
                   r.created_at, r.decided_at, d.name decided_by_name,
-                  u.name employee_name, u.email employee_email
+                  u.name employee_name, u.email employee_email,
+                  case when r.status = 'pending' then public.approver_label(r.user_id) end awaiting
            from leave_requests r
            join users u on u.id = r.user_id
            join leave_types t on t.id = r.leave_type_id
            left join users d on d.id = r.decided_by
-           where u.manager_id = $1 and not r.is_deleted
+           where public.can_decide($1, r.user_id) and not r.is_deleted
              and ($2::text is null or r.status::text = $2::text)
            order by r.created_at desc`,
-          [managerId, status],
+          [approverId, status],
         ),
         sql.query<{ user_id: string; leave_type_id: string; balance: unknown }>(
           `select b.user_id, b.leave_type_id, b.balance
            from leave_balances b
-           join users u on u.id = b.user_id
-           where u.manager_id = $1`,
-          [managerId],
+           where public.can_decide($1, b.user_id)`,
+          [approverId],
         ),
         sql.query<{
           id: string;
@@ -189,9 +219,8 @@ export function createPostgresRepository(sql: SqlClient): LeaveRepository {
         }>(
           `select r.id, r.user_id, r.leave_type_id, r.start_date::text, r.end_date::text
            from leave_requests r
-           join users u on u.id = r.user_id
-           where u.manager_id = $1 and r.status = 'pending' and not r.is_deleted`,
-          [managerId],
+           where public.can_decide($1, r.user_id) and r.status = 'pending' and not r.is_deleted`,
+          [approverId],
         ),
       ]);
       return rows.map((r) => ({
@@ -207,6 +236,7 @@ export function createPostgresRepository(sql: SqlClient): LeaveRepository {
           },
           r.type_name,
           r.decided_by_name,
+          r.awaiting,
         ),
         employee: { id: r.user_id, name: r.employee_name, email: r.employee_email },
         balanceAvailable: availableForRequest({
@@ -295,10 +325,12 @@ export function createPostgresRepository(sql: SqlClient): LeaveRepository {
         decided_by: string | null;
         decided_by_name: string | null;
         decision_reason: string | null;
+        awaiting: string | null;
       }>(
         `select r.id, t.name type_name, r.start_date::text, r.end_date::text, r.reason,
                 r.status::text, r.created_at, r.decided_at, r.decided_by,
-                d.name decided_by_name, r.decision_reason
+                d.name decided_by_name, r.decision_reason,
+                case when r.status = 'pending' then public.approver_label(r.user_id) end awaiting
            from leave_requests r
            join leave_types t on t.id = r.leave_type_id
            left join users d on d.id = r.decided_by
@@ -346,6 +378,7 @@ export function createPostgresRepository(sql: SqlClient): LeaveRepository {
             },
             r.type_name,
             r.decided_by_name,
+            r.awaiting,
           ),
           decidedBy:
             r.decided_by && r.decided_by_name
@@ -392,6 +425,97 @@ export function createPostgresRepository(sql: SqlClient): LeaveRepository {
         .sort(
           (a, b) => a.userName.localeCompare(b.userName) || a.leaveType.localeCompare(b.leaveType),
         );
+    },
+
+    // TASK-032 (AC1): the queue is filtered in SQL — tracked types, balance < 0, no open resolution.
+    async listResolutionQueue() {
+      const rows = await sql.query<{
+        user_id: string;
+        user_name: string;
+        leave_type_id: string;
+        type_name: LeaveTypeName;
+        balance: unknown;
+        accrual: unknown;
+      }>(
+        `select u.id user_id, u.name user_name, t.id leave_type_id, t.name type_name, b.balance,
+                coalesce(p.accrual_per_month, 0) accrual
+           from leave_balances b
+           join users u on u.id = b.user_id
+           join leave_types t on t.id = b.leave_type_id
+           left join leave_policies p on p.user_id = b.user_id and p.leave_type_id = b.leave_type_id
+          where t.tracks_balance and b.balance < 0
+            and not exists (select 1 from balance_resolutions r
+                             where r.user_id = b.user_id and r.leave_type_id = b.leave_type_id
+                               and r.status in ('proposed', 'declined'))
+          order by b.balance, u.name`,
+      );
+      return rows.map((r) => ({
+        userId: r.user_id,
+        userName: r.user_name,
+        leaveTypeId: r.leave_type_id,
+        leaveType: r.type_name,
+        balance: toNumber(r.balance),
+        deficit: -toNumber(r.balance),
+        accrualPerMonth: toNumber(r.accrual),
+      }));
+    },
+
+    async listResolutions(group) {
+      const rows = await sql.query<ResolutionViewRow>(
+        `${RESOLUTION_VIEW_SQL} where r.status = any($1::text[]) order by r.proposed_at desc, r.id`,
+        [RESOLUTION_GROUP_STATUSES[group]],
+      );
+      return rows.map(toResolutionView);
+    },
+
+    // TASK-033: the employee's own latest resolution (open, or closed in the last 30 days).
+    async getMyResolution(userId) {
+      const [row] = await sql.query<ResolutionViewRow>(
+        `${RESOLUTION_VIEW_SQL}
+          where r.user_id = $1 and r.status <> 'superseded'
+            and (r.status in ('proposed', 'declined') or r.closed_at > now() - interval '30 days')
+          order by r.proposed_at desc, r.id limit 1`,
+        [userId],
+      );
+      return row ? toResolutionView(row) : null;
+    },
+
+    // TASK-030: every statement is scoped to the recipient in SQL (AC3).
+    async listNotifications(recipientId, opts) {
+      const rows = await sql.query<{
+        id: string;
+        recipient_id: string;
+        type: Notification["type"];
+        payload: Notification["payload"];
+        read_at: unknown;
+        created_at: unknown;
+      }>(
+        `select id, recipient_id, type, payload, read_at, created_at
+           from notifications
+          where recipient_id = $1
+          order by created_at desc, id desc
+          limit $2`,
+        [recipientId, Math.min(Math.max(opts?.limit ?? 50, 1), 200)],
+      );
+      return rows.map(
+        (r) =>
+          ({
+            id: r.id,
+            recipientId: r.recipient_id,
+            type: r.type,
+            payload: r.payload,
+            readAt: r.read_at == null ? null : toIso(r.read_at),
+            createdAt: toIso(r.created_at),
+          }) as Notification,
+      );
+    },
+
+    async countUnreadNotifications(recipientId) {
+      const [row] = await sql.query<{ n: number }>(
+        `select count(*)::int n from notifications where recipient_id = $1 and read_at is null`,
+        [recipientId],
+      );
+      return row?.n ?? 0;
     },
 
     async getOrgStats(now = new Date()) {

@@ -11,6 +11,7 @@ import {
 } from "@/lib/data/mock/fixtures";
 import { AUDIT_ACTIONS, LEAVE_TYPE_NAMES, REQUEST_STATUSES, ROLES } from "@/lib/data/types";
 import { MIGRATION_FILES, MIGRATIONS, migratedDb, SEED } from "./helpers";
+import { future } from "../support/dates";
 
 /**
  * TASK-010 — schema contract, run against real Postgres 17 (PGlite, in-process).
@@ -33,8 +34,8 @@ const ARCH_TABLES = [
 
 /** Columns per ARCH-LeaveTrack-v1.0 › Data Model (+ approved additions). */
 const EXPECTED_COLUMNS: Record<string, string[]> = {
-  users: ["id", "name", "email", "role", "manager_id", "created_at"],
-  leave_types: ["id", "name", "tracks_balance"],
+  users: ["id", "name", "email", "role", "manager_id", "created_at", "auth_user_id"],
+  leave_types: ["id", "name", "tracks_balance", "max_backdate_days"], // max_backdate_days: TASK-027
   leave_policies: ["id", "user_id", "leave_type_id", "accrual_per_month"],
   leave_balances: ["id", "user_id", "leave_type_id", "balance", "updated_at"],
   leave_requests: [
@@ -50,9 +51,24 @@ const EXPECTED_COLUMNS: Record<string, string[]> = {
     "decision_reason",
     "is_deleted",
     "created_at",
+    "cancelled_at", // TASK-028
+    "cancelled_by", // TASK-028
   ],
   audit_log: ["id", "leave_request_id", "actor_id", "action", "occurred_at"],
   accrual_runs: ["id", "period", "ran_at", "trigger", "users_accrued", "days_accrued", "rates"],
+  // TASK-029
+  balance_ledger: [
+    "id",
+    "user_id",
+    "leave_type_id",
+    "delta",
+    "balance_after",
+    "source",
+    "source_key",
+    "leave_request_id",
+    "actor_id",
+    "occurred_at",
+  ],
 };
 
 /** [table, column, referenced table] — every FK the arch doc implies. */
@@ -67,6 +83,26 @@ const EXPECTED_FKS: [string, string, string][] = [
   ["leave_requests", "decided_by", "users"],
   ["audit_log", "leave_request_id", "leave_requests"],
   ["audit_log", "actor_id", "users"],
+  // TASK-029: the balance ledger
+  ["balance_ledger", "user_id", "users"],
+  ["balance_ledger", "leave_type_id", "leave_types"],
+  ["balance_ledger", "leave_request_id", "leave_requests"],
+  ["balance_ledger", "actor_id", "users"],
+  // TASK-030: notifications and the outbox
+  ["notifications", "recipient_id", "users"],
+  ["notification_outbox", "notification_id", "notifications"],
+  ["notification_outbox", "recipient_id", "users"],
+  ["leave_requests", "cancelled_by", "users"], // TASK-028
+  // TASK-031: resolution schema
+  ["app_settings", "updated_by", "users"],
+  ["balance_resolutions", "user_id", "users"],
+  ["balance_resolutions", "leave_type_id", "leave_types"],
+  ["balance_resolutions", "supersedes_id", "balance_resolutions"],
+  ["balance_resolutions", "proposed_by", "users"],
+  ["balance_resolutions", "decided_by", "users"], // TASK-033
+  ["balance_recoveries", "resolution_id", "balance_resolutions"],
+  ["balance_resolution_events", "resolution_id", "balance_resolutions"],
+  ["balance_resolution_events", "actor_id", "users"],
 ];
 
 const ANA = USER_IDS.ana;
@@ -108,8 +144,8 @@ const insertRequest = (overrides: Record<string, string | null>) => {
   const row: Record<string, string | null> = {
     user_id: ANA,
     leave_type_id: VACATION,
-    start_date: "2027-02-01",
-    end_date: "2027-02-02",
+    start_date: future("2027-02-01"),
+    end_date: future("2027-02-02"),
     reason: "test",
     status: "pending",
     decided_by: null,
@@ -172,11 +208,24 @@ describe("AC1 — migration runs clean on an empty DB", () => {
 });
 
 describe("AC2 — all 6 tables exist with FKs matching the arch doc", () => {
-  it("creates exactly the arch tables plus accrual_runs", async () => {
+  it("creates exactly the arch tables plus accrual_runs, rate_limits (TASK-025) and balance_ledger (TASK-029)", async () => {
     const tables = await rows<{ table_name: string }>(
       `select table_name from information_schema.tables where table_schema = 'public' order by 1`,
     );
-    expect(tables.map((t) => t.table_name).sort()).toEqual([...ARCH_TABLES, "accrual_runs"].sort());
+    expect(tables.map((t) => t.table_name).sort()).toEqual(
+      [
+        ...ARCH_TABLES,
+        "accrual_runs",
+        "rate_limits",
+        "balance_ledger",
+        "notifications", // TASK-030
+        "notification_outbox", // TASK-030
+        "app_settings", // TASK-031
+        "balance_resolutions", // TASK-031
+        "balance_recoveries", // TASK-031
+        "balance_resolution_events", // TASK-031
+      ].sort(),
+    );
   });
 
   it.each(Object.entries(EXPECTED_COLUMNS))("%s has the expected columns", async (table, cols) => {
@@ -293,7 +342,10 @@ describe("invariants enforced by the database", () => {
   });
 
   it("rejects an end date before the start date (US-01 AC2)", async () => {
-    const err = await insertRequest({ start_date: "2027-02-10", end_date: "2027-02-01" });
+    const err = await insertRequest({
+      start_date: future("2027-02-10"),
+      end_date: future("2027-02-01"),
+    });
     expect(err?.message).toMatch(/leave_requests_date_range/);
   });
 

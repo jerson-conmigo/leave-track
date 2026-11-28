@@ -10,13 +10,13 @@ import {
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 
 /**
- * App-wide toast host. LeaveTrack ships light-only on Day 0, so the theme is
- * fixed rather than read from next-themes (dark mode is a backlog item).
+ * App-wide toast host. TASK-047: the theme comes from the root layout (the lt-theme cookie:
+ * light, dark or system) — no next-themes.
  */
 const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
-      theme="light"
+      theme={props.theme ?? "system"}
       className="toaster group"
       icons={{
         success: <CircleCheckIcon className="size-4" aria-hidden />,

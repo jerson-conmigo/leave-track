@@ -183,3 +183,192 @@ break in the app-level filter is invisible on Postgres (the trigger catches it).
 the "impossible" row. Every layer of defence-in-depth needs its own test, or it is
 untested code. Likewise, a mapping applied at two transports (routes AND server actions)
 needs a test at each.
+
+### Fail-closed configuration: test build time and runtime separately (from TASK-019)
+
+- `lib/env.ts` validates at **module load**, which Next.js runs during `next build`
+  ("collecting configuration"), not only at server start. A strict rule keyed on `NODE_ENV`
+  would break every build, CI run and local e2e (all `NODE_ENV=production`); key it on the
+  deployment stage (`APP_ENV` / `VERCEL_ENV`) instead.
+- A throw in `instrumentation.ts` `register()` does **not** stop `next start`: Next.js keeps
+  the process alive and answers every route (static ones included) with 500. Exit explicitly
+  (`process.exit(1)`) from a Node-only module (`lib/env-startup.ts`), imported only when
+  `NEXT_RUNTIME === "nodejs"`, or the Edge bundle warns about Node APIs.
+- Prove it with real processes: build and start under each configuration (CI, deployed-valid,
+  deployed-missing, deployed-with-test-token), and assert exit codes, `/api/health` and that
+  no secret value is ever printed.
+
+### Overlapping guards: name them and test each one directly (from TASK-020)
+
+A layered check (control characters → root-relative → same origin → reserved paths) passed
+a 46-case corpus, yet removing the backslash rule, the `//` rule or the whole origin check
+left every test green — each was covered by another layer, and the origin check was
+unreachable by any string the earlier layers let through. Fix: express the layers as an
+exported, ordered list of named guards (`REDIRECT_GUARDS`), unit-test each guard **in
+isolation** (the only way to reach the later ones), and pin the list structurally. Testing
+the origin guard alone then exposed a real subtlety: `new URL("http:evil.com", "http://base")`
+is a _relative_ path, so same-origin checks must try both `http` and `https` bases.
+Prove the bug end-to-end before fixing it, with off-site navigation blocked
+(`context.route(url => url.host !== app, abort)`) before the form is submitted.
+
+### Changing tooling versions: diff the resolved config, measure before thresholding (from TASK-021)
+
+- When the lint engine changes (ESLint 10 → 9 here), "lint still passes" is not enough: save
+  `eslint --print-config <file>` for one file of each kind before and after and diff the rule
+  sets (names, severities, options). Here the only difference was cosmetic (ESLint 10 prints
+  default options for the disabled core `no-unused-vars`).
+- Coverage thresholds come from a measured baseline: run coverage twice, confirm identical
+  covered/total counts, then set thresholds (baseline rounded down − 2). Prove they bite with
+  a threshold above the baseline and a narrowed `include`.
+- CI helper scripts that guard a gate get their own tests, including "fails loudly"
+  cases — a report step that silently passes on a missing file hides a broken gate.
+
+### Never split a CSV on line breaks (from TASK-022)
+
+A quoted CSV field may contain line breaks, so `text.split("\n")` is not a list of rows.
+The old `set-task-status` did exactly that: a multi-line field crashed it, mixed line endings
+hid rows, and — worst — a line _inside_ a quoted field that looked like a row
+(`T-9,fake,Open,…`) was "updated", silently corrupting another row's text while reporting
+success. Scan the whole file as RFC 4180 records with exact field ranges, keep each record's
+own line ending, refuse malformed input (unterminated quote, wrong field count) before
+writing, and replace through a temp file + rename. Prove "only one field changed" with golden
+tests on copies of the real files.
+Guard repository-hygiene rules with a test that asks git itself
+(`git check-ignore --no-index`, `git ls-files --cached --ignored --exclude-standard`), so a
+deleted `.gitignore` line or a re-tracked cache file fails CI instead of resurfacing as noise.
+Check that a mutation probe really changes behaviour: a no-op mutation (`if (false) i++;`)
+stays green and proves nothing.
+
+### Signed sessions: verify before parsing, authorize from the database (from TASK-023)
+
+- Token = `v1.<payload>.<HMAC>` with a fixed algorithm; check the signature (constant time,
+  against the fixed digest size) **before** `JSON.parse`, then validate the claims. Test
+  invalid claims with a _valid_ signature (re-sign test payloads with the real key) —
+  otherwise a "malformed" test only proves the signature check.
+- Never authorize from claims: `getSession` re-reads the user and drops the session if the
+  role changed. The role in the token only lets the proxy route without a DB call.
+- Keep a pure token module (no `server-only`, relative imports) so the proxy, the server and
+  the Playwright helper share one implementation; e2e signs cookies with a per-run secret.
+- Pin the boundary structurally (which files touch the cookie / sign tokens) so a shortcut
+  around the auth port fails CI.
+- A constant-time convention test may flag a harmless length comparison; prefer changing
+  the code to compare against a constant (digest size) over weakening the test.
+
+### Real auth provider: prove identity with the provider, name the user yourself (from TASK-024)
+
+- Two layers: the provider session proves _who_; the app's own signed token names _which
+  user_, minted only after matching `users.auth_user_id` (set by an admin invite). Never link
+  by email at sign-in.
+- Check liveness with the provider's **server** (`getUser`), not a locally verified JWT, or
+  sign-out isn't a revocation. Refresh in the proxy; fail closed on every provider error.
+- A dev-only path (the mock picker) must refuse to run when the real provider is configured.
+  Otherwise it can be used to skip real sign-in.
+- Pages whose behaviour depends on runtime configuration (`AUTH_PROVIDER`) must be dynamic.
+  `next build` prerendered them with the build-time value and baked in a 404.
+- Emailed-link routes get a fixed destination. Don't take a `next` value from the email link.
+- Probe overlapping guards one at a time: removing the liveness check went unnoticed because the
+  link check also returned null. Fix: assert the guard returns _before_ the database lookup.
+- Put the real-flow e2e against local Supabase in its own config, so the default CI e2e stays
+  service-free.
+
+### PGlite: close per test, not per file (from B30)
+
+- One migrated and seeded PGlite costs ~1.2 GiB. Keeping a fresh one per test open until
+  `afterAll` stacks them up: about 2.2–2.5 GiB for the heaviest files run alone, and approximately
+  2.6–2.9 GiB for the whole suite in a single Vitest worker with coverage (the default worker count
+  on 2-vCPU CI runners). Closing per test brought that run to about 1.7 GiB (37–44 % lower; measured
+  in B30). The gain differs by file: users-auth-link (four databases, one in each of four of its five tests) showed
+  no measurable improvement.
+- Measure memory as before/after pairs under identical conditions, and more than once: peak
+  memory with many open databases varies by run. Single samples overstated the B30 "before".
+- Use `const track = closeAfterEachTest()` and `track(db)` for every per-test database.
+  afterEach runs even when the test fails. `closeAll` uses `allSettled` and then reports every
+  failure.
+- Setup helpers close a half-built database before rethrowing.
+- `tests/db/pglite-lifecycle.test.ts` pins every database-creating file into a reviewed
+  category. Probe "helper set up but never tracked" too: a guard that only checks for the
+  helper call misses it.
+- "The operation was canceled." in Actions is the runner cancelling the job, not a test failure.
+  Read the annotation (timeout vs. concurrency) before changing timeouts or concurrency.
+
+### Local dev tooling: local-only by construction, hosted only by explicit flag (from TASK-054)
+
+- Dev scripts take their credentials from `supabase status` of the running local stack, never
+  from `.env.local`. A hosted value pasted into `.env.local` then can't reach a dev script at all.
+- Any script that can reach the hosted project needs a flag (`--remote`, `--hosted`) and prints
+  the target host first. Supabase CLI 3.x defaults `db push` / `db reset` / `migration up` to
+  the LOCAL database, so pass `--remote` explicitly and never rely on the default.
+- A script that writes the user's `.env.local`:
+  - preserves unrelated lines
+  - refuses (writing nothing) when hosted values are present, unless an explicit override
+    backs up first
+  - keeps existing secrets, writes atomically with mode 0600, prints names only
+  - is idempotent
+- Node 24 treats `--env-file` as its OWN option even after the script name
+  (`node x.mjs --env-file f` exits 9). Use another name for a script flag
+  (`--target`); use `node --env-file-if-exists=.env.local` to load one.
+- Test CLIs with a stub binary through an env override (`SUPABASE_BIN`). The stub records its
+  arguments, so tests prove a refused command never reached the real tool.
+- When `.env.local` can switch modes (mock ↔ Supabase), pin the mode in each test server's
+  own environment. Process values beat `.env.local` in Next.
+
+### Measure layout only after it settles (from TASK-055)
+
+- A check that injects a style (for example 200% text) and measures straight away can pass
+  falsely. Here the reduced-motion rule gave every element a one-frame transition, so the first
+  frame still had the old geometry. A fast laptop measured in that frame and passed; slower CI
+  measured later and failed.
+- Wait until the page's size is unchanged for several consecutive frames. A fixed number of
+  frames isn't enough (2 frames still passed falsely at 320 px). Then assert once. Never retry
+  a layout assertion until it passes: that would accept the first-frame false pass.
+- Prove the fix with the order "stricter test first (fails like CI), then the fix (passes)",
+  and repeat the run to show it's deterministic.
+- `FormControl` (Radix Slot) overrides a child's `data-slot`, so a form's Select trigger is
+  `data-slot="form-control"`. Style it through the component's classes, not that attribute.
+- `whitespace-nowrap` plus a fixed `h-*` on a grid item with `min-width: auto` can't shrink at
+  large text. `whitespace-normal` plus `min-h-*` lets it wrap and grow: wrap, don't truncate
+  (WCAG 1.4.4). Probes showed `min-w-0` and the value's `line-clamp` change made no difference
+  (`display:flex` disables `line-clamp`). Swapping `h-*` for `min-h-*` can add height (padding
+  - line height + border), so check the normal-size height too (here `py-2` → `py-1.5` kept
+    36 px).
+
+### Time-shift probe: find tests that depend on today's date (from TASK-027)
+
+A rule that compares dates with "today" (here: no past start dates, in the service AND a DB
+trigger) silently turns every test with a fixed future date into a time bomb: green today, red
+the day that date passes. The normal suite can't show it. Probe it instead: temporarily move
+**every** clock forward together (the DB expression `now()`, the app's `todayUtc()`, and the test
+helper's notion of today), run the whole suite, restore and verify by hash. In TASK-027 the
+first run found 56 failing tests in 12 files; shifting only the app clock gave a false picture
+(the test helper still produced "future" dates relative to the real day). Fix the failures by
+writing request dates relative to today (`future("2027-03-01")` keeps a readable reference date
+and its spacing, anchored at today + 60 days), and keep historical fixture rows on an explicit,
+transaction-scoped escape hatch (`asHistorical`) rather than real dates. Re-run the probe until
+the shifted suite is fully green. Also: PL/pgSQL variables can collide with SQL operator keywords
+— a variable named `overlaps` made `overlaps > 0` a syntax error.
+
+### Theming with tokens: watch the cascade, scope by role on :root (from TASK-047)
+
+- Token blocks are unlayered on purpose: a `.dark` inside `@layer base` silently loses to an
+  unlayered `:root` on `<html>`, and a text-parsing test can't see the cascade — prove the theme in
+  a browser with JavaScript disabled (only the server-rendered class can then apply it).
+- "System" needs no script: no class + `@media (prefers-color-scheme: dark) { :root:not(.light) }`,
+  plus a block-form `dark` custom variant so `dark:` utilities fire there too. Keep the two dark
+  copies identical with a test.
+- App-wide accents: remap only the INTERACTIVE tokens via `:root:has([data-role-accent=…])` (on
+  `:root`, so Radix portals inherit), placed after the dark blocks (equal specificity → order).
+  Pin the remapped token list, AA for every pairing per theme, and a hue distance from semantic
+  colours; give the brand its own token so it doesn't follow the role.
+- Error assertions: `await expect(p).rejects.toMatchObject({ code, message: /…/ })` does NOT
+  check an Error's `message` (it isn't an enumerable property), so the regex passes for any
+  message. Assert code and message explicitly (a small `rejectsWith(promise, code, /re/)` helper,
+  as in tests/resolutions). Found by a probe that removed the deadline check (TASK-033).
+- Guarded transitions: lock the row, check the state in code, AND make the UPDATE itself
+  conditional (`WHERE status = <expected> … RETURNING`) with "no row" treated as "already
+  answered". Probe by removing BOTH layers; with only one removed, the other (or a unique key
+  downstream) hides the gap.
+- Scheduled jobs share ONE auth helper (`lib/jobs/cron-auth.ts`) and call it as the handler's
+  first statement; a convention test lists `app/api/jobs/*` and pins both, so a new job can't
+  skip auth. Route tests mock the domain module and assert it is never called on 401.
+- What PGlite can't test (a second connection's lock, `SKIP LOCKED`), pin structurally (the SQL
+  text in the store) and log the real-Postgres test as backlog — don't claim it as proven.

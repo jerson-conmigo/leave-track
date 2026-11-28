@@ -1,0 +1,11 @@
+{
+  "0": "Revision v1.1 — EPIC 2 (2026-11-26)",
+  "1": "Architecture Document — LeaveTrack v1.0",
+  "2": "ADR-LeaveTrack-E002 — Monthly Accrual: Idempotency, Catch-up, and Triggering",
+  "3": "ADR-LeaveTrack-E001 — Auth & Session Strategy",
+  "4": "ADR-LeaveTrack-E003 — Data Access: postgres.js over the pooled URL, behind a SQL port",
+  "5": "ADR-LeaveTrack-E004 — Real Authentication: Supabase Auth with signed sessions",
+  "6": "ADR-LeaveTrack-E005 — Approval Routing: direct manager, HR for managers, HR peer for HR",
+  "7": "ADR-LeaveTrack-E006 — Balance Ledger and Negative-Balance Resolutions",
+  "8": "ADR-LeaveTrack-E007 — Notifications: transactional outbox plus in-app inbox"
+}

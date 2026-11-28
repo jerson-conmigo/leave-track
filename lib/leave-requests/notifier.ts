@@ -6,7 +6,8 @@ import type { Requester } from "@/lib/leave-requests/store";
 export type LeaveRequestSubmittedNotice = {
   requestId: string;
   employee: Pick<Requester, "id" | "name">;
-  manager: Requester["manager"];
+  /** TASK-026: the manager, or every OTHER HR Admin (kind "hr") for an HR Admin's request. */
+  approver: NonNullable<Requester["approver"]>;
   leaveType: LeaveTypeName;
   startDate: string;
   endDate: string;
@@ -17,7 +18,7 @@ export type LeaveRequestDecidedNotice = {
   requestId: string;
   decision: "approved" | "rejected";
   employee: { id: string; name: string; email: string };
-  manager: { id: string; name: string };
+  decidedBy: { id: string; name: string };
   leaveType: LeaveTypeName;
   startDate: string;
   endDate: string;
@@ -32,9 +33,9 @@ export interface Notifier {
 }
 
 /**
- * Log-only channel until a real one is chosen (backlog B6). Emits a structured
- * event an alerting/email worker can consume. Employees without a manager
- * (e.g. HR admins, backlog B2) are logged as a warning — nobody to notify.
+ * Log-only channel until a real one is chosen (backlog B6; delivery is TASK-030). Emits a
+ * structured event an alerting/email worker can consume. TASK-026: an HR Admin's request is
+ * logged ONCE with recipients "hr_admins" (every other HR Admin may decide it).
  */
 export const logNotifier: Notifier = {
   async leaveRequestSubmitted(notice) {
@@ -42,17 +43,19 @@ export const logNotifier: Notifier = {
       event: "leave_request.submitted",
       requestId: notice.requestId,
       employeeId: notice.employee.id,
-      managerId: notice.manager?.id ?? null,
+      recipients: notice.approver.kind === "hr" ? "hr_admins" : "manager",
+      managerId: notice.approver.kind === "manager" ? notice.approver.id : null,
       leaveType: notice.leaveType,
       startDate: notice.startDate,
       endDate: notice.endDate,
       days: notice.days,
     };
-    if (!notice.manager) {
-      logger.warn(context, "leave request submitted by a user with no manager — nobody notified");
-      return;
-    }
-    logger.info(context, "manager notified of new leave request");
+    logger.info(
+      context,
+      notice.approver.kind === "hr"
+        ? "HR Admins notified of new leave request"
+        : "manager notified of new leave request",
+    );
   },
 
   async leaveRequestDecided(notice) {
@@ -62,7 +65,7 @@ export const logNotifier: Notifier = {
         requestId: notice.requestId,
         decision: notice.decision,
         employeeId: notice.employee.id,
-        managerId: notice.manager.id,
+        decidedById: notice.decidedBy.id,
         leaveType: notice.leaveType,
         days: notice.days,
       },

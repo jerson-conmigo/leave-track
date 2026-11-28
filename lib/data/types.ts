@@ -7,10 +7,10 @@
 export const ROLES = ["employee", "manager", "hr_admin"] as const;
 export type Role = (typeof ROLES)[number];
 
-export const REQUEST_STATUSES = ["pending", "approved", "rejected"] as const;
+export const REQUEST_STATUSES = ["pending", "approved", "rejected", "cancelled"] as const;
 export type RequestStatus = (typeof REQUEST_STATUSES)[number];
 
-export const AUDIT_ACTIONS = ["submitted", "approved", "rejected"] as const;
+export const AUDIT_ACTIONS = ["submitted", "approved", "rejected", "cancelled"] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
 export const LEAVE_TYPE_NAMES = ["Vacation", "Sick", "Unpaid"] as const;
@@ -30,6 +30,8 @@ export type LeaveType = {
   id: string;
   name: LeaveTypeName;
   tracksBalance: boolean;
+  /** TASK-027: how many days before today a request of this type may start (Sick 30, others 0). */
+  maxBackdateDays: number;
 };
 
 export type LeavePolicy = {
@@ -61,6 +63,8 @@ export type LeaveRequest = {
   decisionReason: string | null;
   isDeleted: boolean;
   createdAt: string;
+  /** TASK-028: set when the requester withdrew or cancelled it. */
+  cancelledAt?: string | null;
 };
 
 export type AuditLogEntry = {
@@ -68,6 +72,33 @@ export type AuditLogEntry = {
   leaveRequestId: string;
   actorId: string;
   action: AuditAction;
+  occurredAt: string;
+};
+
+/** TASK-029 (ADR-E006 §1): why a balance changed. */
+export const LEDGER_SOURCES = [
+  "opening",
+  "approval",
+  "accrual",
+  "cancellation",
+  "recovery",
+  "conversion",
+] as const;
+export type LedgerSource = (typeof LEDGER_SOURCES)[number];
+
+/** One append-only balance_ledger row: every leave_balances change writes exactly one. */
+export type LedgerEntry = {
+  id: string;
+  userId: string;
+  leaveTypeId: string;
+  delta: number;
+  balanceAfter: number;
+  source: LedgerSource;
+  /** Unique: the same change can never be recorded twice (e.g. approval:<request id>). */
+  sourceKey: string;
+  leaveRequestId: string | null;
+  /** Null = the system (accrual, opening). */
+  actorId: string | null;
   occurredAt: string;
 };
 
@@ -96,6 +127,18 @@ export type LeaveRequestView = {
   createdAt: string;
   decidedAt: string | null;
   decidedByName: string | null;
+  /** TASK-026 (US-15 AC4): pending → the approver's name or "HR"; null once decided (or if
+   *  nobody can decide it). Read from the current org chart, so it follows manager changes. */
+  awaiting: string | null;
+  /** TASK-028: the requester may withdraw (pending) or cancel (approved, not started yet). */
+  cancellable: boolean;
+};
+
+/** TASK-028: POST /api/leave-requests/{id}/cancel. */
+export type CancelLeaveRequestResult = {
+  request: LeaveRequestView;
+  /** Days put back on the balance (approved leave of a tracked type); null otherwise. */
+  restoredDays: number | null;
 };
 
 export type TeamRequestView = LeaveRequestView & {

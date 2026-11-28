@@ -1,20 +1,13 @@
 import type { NextRequest } from "next/server";
-import { z } from "zod";
 import { AppError } from "@/lib/api/errors";
 import { ok } from "@/lib/api/response";
 import { withErrorHandler } from "@/lib/api/with-error-handler";
 import { getSession } from "@/lib/auth/session";
 import { repository } from "@/lib/data/repositories";
-
-const ParamsSchema = z.object({ userId: z.uuid({ error: "Invalid employee id." }) });
-const QuerySchema = z
-  .object({
-    from: z.iso.date({ error: "`from` must be a date (YYYY-MM-DD)." }).optional(),
-    to: z.iso.date({ error: "`to` must be a date (YYYY-MM-DD)." }).optional(),
-  })
-  .refine((q) => !q.from || !q.to || q.from <= q.to, {
-    error: "`from` must be on or before `to`.",
-  });
+import {
+  AuditParamsSchema as ParamsSchema,
+  AuditQuerySchema as QuerySchema,
+} from "@/lib/validation/api";
 
 /**
  * GET /api/audit/:userId — an employee's full decision history (US-05, BR-04):

@@ -1,0 +1,11 @@
+<!-- TASK-024: invite email. The link goes to /auth/confirm, which verifies the token on the server. -->
+<h2>You're invited to LeaveTrack</h2>
+<p>HR has set up a LeaveTrack account for you. Choose your password to get started:</p>
+<p>
+  <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=invite"
+    >Accept the invite</a
+  >
+</p>
+<p>
+  This link works once and expires soon. If you weren't expecting it, you can ignore this email.
+</p>

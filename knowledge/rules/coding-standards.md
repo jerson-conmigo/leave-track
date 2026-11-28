@@ -10,6 +10,13 @@ Expands `AGENTS.md`. When the two disagree, fix whichever is wrong in the same P
 - Prefer `type` aliases; export prop types for every component (`XxxProps`).
 - Path alias `@/` for everything outside the current folder.
 - Server-only modules start with `import "server-only"` (env, logger, session, repositories).
+- Redirect targets go through `safeRedirectPath()`: reject ASCII control characters and
+  backslashes, then resolve with the WHATWG `URL` parser and compare origins — never prefix
+  checks alone (browsers strip tab/CR/LF, so `/\t/evil.com` becomes `//evil.com`; TASK-020).
+- Environment strictness keys on the deployment stage (`isDeployedEnv`: `APP_ENV` /
+  `VERCEL_ENV`), never `NODE_ENV`. `lib/env.ts` runs at build ("collect configuration"), at
+  server start (`instrumentation.ts`, which exits 1 on failure — Next.js would otherwise stay
+  up returning 500s) and on first import. Error messages name variables, never values.
 
 ## Next.js 16
 
@@ -119,6 +126,9 @@ export const POST = withErrorHandler(async (req) => {
 
 - Exact versions only (no `^`/`~`/`latest`); resolve from the registry, never from memory.
 - No beta/RC/canary, no deprecated packages. Justify every new dependency in the PR.
+- If a dependency's peer range excludes the installed major, pin to the newest version every
+  peer supports (TASK-021: ESLint 9.39.5 for eslint-config-next's plugins). Never use
+  `overrides` or `--legacy-peer-deps` to hide it.
 
 ## Hard-won rules (from Day 0 VALIDATE)
 

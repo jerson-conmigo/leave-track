@@ -4,6 +4,11 @@
 -- Never run against production.
 -- ============================================================================
 
+-- TASK-027: the seed loads HISTORICAL requests (past start dates), which the
+-- leave_requests_backdate_guard trigger refuses for normal inserts. Seed-only escape hatch,
+-- switched off again at the end of this file. Application code never sets it.
+select set_config('leavetrack.allow_backdated', 'on', false);
+
 -- Leave types are reference data inserted by the migration; re-assert here so
 -- the seed is self-contained.
 insert into public.leave_types (id, name, tracks_balance) values
@@ -90,3 +95,22 @@ from public.leave_requests r
 cross join lateral (select right(r.id::text, 12)::int as n) idx
 where r.id::text like '20000000-0000-4000-8000-%' and r.status <> 'pending'
 on conflict (id) do nothing;
+
+-- TASK-029: opening balance_ledger rows for the seeded balances (as the migration's backfill),
+-- so every (user, leave type)'s ledger sums to its balance. Idempotent.
+-- Guarded: migration tests load this seed onto schemas from before the ledger existed.
+do $$
+begin
+  if to_regclass('public.balance_ledger') is not null then
+    insert into public.balance_ledger
+      (user_id, leave_type_id, delta, balance_after, source, source_key, occurred_at)
+    select b.user_id, b.leave_type_id, b.balance, b.balance, 'opening',
+           'opening:' || b.user_id || ':' || b.leave_type_id, b.updated_at
+      from public.leave_balances b
+    on conflict (source_key) do nothing;
+  end if;
+end;
+$$;
+
+-- TASK-027: end of the seed — normal inserts are checked again.
+select set_config('leavetrack.allow_backdated', 'off', false);

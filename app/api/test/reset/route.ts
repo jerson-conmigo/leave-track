@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { type NextRequest, NextResponse } from "next/server";
 import { resetMockDb } from "@/lib/data/mock/store";
+import { isDeployedEnv } from "@/lib/env";
 
 /**
  * POST /api/test/reset — TEST-ONLY hook that restores the in-memory mock data
@@ -11,9 +12,11 @@ import { resetMockDb } from "@/lib/data/mock/store";
  *   - E2E_RESET_TOKEN is set (only playwright.config.ts sets it — NEVER set it in a
  *     deployed environment),
  *   - the `x-e2e-reset-token` header matches it (constant-time compare),
- *   - DATABASE_URL is unset — it can only reset the in-memory store, never Postgres.
- * Env is read at request time (not via lib/env) so a misconfigured deploy can't
- * enable it through validation defaults.
+ *   - DATABASE_URL is unset — it can only reset the in-memory store, never Postgres,
+ *   - this is not a deployed environment (APP_ENV/VERCEL_ENV — TASK-019; a deployed
+ *     environment also refuses to START with E2E_RESET_TOKEN set).
+ * Env is read from process.env at request time (not the validated `env` object) so
+ * a misconfigured deploy can't enable it through validation defaults.
  */
 const notFound = () =>
   NextResponse.json(
@@ -30,7 +33,7 @@ function tokenMatches(expected: string, given: string | null): boolean {
 
 export async function POST(req: NextRequest) {
   const expected = process.env.E2E_RESET_TOKEN;
-  if (!expected || process.env.DATABASE_URL) return notFound();
+  if (!expected || process.env.DATABASE_URL || isDeployedEnv(process.env)) return notFound();
   if (!tokenMatches(expected, req.headers.get("x-e2e-reset-token"))) return notFound();
 
   resetMockDb();

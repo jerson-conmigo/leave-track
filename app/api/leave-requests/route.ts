@@ -1,5 +1,4 @@
 import type { NextRequest } from "next/server";
-import { z } from "zod";
 import { AppError } from "@/lib/api/errors";
 import { ok } from "@/lib/api/response";
 import { withErrorHandler } from "@/lib/api/with-error-handler";
@@ -7,6 +6,7 @@ import { getSession } from "@/lib/auth/session";
 import { repository } from "@/lib/data/repositories";
 import type { MyLeaveContext, TeamQueue } from "@/lib/data/types";
 import { getSubmitDeps, submitLeaveRequest } from "@/lib/leave-requests";
+import { ListQuerySchema } from "@/lib/validation/api";
 
 /**
  * POST /api/leave-requests — submit a leave request (US-01, TASK-011).
@@ -31,12 +31,6 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   return ok(result, { status: 201 });
 });
 
-const ListQuerySchema = z.object({
-  scope: z.enum(["mine", "team"], { error: "Unsupported scope." }),
-  // Only meaningful for scope=team: the queue shows pending requests by default.
-  status: z.enum(["pending", "all"], { error: "Unsupported status." }).default("pending"),
-});
-
 const NO_STORE = { headers: { "Cache-Control": "private, no-store" } };
 
 /**
@@ -46,8 +40,8 @@ const NO_STORE = { headers: { "Cache-Control": "private, no-store" } };
  *   (confirmed, pending shown separately, as of the last accrual run) and their
  *   own requests.  200 { success: true, data: { balances, requests } }
  *
- * scope=team (US-04, BR-02): a MANAGER's queue of their direct reports' requests,
- *   scoped in SQL by users.manager_id = <session user>. `status=pending` (default)
+ * scope=team (US-04, US-15, BR-02, BR-10): the approvals queue of a MANAGER or HR ADMIN —
+ *   the requests they may decide, scoped in SQL by public.can_decide(<session user>, …). `status=pending` (default)
  *   or `all`. The role check lives here because proxy.ts's route→role matrix only
  *   covers pages.  200 { success: true, data: { requests } } · 403 FORBIDDEN
  *
@@ -64,8 +58,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   }
 
   if (query.data.scope === "team") {
-    if (session.role !== "manager") {
-      throw new AppError("FORBIDDEN", "Only managers can view a team queue.");
+    // TASK-026: managers and HR Admins have a queue; its contents are scoped in SQL (can_decide).
+    if (session.role !== "manager" && session.role !== "hr_admin") {
+      throw new AppError("FORBIDDEN", "Only managers and HR Admins can view an approvals queue.");
     }
     const requests = await repository.listTeamRequests(
       session.userId,

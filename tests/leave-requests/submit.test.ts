@@ -1,12 +1,13 @@
 import type { PGlite } from "@electric-sql/pglite";
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppError } from "@/lib/api/errors";
 import { LEAVE_TYPE_IDS, USER_IDS } from "@/lib/data/mock/fixtures";
 import type { SqlClient } from "@/lib/db/sql";
 import type { Notifier } from "@/lib/leave-requests/notifier";
 import { createPostgresSubmitStore } from "@/lib/leave-requests/postgres-store";
 import { submitLeaveRequest } from "@/lib/leave-requests/submit";
-import { createTestDb } from "../db/helpers";
+import { closeAfterEachTest, createTestDb } from "../db/helpers";
+import { future } from "../support/dates";
 
 /**
  * TASK-011 / US-01 — the submit service against real Postgres (PGlite) with the
@@ -20,8 +21,8 @@ const { Vacation, Sick, Unpaid } = LEAVE_TYPE_IDS;
 
 const valid = (overrides: Record<string, unknown> = {}) => ({
   leaveTypeId: Sick,
-  startDate: "2027-03-01",
-  endDate: "2027-03-02",
+  startDate: future("2027-03-01"),
+  endDate: future("2027-03-02"),
   reason: "Recovering from surgery",
   ...overrides,
 });
@@ -29,19 +30,15 @@ const valid = (overrides: Record<string, unknown> = {}) => ({
 let db: PGlite;
 let sql: SqlClient;
 let notifier: Notifier & { leaveRequestSubmitted: ReturnType<typeof vi.fn> };
-const dbs: PGlite[] = [];
+const track = closeAfterEachTest(); // B30: each test's database closes after that test
 
 beforeEach(async () => {
   ({ db, sql } = await createTestDb());
-  dbs.push(db);
+  track(db);
   notifier = {
     leaveRequestSubmitted: vi.fn().mockResolvedValue(undefined),
     leaveRequestDecided: vi.fn().mockResolvedValue(undefined),
   };
-});
-
-afterAll(async () => {
-  await Promise.all(dbs.map((d) => d.close()));
 });
 
 const submit = (session: { userId: string }, input: unknown, client: SqlClient = sql) =>
@@ -74,7 +71,12 @@ describe("AC1 — a valid submission creates a pending request and notifies the 
       )
     ).rows;
     expect(rows).toEqual([
-      { user_id: USER_IDS.ana, status: "pending", leave_type_id: Sick, start_date: "2027-03-01" },
+      {
+        user_id: USER_IDS.ana,
+        status: "pending",
+        leave_type_id: Sick,
+        start_date: future("2027-03-01"),
+      },
     ]);
     expect((await counts()).requests).toBe(before.requests + 1);
     expect(request).toMatchObject({ status: "pending", leaveType: "Sick", days: 2 });
@@ -99,7 +101,12 @@ describe("AC1 — a valid submission creates a pending request and notifies the 
       expect.objectContaining({
         requestId: request.id,
         employee: { id: USER_IDS.ana, name: "Ana Reyes" },
-        manager: { id: USER_IDS.ben, name: "Ben Ortiz", email: "ben.ortiz@leavetrack.test" },
+        approver: {
+          kind: "manager",
+          id: USER_IDS.ben,
+          name: "Ben Ortiz",
+          email: "ben.ortiz@leavetrack.test",
+        },
         leaveType: "Sick",
         days: 2,
       }),
@@ -110,9 +117,10 @@ describe("AC1 — a valid submission creates a pending request and notifies the 
 describe("AC2 — end date before start date is rejected, no row created", () => {
   it("throws VALIDATION_ERROR and writes nothing", async () => {
     const before = await counts();
-    const err = await submit(ANA, valid({ startDate: "2027-03-10", endDate: "2027-03-01" })).catch(
-      (e: unknown) => e,
-    );
+    const err = await submit(
+      ANA,
+      valid({ startDate: future("2027-03-10"), endDate: future("2027-03-01") }),
+    ).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(AppError);
     expect(err).toMatchObject({ code: "VALIDATION_ERROR", status: 400 });
     expect((err as AppError).message).toMatch(/End date can't be before the start date/);
@@ -139,7 +147,11 @@ describe("AC3 — over-balance submission warns but is still created", () => {
     // Ana: Vacation 11.25 confirmed − 11 already pending = 0.25 available.
     const { request, warnings } = await submit(
       ANA,
-      valid({ leaveTypeId: Vacation, startDate: "2027-04-05", endDate: "2027-04-09" }),
+      valid({
+        leaveTypeId: Vacation,
+        startDate: future("2027-04-05"),
+        endDate: future("2027-04-09"),
+      }),
     );
     expect(request.status).toBe("pending");
     expect(warnings).toEqual([
@@ -158,7 +170,11 @@ describe("AC3 — over-balance submission warns but is still created", () => {
   it("never balance-checks Unpaid leave (US-08 AC2)", async () => {
     const { warnings } = await submit(
       ANA,
-      valid({ leaveTypeId: Unpaid, startDate: "2027-05-01", endDate: "2027-07-31" }),
+      valid({
+        leaveTypeId: Unpaid,
+        startDate: future("2027-05-01"),
+        endDate: future("2027-07-29"),
+      }),
     );
     expect(warnings).toEqual([]);
   });
@@ -181,12 +197,11 @@ describe("security and robustness", () => {
     ).rejects.toMatchObject({ code: "UNAUTHENTICATED" });
   });
 
-  it("still creates the request for a user with no manager (HR admin)", async () => {
-    const { request } = await submit(CARLA, valid());
-    expect(request.status).toBe("pending");
-    expect(notifier.leaveRequestSubmitted).toHaveBeenCalledWith(
-      expect.objectContaining({ manager: null }),
-    );
+  it("TASK-026 AC3 (B2 closed): the only HR Admin has no approver → 409, nothing created, nobody notified", async () => {
+    const before = await counts();
+    await expect(submit(CARLA, valid())).rejects.toMatchObject({ code: "CONFLICT", status: 409 });
+    expect(await counts()).toEqual(before);
+    expect(notifier.leaveRequestSubmitted).not.toHaveBeenCalled();
   });
 
   it("keeps the request when the notifier fails", async () => {

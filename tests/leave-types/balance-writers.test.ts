@@ -8,10 +8,11 @@ import { describe, expect, it } from "vitest";
  * leave_type_id, gated on tracks_balance) and added here. The detector is itself
  * tested against a corpus of write patterns (and reads that must NOT match).
  */
-type Table = "leave_balances" | "leave_policies";
+type Table = "leave_balances" | "leave_policies" | "balance_ledger";
 const MOCK_FIELD: Record<Table, string> = {
   leave_balances: "leaveBalances",
   leave_policies: "leavePolicies",
+  balance_ledger: "balanceLedger", // TASK-029
 };
 
 /** Strip comments, collapse whitespace, lowercase — so formatting can't hide a write. */
@@ -42,7 +43,11 @@ export function writesTable(src: string, table: Table): boolean {
   const mockRowMutation =
     table === "leave_balances"
       ? /\.balance\s*(?:[-+]?=)(?!=)/
-      : /\.accrualpermonth\s*(?:[-+]?=)(?!=)/;
+      : table === "leave_policies"
+        ? /\.accrualpermonth\s*(?:[-+]?=)(?!=)/
+        : /\.(?:delta|balanceafter|sourcekey)\s*(?:[-+]?=)(?!=)/;
+  // TASK-029: the memory ledger is appended through one helper (lib/data/mock/store.ts).
+  const ledgerHelper = table === "balance_ledger" && /\bappendledger\s*\(/.test(s);
   const touchesMock = new RegExp(`\\b${field}\\b`).test(s);
   const dynamic =
     /\b(?:insert\s+into|update|delete\s+from)\s+["'`]?\s*\$\{/.test(s) &&
@@ -58,7 +63,8 @@ export function writesTable(src: string, table: Table): boolean {
     mock.test(s) ||
     (touchesMock && mockRowMutation.test(s)) ||
     dynamic ||
-    computedAlias
+    computedAlias ||
+    ledgerHelper
   );
 }
 
@@ -134,6 +140,8 @@ describe("registry — the reviewed writers, and nothing else", () => {
       "lib/data/mock/store.ts", // resetMockDb (test isolation only)
       "lib/leave-requests/memory-store.ts", // decide (memory) — `leaveType.tracksBalance`
       "lib/leave-requests/postgres-store.ts", // decide — `row.tracks_balance`
+      "lib/resolutions/memory-store.ts", // TASK-033 accept/finalize credits (memory)
+      "lib/resolutions/postgres-store.ts", // TASK-033 accept/finalize — `t.tracks_balance`
     ]);
   });
 
@@ -142,7 +150,11 @@ describe("registry — the reviewed writers, and nothing else", () => {
   });
 
   it("every SQL balance write is keyed by its own (user_id, leave_type_id) and gated on tracks_balance", () => {
-    for (const f of ["lib/accrual/postgres-store.ts", "lib/leave-requests/postgres-store.ts"]) {
+    for (const f of [
+      "lib/accrual/postgres-store.ts",
+      "lib/leave-requests/postgres-store.ts",
+      "lib/resolutions/postgres-store.ts", // TASK-033
+    ]) {
       const src = readFileSync(path.join(root, f), "utf8");
       const s = normalise(src);
       expect(s, f).toMatch(
@@ -160,5 +172,67 @@ describe("registry — the reviewed writers, and nothing else", () => {
     expect(
       normalise(readFileSync(path.join(root, "lib/accrual/postgres-store.ts"), "utf8")),
     ).toMatch(/insert into leave_balances.{0,300}where t\.tracks_balance/);
+    // TASK-033: a resolution credit only ever reaches a tracked type's balance
+    expect(
+      normalise(readFileSync(path.join(root, "lib/resolutions/postgres-store.ts"), "utf8")),
+    ).toMatch(/insert into leave_balances.{0,200}where t\.id = \$2 and t\.tracks_balance/);
+  });
+});
+
+describe("TASK-029 — balance ledger writers", () => {
+  it.each<[string, string, boolean]>([
+    ["SQL insert", "insert into balance_ledger (user_id) values ($1)", true],
+    [
+      "CTE insert",
+      "with u as (update x set y = 1 returning *) insert into public.balance_ledger select * from u",
+      true,
+    ],
+    ["mock push", "mockDb.balanceLedger.push(row)", true],
+    ["memory helper", "appendLedger({ userId, delta: -2 })", true],
+    ["row mutation", "const e = mockDb.balanceLedger[0]; e.delta = 1", true],
+    ["select", "select delta from balance_ledger where user_id = $1", false],
+    ["mock read", "mockDb.balanceLedger.filter((e) => e.userId === id)", false],
+  ])("detector: %s → %s", (_l, src, expected) => {
+    expect(writesTable(src, "balance_ledger")).toBe(expected);
+  });
+
+  it("balance_ledger is written only by the reviewed decide + accrual stores (and the mock store)", () => {
+    expect(writersOf("balance_ledger")).toEqual([
+      "lib/accrual/memory-store.ts",
+      "lib/accrual/postgres-store.ts",
+      "lib/data/mock/store.ts", // appendLedger (the memory mirror) + resetMockDb
+      "lib/leave-requests/memory-store.ts",
+      "lib/leave-requests/postgres-store.ts",
+      "lib/resolutions/memory-store.ts", // TASK-033 conversion + recovery rows
+      "lib/resolutions/postgres-store.ts",
+    ]);
+  });
+
+  it("every leave_balances writer ALSO writes balance_ledger (a new writer must add its ledger row)", () => {
+    const ledgerWriters = new Set(writersOf("balance_ledger"));
+    const missing = writersOf("leave_balances").filter((f) => !ledgerWriters.has(f));
+    expect(missing).toEqual([]);
+  });
+
+  it("TASK-028: the cancellation credit and its ledger row are ONE statement that reverses the approval", () => {
+    const s = normalise(
+      readFileSync(path.join(root, "lib/leave-requests/postgres-store.ts"), "utf8"),
+    );
+    expect(s).toMatch(
+      /select 0 - delta from balance_ledger where source_key = 'approval:' .{0,400}upserted as \( insert into leave_balances .{0,400}returning user_id, leave_type_id, balance \) insert into balance_ledger .{0,300}'cancellation'/,
+    );
+  });
+
+  it("in SQL the ledger row is written in the SAME statement as the balance change", () => {
+    for (const f of [
+      "lib/accrual/postgres-store.ts",
+      "lib/leave-requests/postgres-store.ts",
+      "lib/resolutions/postgres-store.ts", // TASK-033
+    ]) {
+      const s = normalise(readFileSync(path.join(root, f), "utf8"));
+      expect(s, f).toMatch(
+        /with upserted as \( insert into leave_balances .{0,400}returning user_id, leave_type_id, balance \) insert into balance_ledger/,
+      );
+    }
   });
 });

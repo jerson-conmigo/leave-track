@@ -77,3 +77,14 @@ export function initials(name: string): string {
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
 }
+
+const monthFmt = new Intl.DateTimeFormat("en-US", {
+  month: "long",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+/** "2027-01-01" → "January 2027" (TASK-032 recovery periods; UTC, so no off-by-one month). */
+export function formatMonth(period: string): string {
+  return plain(monthFmt.format(new Date(toUtc(period))));
+}

@@ -8,15 +8,16 @@ import { decideLeaveRequestAction } from "./actions";
 export const metadata: Metadata = { title: "Approvals" };
 
 export default async function ApprovalsPage() {
-  const session = await requireRole("manager");
-  // Scoped to direct reports in the data layer — never filtered client-side (BR-02).
+  const session = await requireRole("manager", "hr_admin");
+  // Scoped in SQL (can_decide) to the requests this user may decide — never filtered
+  // client-side (BR-02, BR-10; TASK-026).
   const requests = await repository.listTeamRequests(session.userId, { status: "pending" });
 
   return (
     <>
       <PageHeader
         title="Approvals"
-        description="Pending leave requests from your direct reports."
+        description="Pending leave requests that are waiting for your decision."
       />
       <ApprovalQueue requests={requests} onDecide={decideLeaveRequestAction} />
     </>

@@ -47,9 +47,9 @@ export const accrualRuns: AccrualRun[] = [
 ];
 
 export const leaveTypes: LeaveType[] = [
-  { id: LEAVE_TYPE_IDS.Vacation, name: "Vacation", tracksBalance: true },
-  { id: LEAVE_TYPE_IDS.Sick, name: "Sick", tracksBalance: true },
-  { id: LEAVE_TYPE_IDS.Unpaid, name: "Unpaid", tracksBalance: false },
+  { id: LEAVE_TYPE_IDS.Vacation, name: "Vacation", tracksBalance: true, maxBackdateDays: 0 },
+  { id: LEAVE_TYPE_IDS.Sick, name: "Sick", tracksBalance: true, maxBackdateDays: 30 },
+  { id: LEAVE_TYPE_IDS.Unpaid, name: "Unpaid", tracksBalance: false, maxBackdateDays: 0 },
 ];
 
 export const users: User[] = [

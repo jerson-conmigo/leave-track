@@ -1,4 +1,5 @@
 import { AppError, type ErrorCode } from "@/lib/api/errors";
+import { MAX_LENGTH_MESSAGE, OVERLAP_MESSAGE } from "@/lib/validation/leave-request";
 
 /**
  * Translate known database constraint violations into the app's error envelope,
@@ -20,6 +21,138 @@ const BY_CONSTRAINT: Record<string, { sqlstate: string; code: ErrorCode; message
     code: "CONFLICT",
     message: "This leave type still has balances or policies.",
   },
+  // TASK-026: nobody decides their own request (backstop behind can_decide; 403 like the app).
+  leave_requests_no_self_decision: {
+    sqlstate: "23514",
+    code: "FORBIDDEN",
+    message: "You can't decide your own leave request.",
+  },
+  // TASK-027 (US-16, BR-13): request integrity backstops — 400 like the app's own checks.
+  leave_requests_no_overlap: {
+    sqlstate: "23P01", // exclusion_violation
+    code: "VALIDATION_ERROR",
+    message: OVERLAP_MESSAGE,
+  },
+  leave_requests_max_length: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: MAX_LENGTH_MESSAGE,
+  },
+  leave_requests_backdate_window: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "This start date is too far in the past for this leave type.",
+  },
+  // TASK-029: the balance ledger is append-only and records each change once.
+  balance_ledger_source_key_key: {
+    sqlstate: "23505",
+    code: "CONFLICT",
+    message: "This balance change was already recorded.",
+  },
+  balance_ledger_append_only: {
+    sqlstate: "23001",
+    code: "CONFLICT",
+    message: "Balance history can't be changed.",
+  },
+  // TASK-030: one outbox row per (event, recipient) — a replay is refused.
+  notification_outbox_idempotency_key_key: {
+    sqlstate: "23505",
+    code: "CONFLICT",
+    message: "This notification was already queued.",
+  },
+  // TASK-028: cancellation backstops.
+  audit_log_one_cancellation_per_request: {
+    sqlstate: "23505",
+    code: "CONFLICT",
+    message: "This request has already been cancelled.",
+  },
+  leave_requests_cancel_final: {
+    sqlstate: "23514",
+    code: "CONFLICT",
+    message: "A cancelled request can't be changed.",
+  },
+  // TASK-033: responses and HR review.
+  balance_resolutions_applied_consistent: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "Applied amounts don't match the resolution's status.",
+  },
+  balance_resolutions_closed_consistent: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "Only open resolutions can be left without a closing time.",
+  },
+  balance_resolutions_final_reason_length: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "The reason must be 3 to 500 characters.",
+  },
+  // TASK-031: resolution schema (US-09, ADR-E006).
+  balance_resolutions_status_valid: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "Unknown resolution status.",
+  },
+  balance_resolutions_deficit_positive: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "A resolution needs a deficit to resolve.",
+  },
+  balance_resolutions_amounts_nonnegative: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "Resolution amounts can't be negative.",
+  },
+  balance_resolutions_amounts_match_deficit: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "Unpaid and recovery days must add up to the deficit.",
+  },
+  balance_resolutions_recovery_schedule: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "A recovery needs a start month and at least one month.",
+  },
+  balance_resolutions_proposal_number_range: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "A deficit can be proposed at most twice.",
+  },
+  balance_resolutions_one_open: {
+    sqlstate: "23505",
+    code: "CONFLICT",
+    message: "There's already an open resolution for this balance.",
+  },
+  balance_recoveries_resolution_period_key: {
+    sqlstate: "23505",
+    code: "CONFLICT",
+    message: "This month's recovery is already scheduled.",
+  },
+  balance_recoveries_amount_positive: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "A recovery amount must be positive.",
+  },
+  balance_recoveries_period_month: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "A recovery period must be the first of a month.",
+  },
+  balance_resolution_events_action_valid: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "Unknown resolution event.",
+  },
+  balance_resolution_events_append_only: {
+    sqlstate: "23001",
+    code: "CONFLICT",
+    message: "Resolution history can't be changed.",
+  },
+  app_settings_resolution_response_days_range: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "The response deadline must be 1 to 14 days.",
+  },
   leave_requests_date_range: {
     sqlstate: "23514",
     code: "VALIDATION_ERROR",
@@ -34,6 +167,16 @@ const BY_CONSTRAINT: Record<string, { sqlstate: string; code: ErrorCode; message
     sqlstate: "23505",
     code: "CONFLICT",
     message: "This month has already been accrued.",
+  },
+  users_auth_user_id_key: {
+    sqlstate: "23505",
+    code: "CONFLICT",
+    message: "This sign-in is already linked to another user.",
+  },
+  users_email_lower_key: {
+    sqlstate: "23505",
+    code: "CONFLICT",
+    message: "A user with this email already exists.",
   },
 };
 

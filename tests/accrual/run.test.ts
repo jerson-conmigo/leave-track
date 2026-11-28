@@ -1,10 +1,10 @@
 import type { PGlite } from "@electric-sql/pglite";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { createPostgresAccrualStore } from "@/lib/accrual/postgres-store";
 import { runMonthlyAccrual } from "@/lib/accrual/run";
 import { LEAVE_TYPE_IDS, USER_IDS, users } from "@/lib/data/mock/fixtures";
 import type { SqlClient } from "@/lib/db/sql";
-import { createTestDb } from "../db/helpers";
+import { closeAfterEachTest, createTestDb } from "../db/helpers";
 
 /**
  * TASK-017 / US-07 — monthly accrual against real Postgres (PGlite) with the seed
@@ -16,13 +16,12 @@ const DEC = new Date("2026-12-02T02:00:00Z");
 
 let db: PGlite;
 let sql: SqlClient;
-const dbs: PGlite[] = [];
+const track = closeAfterEachTest(); // B30: each test's database closes after that test
 
 beforeEach(async () => {
   ({ db, sql } = await createTestDb());
-  dbs.push(db);
+  track(db);
 });
-afterAll(async () => Promise.all(dbs.map((d) => d.close())));
 
 const run = (now: Date, client: SqlClient = sql, trigger: "cron" | "manual" = "manual") =>
   runMonthlyAccrual({ store: createPostgresAccrualStore(client) }, { trigger, now });

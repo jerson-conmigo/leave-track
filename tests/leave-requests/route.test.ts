@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LEAVE_TYPE_IDS, USER_IDS } from "@/lib/data/mock/fixtures";
 import { mockDb } from "@/lib/data/mock/store";
+import { future } from "../support/dates";
 
 /**
  * TASK-011 / TASK-012 — POST and GET /api/leave-requests: HTTP contract and envelope (ARCH).
@@ -33,8 +34,8 @@ const post = (body: string) =>
 
 const validBody = JSON.stringify({
   leaveTypeId: LEAVE_TYPE_IDS.Sick,
-  startDate: "2027-03-01",
-  endDate: "2027-03-02",
+  startDate: future("2027-03-01"),
+  endDate: future("2027-03-02"),
   reason: "Recovering from surgery",
 });
 
@@ -81,7 +82,11 @@ describe("POST /api/leave-requests", () => {
   it("400 VALIDATION_ERROR envelope when end date is before start date (AC2), nothing written", async () => {
     const before = mockDb.leaveRequests.length;
     const res = await post(
-      JSON.stringify({ ...JSON.parse(validBody), startDate: "2027-03-10", endDate: "2027-03-01" }),
+      JSON.stringify({
+        ...JSON.parse(validBody),
+        startDate: future("2027-03-10"),
+        endDate: future("2027-03-01"),
+      }),
     );
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({
@@ -95,8 +100,8 @@ describe("POST /api/leave-requests", () => {
     const res = await post(
       JSON.stringify({
         leaveTypeId: LEAVE_TYPE_IDS.Vacation,
-        startDate: "2027-04-05",
-        endDate: "2027-04-09",
+        startDate: future("2027-04-05"),
+        endDate: future("2027-04-09"),
         reason: "Trip",
       }),
     );
@@ -203,17 +208,27 @@ describe("GET /api/leave-requests?scope=team (TASK-013)", () => {
     expect(spoofed.data).toEqual(own.data);
   });
 
-  it.each([
-    ["an employee", ANA_SESSION],
-    ["an HR admin", CARLA_SESSION],
-  ])("403 FORBIDDEN for %s", async (_label, session) => {
-    getSession.mockResolvedValue(session);
+  it("403 FORBIDDEN for an employee", async () => {
+    getSession.mockResolvedValue(ANA_SESSION);
     const res = await get("?scope=team");
     expect(res.status).toBe(403);
     expect(await res.json()).toEqual({
       success: false,
-      error: { code: "FORBIDDEN", message: "Only managers can view a team queue." },
+      error: {
+        code: "FORBIDDEN",
+        message: "Only managers and HR Admins can view an approvals queue.",
+      },
     });
+  });
+
+  it("TASK-026: an HR Admin's queue holds only the managers who report to them — no employees", async () => {
+    getSession.mockResolvedValue(CARLA_SESSION);
+    const res = await get("?scope=team&status=all");
+    expect(res.status).toBe(200);
+    const { data } = await res.json();
+    const MANAGERS = new Set<string>([USER_IDS.ben, USER_IDS.maya]);
+    expect(data.requests.length).toBeGreaterThan(0);
+    expect(data.requests.every((r: Row) => MANAGERS.has(r.employee.id))).toBe(true);
   });
 
   it("401 without a session", async () => {

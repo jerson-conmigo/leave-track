@@ -1,11 +1,12 @@
 import type { PGlite } from "@electric-sql/pglite";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { LEAVE_TYPE_IDS, users, USER_IDS } from "@/lib/data/mock/fixtures";
 import { mockRepository } from "@/lib/data/mock/repository";
 import { createPostgresRepository } from "@/lib/data/postgres-repository";
 import type { LeaveRepository } from "@/lib/data/repositories";
 import type { SqlClient } from "@/lib/db/sql";
-import { createTestDb } from "../db/helpers";
+import { closeAfterEachTest, createTestDb, asHistorical } from "../db/helpers";
+import { future } from "../support/dates";
 
 /**
  * TASK-012 — Postgres reads against real Postgres (PGlite) with the seed.
@@ -18,18 +19,14 @@ const { Vacation, Sick } = LEAVE_TYPE_IDS;
 let db: PGlite;
 let sql: SqlClient;
 let repo: LeaveRepository;
-const dbs: PGlite[] = [];
+const track = closeAfterEachTest(); // B30: each test's database closes after that test
 
 beforeEach(async () => {
   const t = await createTestDb();
   db = t.db;
   sql = t.sql;
-  dbs.push(db);
+  track(db);
   repo = createPostgresRepository(t.sql);
-});
-
-afterAll(async () => {
-  await Promise.all(dbs.map((d) => d.close()));
 });
 
 const insertPending = (userId: string, leaveTypeId: string, start: string, end: string) =>
@@ -69,7 +66,7 @@ describe("AC1 — current balance per leave type, as of the last accrual run", (
 
   it("reports asOf null when no accrual has ever run", async () => {
     const fresh = await createTestDb();
-    dbs.push(fresh.db);
+    track(fresh.db);
     await fresh.db.exec(`truncate accrual_runs`);
     const balances = await createPostgresRepository(fresh.sql).getBalances(USER_IDS.ana);
     expect(balances.map((b) => b.asOf)).toEqual([null, null, null]);
@@ -91,9 +88,9 @@ describe("AC2 — pending amounts shown separately from the confirmed balance", 
   });
 
   it("picks up a newly submitted pending request and drops a soft-deleted one", async () => {
-    const [{ id }] = (await insertPending(USER_IDS.ana, Sick, "2027-03-01", "2027-03-02")).rows as [
-      { id: string },
-    ];
+    const [{ id }] = (
+      await insertPending(USER_IDS.ana, Sick, future("2027-03-01"), future("2027-03-02"))
+    ).rows as [{ id: string }];
     expect((await repo.getBalances(USER_IDS.ana))[1]).toMatchObject({ pending: 2, available: 3 });
     await db.query(`update leave_requests set is_deleted = true where id = $1`, [id]);
     expect((await repo.getBalances(USER_IDS.ana))[1]).toMatchObject({ pending: 0, available: 5 });
@@ -159,17 +156,25 @@ async function seedMiasTeam() {
       `insert into leave_balances (user_id, leave_type_id, balance) values ($1, $2, 10)`,
       [id, Vacation],
     );
-    await insertPending(id, Vacation, `2027-0${(i % 9) + 1}-01`, `2027-0${(i % 9) + 1}-02`);
+    await insertPending(
+      id,
+      Vacation,
+      future(`2027-0${(i % 9) + 1}-01`),
+      future(`2027-0${(i % 9) + 1}-02`),
+    );
   }
   // One report also has an already-approved request.
-  await db.query(
-    `insert into leave_requests (user_id, leave_type_id, start_date, end_date, reason, status, decided_by, decided_at)
-     values ($1, $2, '2026-06-01', '2026-06-01', 'old', 'approved', $3, now())`,
-    [MIA_REPORTS[0], Sick, MIA],
+  // TASK-027: a historical row — inserted through the seed's escape hatch (test fixture).
+  await asHistorical(db, (tx) =>
+    tx.query(
+      `insert into leave_requests (user_id, leave_type_id, start_date, end_date, reason, status, decided_by, decided_at)
+       values ($1, $2, '2026-06-01', '2026-06-01', 'old', 'approved', $3, now())`,
+      [MIA_REPORTS[0], Sick, MIA],
+    ),
   );
   // Decoys that must never appear in Mia's queue: Mia's OWN request, and one of Ben's employees.
-  await insertPending(MIA, Vacation, "2027-08-01", "2027-08-02");
-  await insertPending(USER_IDS.ana, Sick, "2027-08-03", "2027-08-03");
+  await insertPending(MIA, Vacation, future("2027-08-01"), future("2027-08-02"));
+  await insertPending(USER_IDS.ana, Sick, future("2027-08-03"), future("2027-08-03"));
 }
 
 describe("TASK-013 AC1 — a manager with 5 direct reports sees exactly those 5, no others", () => {
@@ -243,7 +248,7 @@ describe("TASK-013 AC2 — an org-chart change moves pending requests to the new
 });
 
 describe("TASK-013 — scoping is enforced IN SQL, not in application code (BR-02)", () => {
-  it("every statement listTeamRequests sends filters on u.manager_id = $1 with the manager id", async () => {
+  it("every statement listTeamRequests sends filters on public.can_decide($1, …) with the viewer's id (TASK-026)", async () => {
     const seen: { text: string; params: readonly unknown[] }[] = [];
     const recording: SqlClient = {
       query: (text, params = []) => {
@@ -257,7 +262,7 @@ describe("TASK-013 — scoping is enforced IN SQL, not in application code (BR-0
     });
     expect(seen.length).toBeGreaterThan(0);
     for (const q of seen) {
-      expect(q.text).toMatch(/where\s+u\.manager_id\s*=\s*\$1/i);
+      expect(q.text).toMatch(/where\s+public\.can_decide\(\s*\$1\s*,\s*[rb]\.user_id\s*\)/i);
       expect(q.params[0]).toBe(USER_IDS.ben);
     }
   });

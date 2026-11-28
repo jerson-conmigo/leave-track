@@ -1,4 +1,4 @@
-import { CircleCheck, CircleX, Clock, type LucideIcon } from "lucide-react";
+import { Ban, CircleCheck, CircleX, Clock, type LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { RequestStatus } from "@/lib/data/types";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,12 @@ const STATUS_META: Record<RequestStatus, { label: string; icon: LucideIcon; clas
     label: "Rejected",
     icon: CircleX,
     className: "bg-status-rejected text-status-rejected-foreground",
+  },
+  // TASK-028: withdrawn while pending, or approved leave cancelled before it started.
+  cancelled: {
+    label: "Cancelled",
+    icon: Ban,
+    className: "bg-status-cancelled text-status-cancelled-foreground",
   },
 };
 
