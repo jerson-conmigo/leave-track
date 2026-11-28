@@ -1,12 +1,13 @@
-import "server-only";
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import { cache } from "react";
-import { fromCookieJar } from "@/lib/auth/cookie-io";
-import { SESSION_COOKIE } from "@/lib/auth/cookies";
-import { getAuthProvider, NO_PROVIDER_SESSION } from "@/lib/auth/provider";
-import { repository } from "@/lib/data/repositories";
-import type { Role } from "@/lib/data/types";
+import 'server-only';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { cache } from 'react';
+import { fromCookieJar } from '@/lib/auth/cookie-io';
+import { SESSION_COOKIE } from '@/lib/auth/cookies';
+import { getAuthProvider, NO_PROVIDER_SESSION } from '@/lib/auth/provider';
+import { sessionPolicy } from '@/lib/auth/session-policy';
+import { repository } from '@/lib/data/repositories';
+import type { Role } from '@/lib/data/types';
 
 export type Session = {
   userId: string;
@@ -52,15 +53,47 @@ export const getSession = cache(async (): Promise<Session | null> => {
   };
 });
 
+/** What the client idle warning needs (TASK-025). Times are epoch SECONDS. */
+export type SessionTiming = {
+  /** When the session ends without further activity (never after absoluteExpiresAt). */
+  idleExpiresAt: number;
+  /** The 8-hour absolute limit — no activity can move it. */
+  absoluteExpiresAt: number;
+  idleTimeoutSeconds: number;
+  warningSeconds: number;
+  heartbeatIntervalSeconds: number;
+};
+
+/**
+ * Timing of the CURRENT session, for the idle warning and the heartbeat response. Read only —
+ * the cookie is renewed by proxy.ts. `activityAt` is when the server last counted activity
+ * (proxy.ts renews `lat` on this very request when needed, so callers pass "now").
+ * Call after getSession() has authenticated the request; null without a valid token.
+ */
+export async function getSessionTiming(
+  activityAt: number = Math.floor(Date.now() / 1000)
+): Promise<SessionTiming | null> {
+  const claims = getAuthProvider().readSessionToken((await cookies()).get(SESSION_COOKIE)?.value);
+  if (!claims) return null;
+  const policy = sessionPolicy();
+  return {
+    idleExpiresAt: Math.min(Math.max(claims.lat, activityAt) + policy.idleSeconds, claims.exp),
+    absoluteExpiresAt: claims.exp,
+    idleTimeoutSeconds: policy.idleSeconds,
+    warningSeconds: policy.warningSeconds,
+    heartbeatIntervalSeconds: policy.heartbeatIntervalSeconds,
+  };
+}
+
 export async function requireSession(): Promise<Session> {
   const session = await getSession();
-  if (!session) redirect("/login");
+  if (!session) redirect('/login');
   return session;
 }
 
 /** Defense in depth behind proxy.ts — call at the top of role-gated pages. */
 export async function requireRole(...roles: Role[]): Promise<Session> {
   const session = await requireSession();
-  if (!roles.includes(session.role)) redirect("/forbidden");
+  if (!roles.includes(session.role)) redirect('/forbidden');
   return session;
 }

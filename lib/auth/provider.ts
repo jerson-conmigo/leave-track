@@ -1,10 +1,17 @@
-import type { CookieIO } from "@/lib/auth/cookie-io";
-import { SESSION_MAX_AGE_SECONDS } from "@/lib/auth/cookies";
-import { getSessionSecret } from "@/lib/auth/session-secret";
-import { signSessionToken, verifySessionToken, type SessionClaims } from "@/lib/auth/session-token";
-import { supabaseAccount } from "@/lib/auth/supabase/adapter";
-import type { User } from "@/lib/data/types";
-import { env } from "@/lib/env";
+import type { CookieIO } from '@/lib/auth/cookie-io';
+import { SESSION_MAX_AGE_SECONDS } from '@/lib/auth/cookies';
+import { sessionPolicy } from '@/lib/auth/session-policy';
+import { getSessionSecret } from '@/lib/auth/session-secret';
+import {
+  newSessionId,
+  renewClaims,
+  signSessionToken,
+  verifySessionToken,
+  type SessionClaims,
+} from '@/lib/auth/session-token';
+import { supabaseAccount } from '@/lib/auth/supabase/adapter';
+import type { User } from '@/lib/data/types';
+import { env } from '@/lib/env';
 
 /**
  * Auth port (ADR-LeaveTrack-E004). Callers (login actions, the account pages, proxy.ts,
@@ -17,17 +24,17 @@ import { env } from "@/lib/env";
  *    `users.auth_user_id` — never by email.
  * Authorization always comes from the users row (getSession), never from either token.
  */
-export type EmailLinkType = "invite" | "recovery";
+export type EmailLinkType = 'invite' | 'recovery';
 export type ProviderResult = { ok: true; authUserId: string } | { ok: false };
 
 /** Returned by `currentProviderUser` for an adapter without a provider session (mock). */
-export const NO_PROVIDER_SESSION = "no-provider-session";
+export const NO_PROVIDER_SESSION = 'no-provider-session';
 
 export interface AuthProvider {
-  readonly name: "mock" | "supabase";
-  /** A new signed session token for `user` (a fresh token on every sign-in). */
-  createSessionToken(user: Pick<User, "id" | "role">): string;
-  /** Verified claims, or null for a missing, forged, tampered or expired token. */
+  readonly name: 'mock' | 'supabase';
+  /** A new signed session token for `user`: a NEW session (new sid) on every sign-in. */
+  createSessionToken(user: Pick<User, 'id' | 'role'>): string;
+  /** Verified claims, or null for a missing, forged, tampered, expired or IDLE token. */
   readSessionToken(token: string | undefined): SessionClaims | null;
   /** proxy.ts: keep the provider session fresh. False = no live provider session. */
   refresh(io: CookieIO): Promise<boolean>;
@@ -47,20 +54,43 @@ export interface AuthProvider {
   signOut(io: CookieIO): Promise<void>;
 }
 
+const nowSeconds = () => Math.floor(Date.now() / 1000);
+
 const sessionTokens = {
-  createSessionToken(user: Pick<User, "id" | "role">) {
-    const iat = Math.floor(Date.now() / 1000);
+  createSessionToken(user: Pick<User, 'id' | 'role'>) {
+    const iat = nowSeconds();
     return signSessionToken(
-      { uid: user.id, role: user.role, iat, exp: iat + SESSION_MAX_AGE_SECONDS },
-      getSessionSecret(),
+      {
+        uid: user.id,
+        role: user.role,
+        sid: newSessionId(),
+        iat,
+        lat: iat,
+        exp: iat + SESSION_MAX_AGE_SECONDS,
+      },
+      getSessionSecret()
     );
   },
   readSessionToken(token: string | undefined) {
     if (!token) return null;
-    const result = verifySessionToken(token, getSessionSecret());
+    const result = verifySessionToken(
+      token,
+      getSessionSecret(),
+      nowSeconds(),
+      sessionPolicy().idleSeconds
+    );
     return result.ok ? result.claims : null;
   },
 };
+
+/**
+ * TASK-025 sliding idle window: the same session after activity at `now` — only `lat` moves;
+ * `exp` (the 8-hour absolute limit) is copied, never recomputed. Written to the cookie only
+ * by renewSession in lib/auth/sign-in.ts, which only proxy.ts calls.
+ */
+export function renewSessionToken(claims: SessionClaims, now: number = nowSeconds()): string {
+  return signSessionToken(renewClaims(claims, now), getSessionSecret());
+}
 
 /**
  * Mock adapter — DEV/TEST ONLY: sign-in picks a seeded user without credentials, and
@@ -68,7 +98,7 @@ const sessionTokens = {
  * with AUTH_PROVIDER=mock.
  */
 export const mockAuthProvider: AuthProvider = {
-  name: "mock",
+  name: 'mock',
   ...sessionTokens,
   refresh: async () => true,
   currentProviderUser: async () => NO_PROVIDER_SESSION,
@@ -81,11 +111,11 @@ export const mockAuthProvider: AuthProvider = {
 
 /** Supabase Auth adapter (TASK-024) — every deployed environment. */
 export const supabaseAuthProvider: AuthProvider = {
-  name: "supabase",
+  name: 'supabase',
   ...sessionTokens,
   ...supabaseAccount,
 };
 
 export function getAuthProvider(): AuthProvider {
-  return env.AUTH_PROVIDER === "supabase" ? supabaseAuthProvider : mockAuthProvider;
+  return env.AUTH_PROVIDER === 'supabase' ? supabaseAuthProvider : mockAuthProvider;
 }

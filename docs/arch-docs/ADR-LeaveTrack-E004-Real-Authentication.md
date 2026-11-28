@@ -9,7 +9,7 @@ adapter (`lib/auth/supabase/`, `@supabase/ssr` 0.12.7, `@supabase/supabase-js` 2
 password sign-in, invite (`npm run user:invite`, which sets `users.auth_user_id`), password
 reset, provider-session refresh in `proxy.ts`, a server-side liveness check in `getSession`,
 and revoking sign-out. The provider session proves identity; the app's signed `lt-session`
-names the linked user. Session policy (TASK-025), MFA (TASK-046), RLS (TASK-042) and the
+names the linked user. Session policy (TASK-025) is built. MFA (TASK-046), RLS (TASK-042) and the
 admin invite UI (TASK-043) remain.
 
 ## Context
@@ -40,8 +40,9 @@ Option 1. Concretely:
   the database:** role, manager and active status are re-read on every request, never trusted
   from token claims, so admin changes take effect immediately.
 - `proxy.ts` refreshes the provider session; pages still call `requireRole()`.
-- Session policy (TASK-025): idle timeout (default 30 min, configurable), 8 h absolute limit,
-  a new session on every sign-in, sign-in rate limits.
+- Session policy (TASK-025, **built**): idle timeout (default 30 min, configurable), 8 h absolute limit,
+  a new session on every sign-in, sign-in rate limits (token v2 with a sliding `lat`; see AGENTS
+  security rules).
 - MFA (TASK-046): TOTP mandatory for HR Admins; optional TOTP or emailed one-time code for others.
 - Versions are resolved from the registry at implementation time and pinned exactly.
 

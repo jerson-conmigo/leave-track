@@ -90,7 +90,7 @@ notifications           (id, recipient_id, type, payload jsonb, read_at, created
 notification_outbox     (id, idempotency_key unique, channel, payload, status, attempts,
                          next_attempt_at, sent_at)                               -- ADR-E007
 leave_policy_versions   (id, user_id, leave_type_id, accrual_per_month, effective_from) -- TASK-039
-rate_limits             (key, window_start, count)                               -- TASK-041
+rate_limits             (key, bucket, count)    -- built in TASK-025 (sign-in); TASK-041 extends
 pending_email_changes   (id, user_id, new_email, status, decided_by, decided_at) -- TASK-045
 ```
 
@@ -120,7 +120,7 @@ mappings for every new named constraint. Server actions mirror the routes.
 ### Security changes
 
 - Signed, httpOnly, `SameSite=Lax`, `Secure` sessions; idle timeout (default 30 min) plus 8 h
-  absolute; new session on every sign-in (TASK-023 – TASK-025).
+  absolute; new session on every sign-in (TASK-023 – TASK-025; built).
 - MFA (TOTP) mandatory for HR Admins (TASK-046).
 - `safeRedirectPath` compares parsed origins and rejects control characters (TASK-020).
 - Production fails closed without `DATABASE_URL`, auth secrets or `CRON_SECRET` (TASK-019).

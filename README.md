@@ -224,6 +224,20 @@ Both are **development only**: they return 404 in every deployed environment.
 - The document is generated from the zod schemas (`lib/api/openapi.ts`, `lib/api/schemas.ts`)
   and checked against the OpenAPI 3.1 schema and the real handlers by `tests/api/`.
 
+### Sessions and sign-in protection (TASK-025)
+
+- You're signed out after **30 minutes without activity** (`SESSION_IDLE_TIMEOUT_MINUTES`,
+  5–480) and always **8 hours after signing in**, however active you are. The server enforces
+  both on every request.
+- A minute before the idle limit, a warning shows a countdown. Pressing a key, clicking or
+  scrolling the page, **Stay signed in** or Esc keeps you signed in; **Log out** signs out every
+  open tab. Near the 8-hour limit the warning can't extend the session.
+- Every sign-in starts a new session. Signed in and opening `/login?next=…` takes you to that
+  page (same-site paths only).
+- After **5 failed sign-ins for one email** (or 20 from one IP) within 15 minutes, sign-in is
+  refused for that email or IP until the window passes, even with the right password. The
+  counters are kept in the `rate_limits` table (migration `20261201000000_rate_limits.sql`).
+
 ### Known limitations
 
 - **Notifications are log-only** (backlog B6): `leave_request.submitted` / `leave_request.decided`

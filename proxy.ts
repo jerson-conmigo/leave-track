@@ -1,8 +1,10 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { proxyCookieIO } from "@/lib/auth/cookie-io";
-import { SESSION_COOKIE } from "@/lib/auth/cookies";
-import { getAuthProvider } from "@/lib/auth/provider";
-import { canAccess, isPublicPath } from "@/lib/auth/roles";
+import { NextResponse, type NextRequest } from 'next/server';
+import { proxyCookieIO } from '@/lib/auth/cookie-io';
+import { SESSION_COOKIE } from '@/lib/auth/cookies';
+import { getAuthProvider } from '@/lib/auth/provider';
+import { canAccess, isPublicPath } from '@/lib/auth/roles';
+import { HEARTBEAT_PATH, sessionPolicy, shouldRenew } from '@/lib/auth/session-policy';
+import { renewSession } from '@/lib/auth/sign-in';
 
 /**
  * Route guard (Next.js 16 `proxy`, ADR-LeaveTrack-E001).
@@ -22,14 +24,14 @@ export async function proxy(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   // The role here only routes the request; pages and APIs re-read the user (getSession).
   const claims = provider.readSessionToken(token);
-  const isApi = pathname.startsWith("/api/");
+  const isApi = pathname.startsWith('/api/');
 
   // Fail closed: a refresh error or an unreachable provider counts as signed out.
   if (!claims || !(await provider.refresh(cookies.io))) {
     const response = isApi
       ? NextResponse.json(
-          { success: false, error: { code: "UNAUTHENTICATED", message: "Sign in to continue." } },
-          { status: 401 },
+          { success: false, error: { code: 'UNAUTHENTICATED', message: 'Sign in to continue.' } },
+          { status: 401 }
         )
       : NextResponse.redirect(loginUrl(request, pathname, search));
     if (token) response.cookies.delete(SESSION_COOKIE); // forged / tampered / expired / orphaned
@@ -42,28 +44,51 @@ export async function proxy(request: NextRequest) {
         NextResponse.json(
           {
             success: false,
-            error: { code: "FORBIDDEN", message: "You don't have access to this resource." },
+            error: { code: 'FORBIDDEN', message: "You don't have access to this resource." },
           },
-          { status: 403 },
-        ),
+          { status: 403 }
+        )
       );
     }
-    return cookies.applyTo(NextResponse.redirect(new URL("/forbidden", request.url)));
+    return cookies.applyTo(NextResponse.redirect(new URL('/forbidden', request.url)));
   }
 
   // Refreshed provider cookies reach the browser AND the page rendered for this request.
-  return cookies.applyTo(NextResponse.next({ request }));
+  // TASK-025 sliding idle window: activity renews `lat`; the absolute expiry never moves.
+  const response = NextResponse.next({ request });
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const renew = shouldRenew(
+    {
+      nowSeconds,
+      lat: claims.lat,
+      isHeartbeat: pathname === HEARTBEAT_PATH && request.method === 'POST',
+      isPrefetch: isPrefetch(request),
+    },
+    sessionPolicy()
+  );
+  if (renew) renewSession(response.cookies, claims, nowSeconds);
+  return cookies.applyTo(response);
+}
+
+/** Prefetches aren't user activity (Next's router, or the browser's speculative loads). */
+function isPrefetch(request: NextRequest): boolean {
+  const h = request.headers;
+  return (
+    h.has('next-router-prefetch') ||
+    h.get('purpose') === 'prefetch' ||
+    (h.get('sec-purpose') ?? '').includes('prefetch')
+  );
 }
 
 function loginUrl(request: NextRequest, pathname: string, search: string): URL {
-  const login = new URL("/login", request.url);
-  if (pathname !== "/") login.searchParams.set("next", `${pathname}${search}`);
+  const login = new URL('/login', request.url);
+  if (pathname !== '/') login.searchParams.set('next', `${pathname}${search}`);
   return login;
 }
 
 export const config = {
   // Skip Next internals and static files.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icon.svg|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    '/((?!_next/static|_next/image|favicon.ico|icon.svg|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 };

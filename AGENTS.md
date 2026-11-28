@@ -110,10 +110,23 @@ document's "Revision v1.1" section and `docs/dev-tasks/epic-2-hardening-and-reso
   is one **signed** cookie (`lt-session`, HMAC-SHA256 with `SESSION_SECRET`, verified in
   constant time). Authorization always comes from the `users` row (`getSession`), never from
   token claims; the role in the token only routes `proxy.ts`. Tokens are created and verified only
-  through `lib/auth/provider.ts`; only `lib/auth/sign-in.ts` (`completeSignIn`) writes the
-  `lt-session` cookie, only `proxy.ts` and `lib/auth/session.ts` read it, and only
-  `lib/auth/supabase/*` touches Supabase clients or their `sb-*` cookies (all pinned by
-  `tests/auth/session-boundary.test.ts`).
+  through `lib/auth/provider.ts`; only `lib/auth/sign-in.ts` writes the `lt-session` cookie
+  (`completeSignIn` at sign-in, and `renewSession` for the sliding idle window, which only
+  `proxy.ts` calls), only `proxy.ts` and `lib/auth/session.ts` read it, no client component
+  imports the session modules, and only `lib/auth/supabase/*` touches Supabase clients or their
+  `sb-*` cookies (all pinned by `tests/auth/session-boundary.test.ts`).
+- Session limits (TASK-025): token v2 carries `sid` (new on every sign-in), `iat`, `lat` (last
+  activity) and `exp` (sign-in + 8 h). The server rejects a session idle for
+  `SESSION_IDLE_TIMEOUT_MINUTES` (default 30, 5–480; `lib/auth/session-policy.ts` is the only
+  source) or past `exp`. Activity renews `lat` only: `exp` is copied, never recomputed, and a
+  renewed cookie's max age is `exp − now`. Prefetches don't count as activity. The client idle
+  warning (`components/session/idle-session-guard.tsx`) is UX only, reads its timing from the
+  server, and never enforces anything; v1 tokens are rejected.
+- Sign-in throttling (TASK-025; TASK-041 extends the same `lib/rate-limit/` store): failed
+  password sign-ins are limited to 5 per email and 20 per IP in 15 minutes, checked before the
+  provider is called, with one message whether or not the account exists. Keys are HMACs (no
+  raw email or IP stored or logged); the client IP is trusted only on Vercel; the limiter
+  fails closed. Counters live in Postgres (`rate_limits`), so limits hold across instances.
 - Supabase Auth (TASK-024): a provider identity maps to a user **only** through
   `users.auth_user_id`, set by an administrator's invite (`npm run user:invite`) — never by
   matching emails at sign-in. No self-registration. `proxy.ts` refreshes the provider session
