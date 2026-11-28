@@ -3,7 +3,7 @@ import {
   RETAIN_SECONDS,
   windowStart,
   type RateLimitStore,
-} from '@/lib/rate-limit/store';
+} from "@/lib/rate-limit/store";
 
 /** In-process adapter: tests and local runs without DATABASE_URL. Never used when deployed
  *  (a deployment requires DATABASE_URL, which selects the Postgres adapter). */

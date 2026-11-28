@@ -21,7 +21,7 @@ import type { ActionResult, RequestStatus, TeamRequestView } from "@/lib/data/ty
 import { formatDate, formatDateRange, formatDays } from "@/lib/format";
 
 type ApprovalQueueProps = {
-  /** Already scoped server-side to the manager's direct reports (BR-02). */
+  /** Already scoped server-side to the requests this user may decide (BR-02, TASK-026). */
   requests: TeamRequestView[];
   /** Day 0 default persists nothing; Day 1 passes the TASK-014 server action. */
   onDecide?: (requestId: string, decision: Decision, reason?: string) => Promise<ActionResult>;
@@ -61,7 +61,7 @@ export function ApprovalQueue({ requests, onDecide = mockSubmit }: ApprovalQueue
       <EmptyState
         icon={ClipboardCheck}
         title="You're all caught up"
-        description="There are no pending leave requests from your direct reports."
+        description="There are no pending leave requests waiting for your decision."
       />
     );
   }
@@ -120,7 +120,7 @@ export function ApprovalQueue({ requests, onDecide = mockSubmit }: ApprovalQueue
 
   return (
     <>
-      <ul aria-label="Pending requests from your team" className="flex flex-col gap-3 md:hidden">
+      <ul aria-label="Pending requests awaiting you" className="flex flex-col gap-3 md:hidden">
         {requests.map((r) => (
           <li key={r.id} className="rounded-lg border bg-card p-4 shadow-xs">
             <div className="flex items-start justify-between gap-3">
@@ -143,7 +143,7 @@ export function ApprovalQueue({ requests, onDecide = mockSubmit }: ApprovalQueue
       </ul>
 
       <div className="hidden rounded-lg border bg-card shadow-xs md:block">
-        <Table aria-label="Pending requests from your team">
+        <Table aria-label="Pending requests awaiting you">
           <TableHeader>
             <TableRow>
               <TableHead>Employee</TableHead>

@@ -26,8 +26,8 @@ import type {
  *                        migration completed in TASK-015 — backlog B13 closed)
  *   DATABASE_URL unset → in-memory mock (`mockRepository`)
  * Rules for the Postgres implementation:
- *   - `listTeamRequests` MUST filter `WHERE manager_id = :managerId` in SQL (BR-02) —
- *     done in TASK-013; tests/data/postgres-repository.test.ts asserts it structurally.
+ *   - `listTeamRequests` MUST filter `WHERE public.can_decide(:approverId, <requester>)` in SQL
+ *     (BR-02/BR-10, TASK-026) — tests/data/postgres-repository.test.ts asserts it structurally.
  *   - Every leave_requests read MUST exclude `is_deleted = true`; never hard-delete.
  */
 export interface LeaveRepository {
@@ -41,7 +41,7 @@ export interface LeaveRepository {
   listLeaveTypes(): Promise<LeaveType[]>;
   getBalances(userId: string): Promise<BalanceSummary[]>;
   listMyRequests(userId: string): Promise<LeaveRequestView[]>;
-  listTeamRequests(managerId: string, opts?: { status?: "pending" }): Promise<TeamRequestView[]>;
+  listTeamRequests(approverId: string, opts?: { status?: "pending" }): Promise<TeamRequestView[]>;
   /** All-employees event log, newest first, capped at AUDIT_LOG_LIMIT. */
   listAudit(filter: AuditFilter): Promise<AuditEntryView[]>;
   /** One employee's non-deleted requests with decisions and events; null if no such user. */

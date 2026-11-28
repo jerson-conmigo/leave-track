@@ -20,6 +20,12 @@ const BY_CONSTRAINT: Record<string, { sqlstate: string; code: ErrorCode; message
     code: "CONFLICT",
     message: "This leave type still has balances or policies.",
   },
+  // TASK-026: nobody decides their own request (backstop behind can_decide; 403 like the app).
+  leave_requests_no_self_decision: {
+    sqlstate: "23514",
+    code: "FORBIDDEN",
+    message: "You can't decide your own leave request.",
+  },
   leave_requests_date_range: {
     sqlstate: "23514",
     code: "VALIDATION_ERROR",

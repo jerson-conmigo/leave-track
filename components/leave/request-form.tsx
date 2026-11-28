@@ -69,7 +69,7 @@ export function RequestForm({ leaveTypes, balances, onSubmit = mockSubmit }: Req
       return;
     }
     const overBalance = result.warnings?.some((w) => w.code === "EXCEEDS_BALANCE");
-    toast.success("Request sent to your manager", {
+    toast.success("Request sent for approval", {
       description: overBalance
         ? "It's more than your available balance, so HR will review it for an override."
         : "You'll see the decision under My requests.",

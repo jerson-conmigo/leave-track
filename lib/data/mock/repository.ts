@@ -10,6 +10,7 @@ import {
   type User,
 } from "@/lib/data/types";
 import { toRequestView } from "@/lib/data/views";
+import { approverLabel, canDecide } from "@/lib/leave-requests/approver";
 import { countDays } from "@/lib/format";
 
 // Same array instances as mockDb, so in-memory writes are visible to every read.
@@ -36,7 +37,13 @@ function userName(id: string | null): string | null {
 }
 
 function toView(r: LeaveRequest): LeaveRequestView {
-  return toRequestView(r, typeOf(r.leaveTypeId).name, userName(r.decidedBy));
+  // TASK-026: "Awaiting …" from the CURRENT org chart (mirrors SQL approver_label).
+  return toRequestView(
+    r,
+    typeOf(r.leaveTypeId).name,
+    userName(r.decidedBy),
+    approverLabel(users, r.userId),
+  );
 }
 
 const newestFirst = (a: { createdAt: string }, b: { createdAt: string }) =>
@@ -80,10 +87,11 @@ export const mockRepository: LeaveRepository = {
       .map(toView);
   },
 
-  async listTeamRequests(managerId, opts) {
-    // Mirrors the Day 1 SQL: JOIN users u ON u.id = r.user_id WHERE u.manager_id = :managerId
+  async listTeamRequests(approverId, opts) {
+    // Mirrors the SQL: WHERE public.can_decide(:approverId, r.user_id) (TASK-026 — a manager's
+    // reports; for an HR Admin also the managers who report to them and HR peers without one).
     const reports = new Map<string, User>(
-      users.filter((u) => u.managerId === managerId).map((u) => [u.id, u]),
+      users.filter((u) => canDecide(users, approverId, u.id)).map((u) => [u.id, u]),
     );
     return active()
       .filter((r) => reports.has(r.userId))

@@ -95,7 +95,7 @@ describe("POST /api/leave-requests/:id/decision", () => {
       success: false,
       error: {
         code: "FORBIDDEN",
-        message: "You can only decide requests from your direct reports.",
+        message: "You can only decide requests that are waiting for you.",
       },
     });
     expect(mockDb.leaveRequests.find((r) => r.id === req(5))?.status).toBe("pending");

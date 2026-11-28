@@ -239,7 +239,7 @@ describe("TASK-013 AC2 — an org-chart change moves pending requests to the new
 });
 
 describe("TASK-013 — scoping is enforced IN SQL, not in application code (BR-02)", () => {
-  it("every statement listTeamRequests sends filters on u.manager_id = $1 with the manager id", async () => {
+  it("every statement listTeamRequests sends filters on public.can_decide($1, …) with the viewer's id (TASK-026)", async () => {
     const seen: { text: string; params: readonly unknown[] }[] = [];
     const recording: SqlClient = {
       query: (text, params = []) => {
@@ -253,7 +253,7 @@ describe("TASK-013 — scoping is enforced IN SQL, not in application code (BR-0
     });
     expect(seen.length).toBeGreaterThan(0);
     for (const q of seen) {
-      expect(q.text).toMatch(/where\s+u\.manager_id\s*=\s*\$1/i);
+      expect(q.text).toMatch(/where\s+public\.can_decide\(\s*\$1\s*,\s*[rb]\.user_id\s*\)/i);
       expect(q.params[0]).toBe(USER_IDS.ben);
     }
   });

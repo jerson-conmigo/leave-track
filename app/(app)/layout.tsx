@@ -1,6 +1,6 @@
-import { AppShell } from '@/components/layout/app-shell';
-import { IdleSessionGuard } from '@/components/session/idle-session-guard';
-import { getSessionTiming, requireSession } from '@/lib/auth/session';
+import { AppShell } from "@/components/layout/app-shell";
+import { IdleSessionGuard } from "@/components/session/idle-session-guard";
+import { getSessionTiming, requireSession } from "@/lib/auth/session";
 
 export default async function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();

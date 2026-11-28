@@ -52,7 +52,7 @@ test.describe("submit-request form on mobile", () => {
 
     await field.reason(page).fill("Family trip");
     await field.submit(page).tap();
-    await expect(page.locator("[data-sonner-toast]")).toContainText("Request sent to your manager");
+    await expect(page.locator("[data-sonner-toast]")).toContainText("Request sent for approval");
     await expectNoHorizontalOverflow(page);
   });
 
@@ -75,7 +75,7 @@ test.describe("submit-request form on mobile", () => {
     await field.submit(page).tap();
 
     const toast = page.locator("[data-sonner-toast]");
-    await expect(toast).toContainText("Request sent to your manager");
+    await expect(toast).toContainText("Request sent for approval");
     const t = (await toast.boundingBox())!;
     expect(t.x).toBeGreaterThanOrEqual(0);
     expect(t.x + t.width).toBeLessThanOrEqual(vw + 1);
@@ -162,7 +162,7 @@ test.describe("submit-request form on mobile", () => {
     await page.keyboard.type("Keyboard-only request");
     await field.submit(page).focus();
     await page.keyboard.press("Enter");
-    await expect(page.locator("[data-sonner-toast]")).toContainText("Request sent to your manager");
+    await expect(page.locator("[data-sonner-toast]")).toContainText("Request sent for approval");
   });
 
   test("visible focus indicator on every form control, the menu button and the user menu", async ({
@@ -211,7 +211,7 @@ test("Unpaid: no balance warning even for a long range, and it submits (US-08 AC
   await expect(page.getByText(/more than your .* balance/)).toHaveCount(0);
   await page.locator('textarea[name="reason"]').fill("Sabbatical");
   await page.getByRole("button", { name: "Submit request" }).tap();
-  await expect(page.locator("[data-sonner-toast]")).toContainText("Request sent to your manager");
+  await expect(page.locator("[data-sonner-toast]")).toContainText("Request sent for approval");
 });
 
 test("sign-in through the real login form works by touch on mobile", async ({ page }) => {

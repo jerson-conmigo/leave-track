@@ -1,4 +1,5 @@
 import type { LeaveRequest, LeaveType } from "@/lib/data/types";
+import type { Approver } from "@/lib/leave-requests/approver";
 
 /** Validated input for a new request. `userId` always comes from the session. */
 export type NewLeaveRequest = {
@@ -12,7 +13,8 @@ export type NewLeaveRequest = {
 export type Requester = {
   id: string;
   name: string;
-  manager: { id: string; name: string; email: string } | null;
+  /** Who may decide this person's requests (TASK-026, BR-10); null = nobody → submit is 409. */
+  approver: Approver;
 };
 
 /**
@@ -33,13 +35,19 @@ export interface SubmitStore {
   getRequester(userId: string): Promise<Requester | null>;
   getBalanceContext(userId: string, leaveTypeId: string): Promise<BalanceContext>;
   /** Inserts the pending request AND its `submitted` audit row atomically (BR-04). */
-  insertRequestWithAudit(input: NewLeaveRequest): Promise<LeaveRequest>;
+  /**
+   * Insert the request and its `submitted` audit row in one transaction — ONLY if the requester
+   * still has an eligible approver (checked in the same transaction). Null = no approver: nothing
+   * was written (TASK-026 AC3).
+   */
+  insertRequestWithAudit(input: NewLeaveRequest): Promise<LeaveRequest | null>;
 }
 
 export type DecideInput = {
   requestId: string;
   /** Always the session manager — never from the request body. */
-  managerId: string;
+  /** The deciding user (manager or HR Admin); eligibility is checked by the store (can_decide). */
+  actorId: string;
   decision: "approve" | "reject";
   reason: string | undefined;
   /** Day counting stays in the service (countDays, backlog B5). */
@@ -52,12 +60,13 @@ export type DecideOutcome =
       request: LeaveRequest;
       leaveType: LeaveType;
       employee: { id: string; name: string; email: string };
-      manager: { id: string; name: string };
+      /** Who decided (the actor). */
+      decidedBy: { id: string; name: string };
       days: number;
       /** Balance after the decrement; null when no balance changed (reject / untracked). */
       balanceAfter: number | null;
     }
-  | { ok: false; reason: "not_found" | "not_report" | "already_decided" };
+  | { ok: false; reason: "not_found" | "own_request" | "not_report" | "already_decided" };
 
 /** Persistence port for manager decisions (TASK-014). */
 export interface DecideStore {

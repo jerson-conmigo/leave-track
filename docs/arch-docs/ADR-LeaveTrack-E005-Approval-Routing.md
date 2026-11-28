@@ -30,3 +30,11 @@ to be enforced in SQL.
 - Negative: in organisations with a single HR Admin, that person cannot request leave until a
   second HR Admin or a manager is assigned (D2) — surfaced as a clear error.
 - Regression focus: the manager-scope structural tests, the approvals e2e, `decide.ts` and both stores.
+
+## Implementation note (TASK-026)
+
+Built as described, with one change approved during planning (D-B): the self-decision backstop is
+a declarative CHECK constraint (`leave_requests_no_self_decision`: `decided_by IS NULL OR
+decided_by <> user_id`) rather than a trigger — the same guarantee with no code path. The rule is
+one SQL function, `public.can_decide`; `has_approver` and `approver_label` are defined through it.
+This ADR's status is unchanged (Proposed) pending architect-of-record sign-off.

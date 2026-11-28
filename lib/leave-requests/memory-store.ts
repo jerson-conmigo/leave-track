@@ -1,5 +1,6 @@
 import { mockDb } from "@/lib/data/mock/store";
 import type { LeaveRequest } from "@/lib/data/types";
+import { canDecide, hasApprover } from "@/lib/leave-requests/approver";
 import type { DecideStore, SubmitStore } from "@/lib/leave-requests/store";
 
 /**
@@ -15,11 +16,18 @@ export const memorySubmitStore: SubmitStore = {
   async getRequester(userId) {
     const user = mockDb.users.find((u) => u.id === userId);
     if (!user) return null;
+    // TASK-026: the same rule as SQL can_decide / has_approver (approver.ts, parity-tested).
     const manager = user.managerId ? mockDb.users.find((u) => u.id === user.managerId) : undefined;
+    const managerDecides = !!manager && canDecide(mockDb.users, manager.id, user.id);
     return {
       id: user.id,
       name: user.name,
-      manager: manager ? { id: manager.id, name: manager.name, email: manager.email } : null,
+      approver:
+        manager && managerDecides
+          ? { kind: "manager", id: manager.id, name: manager.name, email: manager.email }
+          : hasApprover(mockDb.users, user.id)
+            ? { kind: "hr" }
+            : null,
     };
   },
 
@@ -42,6 +50,8 @@ export const memorySubmitStore: SubmitStore = {
   },
 
   async insertRequestWithAudit(input) {
+    // TASK-026 AC3: nothing is written when nobody may decide the request (mirrors SQL).
+    if (!hasApprover(mockDb.users, input.userId)) return null;
     const now = new Date().toISOString();
     const request: LeaveRequest = {
       id: crypto.randomUUID(),
@@ -72,18 +82,21 @@ export const memorySubmitStore: SubmitStore = {
  * checks, so the update, decrement and audit row land together or not at all.
  */
 export const memoryDecideStore: DecideStore = {
-  async decideWithAudit({ requestId, managerId, decision, reason, daysFor }) {
+  async decideWithAudit({ requestId, actorId, decision, reason, daysFor }) {
     const request = mockDb.leaveRequests.find((r) => r.id === requestId);
     if (!request || request.isDeleted) return { ok: false, reason: "not_found" };
+    if (request.userId === actorId) return { ok: false, reason: "own_request" };
     const employee = mockDb.users.find((u) => u.id === request.userId);
-    if (!employee || employee.managerId !== managerId) return { ok: false, reason: "not_report" };
+    if (!employee || !canDecide(mockDb.users, actorId, employee.id)) {
+      return { ok: false, reason: "not_report" };
+    }
     if (request.status !== "pending") return { ok: false, reason: "already_decided" };
     // Mirrors the DB backstop (audit_log_one_decision_per_request).
     if (mockDb.auditLog.some((a) => a.leaveRequestId === requestId && a.action !== "submitted")) {
       throw new Error("duplicate decision for request (audit_log_one_decision_per_request)");
     }
     const leaveType = mockDb.leaveTypes.find((t) => t.id === request.leaveTypeId)!;
-    const manager = mockDb.users.find((u) => u.id === managerId)!;
+    const actor = mockDb.users.find((u) => u.id === actorId)!;
     const status = decision === "approve" ? "approved" : "rejected";
     const now = new Date().toISOString();
     const days = daysFor(request.startDate, request.endDate);
@@ -110,14 +123,14 @@ export const memoryDecideStore: DecideStore = {
 
     Object.assign(request, {
       status,
-      decidedBy: managerId,
+      decidedBy: actorId,
       decidedAt: now,
       decisionReason: reason ?? null,
     });
     mockDb.auditLog.push({
       id: crypto.randomUUID(),
       leaveRequestId: request.id,
-      actorId: managerId,
+      actorId,
       action: status,
       occurredAt: now,
     });
@@ -127,7 +140,7 @@ export const memoryDecideStore: DecideStore = {
       request: { ...request },
       leaveType,
       employee: { id: employee.id, name: employee.name, email: employee.email },
-      manager: { id: manager.id, name: manager.name },
+      decidedBy: { id: actor.id, name: actor.name },
       days,
       balanceAfter,
     };

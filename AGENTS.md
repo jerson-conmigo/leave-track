@@ -62,9 +62,14 @@ document's "Revision v1.1" section and `docs/dev-tasks/epic-2-hardening-and-reso
    name, never message text.
 3. **Validate every boundary with zod** — request bodies, query params, server action input,
    env vars. Client-side validation is UX only; the server always re-validates.
-4. **Manager scoping is enforced in SQL** — `WHERE u.manager_id = :current_user_id` inside the
-   query itself, never by filtering results in application code (BR-02, US-03 AC3, US-04).
-   Acting on a non-direct-report's request returns **403**.
+4. **Approver scoping is enforced in SQL** — `WHERE public.can_decide(:current_user_id, <requester>)`
+   inside the query itself, never by filtering results in application code (BR-02, BR-10, US-03 AC3,
+   US-04, US-15; TASK-026). The rule (one SQL function, `supabase/migrations/20261202000000_approval_routing.sql`):
+   a manager decides their direct reports; an HR Admin decides the managers who report to them and
+   other HR Admins without a manager; **nobody decides their own request** (also a CHECK constraint,
+   `leave_requests_no_self_decision`). Acting on a request that isn't waiting for you returns **403**;
+   submitting when nobody may approve returns **409** and creates nothing (`has_approver`). The
+   in-memory store mirrors the rule in `lib/leave-requests/approver.ts`, parity-tested against SQL.
 5. **Soft delete only.** `leave_requests.is_deleted = true`; every read filters it out. There is
    no hard-delete path — the database rejects `DELETE` on `leave_requests` and `audit_log` (BR-04).
 6. **Every decision writes an `audit_log` row** in the same transaction as the status change.

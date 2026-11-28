@@ -118,7 +118,7 @@ describe("AC1 — approving a direct report's pending request", () => {
         requestId: R.jordanVacation,
         decision: "approved",
         employee: expect.objectContaining({ id: USER_IDS.jordan, name: "Jordan Lee" }),
-        manager: { id: USER_IDS.ben, name: "Ben Ortiz" },
+        decidedBy: { id: USER_IDS.ben, name: "Ben Ortiz" },
       }),
     );
   });
@@ -196,17 +196,24 @@ describe("AC3 — acting on a non-direct-report's request", () => {
     expect(queue.map((r) => r.id)).not.toContain(R.jordanVacation);
   });
 
-  it.each([
-    ["an employee", ANA],
-    ["an HR admin", CARLA],
-  ])("rejects %s before touching the database", async (_l, session) => {
+  it("rejects an employee before touching the database", async () => {
     const store: DecideStore = { decideWithAudit: vi.fn() };
     await expect(
-      decide(session, R.jordanVacation, { decision: "approve" }, store),
-    ).rejects.toMatchObject({
+      decide(ANA, R.jordanVacation, { decision: "approve" }, store),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(store.decideWithAudit).not.toHaveBeenCalled();
+  });
+
+  it("TASK-026: an HR Admin can't decide an EMPLOYEE's request (not waiting for them) — 403, nothing changes", async () => {
+    await expect(decide(CARLA, R.jordanVacation, { decision: "approve" })).rejects.toMatchObject({
       code: "FORBIDDEN",
     });
-    expect(store.decideWithAudit).not.toHaveBeenCalled();
+    const [row] = (
+      await db.query<{ status: string }>(`select status::text from leave_requests where id = $1`, [
+        R.jordanVacation,
+      ])
+    ).rows;
+    expect(row?.status).toBe("pending");
   });
 });
 
@@ -359,7 +366,7 @@ describe("atomicity and SQL scoping", () => {
     expect(await snapshot(R.jordanVacation, USER_IDS.jordan)).toEqual(before);
   });
 
-  it("the decision UPDATE carries the manager scope and the pending guard (BR-02)", async () => {
+  it("the decision UPDATE carries the approver scope and the pending guard (BR-02, TASK-026)", async () => {
     const seen: { text: string; params: readonly unknown[] }[] = [];
     const recording: SqlClient = {
       query: (t, p = []) => sql.query(t, p),
@@ -381,7 +388,9 @@ describe("atomicity and SQL scoping", () => {
       createPostgresDecideStore(recording),
     );
     const update = seen.find((q) => /^\s*update leave_requests/i.test(q.text));
-    expect(update?.text).toMatch(/u\.manager_id\s*=\s*\$2/);
+    // TASK-026: the one approver rule, in the statement itself (BR-02/BR-10).
+    expect(update?.text).toMatch(/public\.can_decide\(\s*\$2\s*,\s*r\.user_id\s*\)/);
+    expect(update?.text).not.toMatch(/u\.manager_id\s*=\s*\$2/);
     expect(update?.text).toMatch(/r\.status\s*=\s*'pending'/);
     expect(update?.params[1]).toBe(USER_IDS.ben);
   });

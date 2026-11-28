@@ -185,6 +185,21 @@ describe("contract: real handlers vs the documented response schemas", () => {
   });
 });
 
+describe("contract: TASK-026 approvals queue for an HR Admin", () => {
+  it("GET ?scope=team as an HR Admin → TeamQueue of the managers' requests", async () => {
+    getSession.mockResolvedValue(CARLA);
+    const team = await expectContract(
+      await list(
+        new NextRequest("http://localhost/api/leave-requests?scope=team&status=all"),
+        undefined,
+      ),
+      200,
+      TeamQueueSchema,
+    );
+    expect(team.data.requests.length).toBeGreaterThan(0);
+  });
+});
+
 describe("contract: documented error statuses come back in the envelope", () => {
   it.each([
     [
@@ -257,6 +272,21 @@ describe("contract: documented error statuses come back in the envelope", () => 
         }),
       CARLA,
       404,
+    ],
+    [
+      "409 submit with no eligible approver (TASK-026: the only HR Admin)",
+      () =>
+        submit(
+          json("http://localhost/api/leave-requests", {
+            leaveTypeId: LEAVE_TYPE_IDS.Vacation,
+            startDate: "2027-06-07",
+            endDate: "2027-06-08",
+            reason: "Conference",
+          }),
+          undefined,
+        ),
+      CARLA,
+      409,
     ],
     [
       "401 accrual without the Bearer token",

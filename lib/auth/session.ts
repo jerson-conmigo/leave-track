@@ -1,13 +1,13 @@
-import 'server-only';
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
-import { cache } from 'react';
-import { fromCookieJar } from '@/lib/auth/cookie-io';
-import { SESSION_COOKIE } from '@/lib/auth/cookies';
-import { getAuthProvider, NO_PROVIDER_SESSION } from '@/lib/auth/provider';
-import { sessionPolicy } from '@/lib/auth/session-policy';
-import { repository } from '@/lib/data/repositories';
-import type { Role } from '@/lib/data/types';
+import "server-only";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { cache } from "react";
+import { fromCookieJar } from "@/lib/auth/cookie-io";
+import { SESSION_COOKIE } from "@/lib/auth/cookies";
+import { getAuthProvider, NO_PROVIDER_SESSION } from "@/lib/auth/provider";
+import { sessionPolicy } from "@/lib/auth/session-policy";
+import { repository } from "@/lib/data/repositories";
+import type { Role } from "@/lib/data/types";
 
 export type Session = {
   userId: string;
@@ -71,7 +71,7 @@ export type SessionTiming = {
  * Call after getSession() has authenticated the request; null without a valid token.
  */
 export async function getSessionTiming(
-  activityAt: number = Math.floor(Date.now() / 1000)
+  activityAt: number = Math.floor(Date.now() / 1000),
 ): Promise<SessionTiming | null> {
   const claims = getAuthProvider().readSessionToken((await cookies()).get(SESSION_COOKIE)?.value);
   if (!claims) return null;
@@ -87,13 +87,13 @@ export async function getSessionTiming(
 
 export async function requireSession(): Promise<Session> {
   const session = await getSession();
-  if (!session) redirect('/login');
+  if (!session) redirect("/login");
   return session;
 }
 
 /** Defense in depth behind proxy.ts — call at the top of role-gated pages. */
 export async function requireRole(...roles: Role[]): Promise<Session> {
   const session = await requireSession();
-  if (!roles.includes(session.role)) redirect('/forbidden');
+  if (!roles.includes(session.role)) redirect("/forbidden");
   return session;
 }

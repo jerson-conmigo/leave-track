@@ -96,6 +96,7 @@ test("mobile nav sheet lists the role's links (HR)", async ({ context, page }) =
     "New request",
     "My requests",
     "Balance",
+    "Approvals", // TASK-026: HR Admins decide their managers' and HR peers' requests
     "Audit report",
     "Leave policies",
   ]);

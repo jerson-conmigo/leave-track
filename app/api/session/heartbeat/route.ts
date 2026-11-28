@@ -1,9 +1,9 @@
-import { AppError } from '@/lib/api/errors';
-import { ok } from '@/lib/api/response';
-import { withErrorHandler } from '@/lib/api/with-error-handler';
-import { getSession, getSessionTiming } from '@/lib/auth/session';
+import { AppError } from "@/lib/api/errors";
+import { ok } from "@/lib/api/response";
+import { withErrorHandler } from "@/lib/api/with-error-handler";
+import { getSession, getSessionTiming } from "@/lib/auth/session";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 /**
  * POST /api/session/heartbeat — the client idle warning's activity signal (TASK-025).
@@ -15,8 +15,8 @@ export const dynamic = 'force-dynamic';
  */
 export const POST = withErrorHandler(async () => {
   const session = await getSession();
-  if (!session) throw new AppError('UNAUTHENTICATED', 'Sign in to continue.');
+  if (!session) throw new AppError("UNAUTHENTICATED", "Sign in to continue.");
   const timing = await getSessionTiming();
-  if (!timing) throw new AppError('UNAUTHENTICATED', 'Sign in to continue.');
-  return ok(timing, { headers: { 'Cache-Control': 'private, no-store' } });
+  if (!timing) throw new AppError("UNAUTHENTICATED", "Sign in to continue.");
+  return ok(timing, { headers: { "Cache-Control": "private, no-store" } });
 });

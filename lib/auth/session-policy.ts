@@ -1,5 +1,5 @@
-import { SESSION_MAX_AGE_SECONDS } from '@/lib/auth/cookies';
-import { IdleTimeoutMinutesSchema } from '@/lib/env';
+import { SESSION_MAX_AGE_SECONDS } from "@/lib/auth/cookies";
+import { IdleTimeoutMinutesSchema } from "@/lib/env";
 
 /**
  * Session timing policy (TASK-025, US-13 AC3) — the ONLY source of these numbers. The server
@@ -30,10 +30,10 @@ export const TOUCH_INTERVAL_SECONDS = 60;
 export const HEARTBEAT_INTERVAL_SECONDS = 30;
 
 export function sessionPolicy(
-  raw: Record<string, string | undefined> = process.env
+  raw: Record<string, string | undefined> = process.env,
 ): SessionPolicy {
   const value = raw.SESSION_IDLE_TIMEOUT_MINUTES;
-  const minutes = IdleTimeoutMinutesSchema.parse(value === '' ? undefined : value);
+  const minutes = IdleTimeoutMinutesSchema.parse(value === "" ? undefined : value);
   return {
     idleSeconds: minutes * 60,
     absoluteSeconds: SESSION_MAX_AGE_SECONDS,
@@ -44,7 +44,7 @@ export function sessionPolicy(
 }
 
 /** POST here is the client's activity heartbeat: proxy.ts always renews it. */
-export const HEARTBEAT_PATH = '/api/session/heartbeat';
+export const HEARTBEAT_PATH = "/api/session/heartbeat";
 
 /**
  * Does this authenticated request renew the idle window? Pure (proxy.ts supplies the facts).
@@ -54,7 +54,7 @@ export const HEARTBEAT_PATH = '/api/session/heartbeat';
  */
 export function shouldRenew(
   facts: { nowSeconds: number; lat: number; isHeartbeat: boolean; isPrefetch: boolean },
-  policy: Pick<SessionPolicy, 'touchIntervalSeconds'>
+  policy: Pick<SessionPolicy, "touchIntervalSeconds">,
 ): boolean {
   if (facts.isPrefetch) return false;
   if (facts.isHeartbeat) return true;

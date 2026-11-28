@@ -30,8 +30,12 @@ export async function decideLeaveRequest(
   rawBody: unknown,
   { store, notifier }: DecideDeps,
 ): Promise<DecideLeaveRequestResult> {
-  if (session.role !== "manager") {
-    throw new AppError("FORBIDDEN", "Only managers can approve or reject leave requests.");
+  // TASK-026: managers and HR Admins may decide; WHICH requests is decided in SQL (can_decide).
+  if (session.role !== "manager" && session.role !== "hr_admin") {
+    throw new AppError(
+      "FORBIDDEN",
+      "Only managers and HR Admins can approve or reject leave requests.",
+    );
   }
   const id = RequestIdSchema.safeParse(requestId);
   if (!id.success) throw new AppError("VALIDATION_ERROR", "Invalid leave request id.");
@@ -43,7 +47,7 @@ export async function decideLeaveRequest(
 
   const outcome = await store.decideWithAudit({
     requestId: id.data,
-    managerId: session.userId,
+    actorId: session.userId,
     decision,
     reason,
     daysFor: countDays,
@@ -51,13 +55,16 @@ export async function decideLeaveRequest(
 
   if (!outcome.ok) {
     if (outcome.reason === "not_found") throw new AppError("NOT_FOUND", "Leave request not found.");
+    if (outcome.reason === "own_request") {
+      throw new AppError("FORBIDDEN", "You can't decide your own leave request.");
+    }
     if (outcome.reason === "not_report") {
-      throw new AppError("FORBIDDEN", "You can only decide requests from your direct reports.");
+      throw new AppError("FORBIDDEN", "You can only decide requests that are waiting for you.");
     }
     throw new AppError("CONFLICT", "This request has already been decided.");
   }
 
-  const { request, leaveType, employee, manager, days, balanceAfter } = outcome;
+  const { request, leaveType, employee, decidedBy, days, balanceAfter } = outcome;
   const warnings: DecideWarning[] = [];
   if (balanceAfter !== null && balanceAfter < 0) {
     warnings.push({
@@ -73,7 +80,7 @@ export async function decideLeaveRequest(
   }
 
   logger.info(
-    { requestId: request.id, managerId: session.userId, decision: request.status, days },
+    { requestId: request.id, actorId: session.userId, decision: request.status, days },
     "leave request decided",
   );
 
@@ -83,7 +90,7 @@ export async function decideLeaveRequest(
       requestId: request.id,
       decision: request.status === "approved" ? "approved" : "rejected",
       employee,
-      manager,
+      decidedBy,
       leaveType: leaveType.name,
       startDate: request.startDate,
       endDate: request.endDate,
@@ -97,5 +104,5 @@ export async function decideLeaveRequest(
     );
   }
 
-  return { request: toRequestView(request, leaveType.name, manager.name), warnings };
+  return { request: toRequestView(request, leaveType.name, decidedBy.name, null), warnings };
 }

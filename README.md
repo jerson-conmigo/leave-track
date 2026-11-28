@@ -182,6 +182,16 @@ Design: ADR-LeaveTrack-E003.
 - **Security:** `CRON_SECRET` is required; the Bearer check (constant-time) runs before any
   database access and fails closed if the secret is unset.
 
+### Approvals (TASK-026)
+
+- **Employees** are approved by their manager; **managers** by the HR Admin they report to; an
+  **HR Admin without a manager** by any other HR Admin. Nobody approves their own request.
+- HR Admins see **Approvals** in the menu with the requests waiting for them.
+- A pending request shows who it's waiting for ("Awaiting Ben Ortiz", or "Awaiting HR").
+- If nobody can approve a person's leave (for example the only HR Admin, or someone with no
+  manager), submitting is refused with a clear message and nothing is created.
+- Moving someone to a new manager moves their pending requests to that manager straight away.
+
 ### HR audit (TASK-015)
 
 - `/audit` — all-employees event log (newest first, capped at 500; narrow the filters for older

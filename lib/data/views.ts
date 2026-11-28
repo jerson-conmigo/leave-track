@@ -9,6 +9,8 @@ export function toRequestView(
   >,
   leaveType: LeaveTypeName,
   decidedByName: string | null,
+  /** TASK-026: who a PENDING request is waiting for (approver_label); ignored once decided. */
+  awaiting: string | null,
 ): LeaveRequestView {
   return {
     id: r.id,
@@ -21,5 +23,6 @@ export function toRequestView(
     createdAt: r.createdAt,
     decidedAt: r.decidedAt,
     decidedByName,
+    awaiting: r.status === "pending" ? awaiting : null,
   };
 }

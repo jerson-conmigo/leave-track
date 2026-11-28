@@ -97,7 +97,7 @@ pending_email_changes   (id, user_id, new_email, status, decided_by, decided_at)
 Invariants carried forward: tracked-type triggers (TASK-018) also guard `balance_ledger`,
 `balance_resolutions` and `balance_recoveries`; event/ledger tables reject UPDATE/DELETE;
 one open resolution per (user, leave type) via a unique partial index; self-approval rejected
-by a trigger (TASK-026).
+by a CHECK constraint, `leave_requests_no_self_decision` (TASK-026, built).
 
 ### API additions (planned)
 

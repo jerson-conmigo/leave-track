@@ -203,17 +203,27 @@ describe("GET /api/leave-requests?scope=team (TASK-013)", () => {
     expect(spoofed.data).toEqual(own.data);
   });
 
-  it.each([
-    ["an employee", ANA_SESSION],
-    ["an HR admin", CARLA_SESSION],
-  ])("403 FORBIDDEN for %s", async (_label, session) => {
-    getSession.mockResolvedValue(session);
+  it("403 FORBIDDEN for an employee", async () => {
+    getSession.mockResolvedValue(ANA_SESSION);
     const res = await get("?scope=team");
     expect(res.status).toBe(403);
     expect(await res.json()).toEqual({
       success: false,
-      error: { code: "FORBIDDEN", message: "Only managers can view a team queue." },
+      error: {
+        code: "FORBIDDEN",
+        message: "Only managers and HR Admins can view an approvals queue.",
+      },
     });
+  });
+
+  it("TASK-026: an HR Admin's queue holds only the managers who report to them — no employees", async () => {
+    getSession.mockResolvedValue(CARLA_SESSION);
+    const res = await get("?scope=team&status=all");
+    expect(res.status).toBe(200);
+    const { data } = await res.json();
+    const MANAGERS = new Set<string>([USER_IDS.ben, USER_IDS.maya]);
+    expect(data.requests.length).toBeGreaterThan(0);
+    expect(data.requests.every((r: Row) => MANAGERS.has(r.employee.id))).toBe(true);
   });
 
   it("401 without a session", async () => {

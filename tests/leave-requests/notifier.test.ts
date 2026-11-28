@@ -18,11 +18,17 @@ describe("logNotifier (interim channel, backlog B6)", () => {
     const info = vi.spyOn(logger, "info").mockImplementation(() => undefined);
     await logNotifier.leaveRequestSubmitted({
       ...notice,
-      manager: { id: "m1", name: "Ben Ortiz", email: "ben.ortiz@leavetrack.test" },
+      approver: {
+        kind: "manager",
+        id: "m1",
+        name: "Ben Ortiz",
+        email: "ben.ortiz@leavetrack.test",
+      },
     });
     expect(info).toHaveBeenCalledWith(
       expect.objectContaining({
         event: "leave_request.submitted",
+        recipients: "manager",
         managerId: "m1",
         requestId: notice.requestId,
       }),
@@ -30,12 +36,19 @@ describe("logNotifier (interim channel, backlog B6)", () => {
     );
   });
 
-  it("warns when the employee has no manager (nobody to notify, backlog B2)", async () => {
+  it("an HR Admin's request is logged ONCE for all HR Admins (TASK-026; B2 closed)", async () => {
+    const info = vi.spyOn(logger, "info").mockImplementation(() => undefined);
     const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
-    await logNotifier.leaveRequestSubmitted({ ...notice, manager: null });
-    expect(warn).toHaveBeenCalledWith(
-      expect.objectContaining({ event: "leave_request.submitted", managerId: null }),
-      expect.stringMatching(/no manager/),
+    await logNotifier.leaveRequestSubmitted({ ...notice, approver: { kind: "hr" } });
+    expect(info).toHaveBeenCalledTimes(1);
+    expect(info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "leave_request.submitted",
+        recipients: "hr_admins",
+        managerId: null,
+      }),
+      expect.stringMatching(/HR Admins notified/),
     );
+    expect(warn).not.toHaveBeenCalled();
   });
 });

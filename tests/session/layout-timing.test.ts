@@ -1,6 +1,6 @@
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { describe, expect, it, vi } from "vitest";
 
 /**
  * TASK-025 — the idle warning never has its own timeout: the authenticated layout passes the
@@ -14,19 +14,19 @@ const timing = {
   warningSeconds: 45,
   heartbeatIntervalSeconds: 20,
 };
-vi.mock('@/lib/auth/session', () => ({
-  requireSession: async () => ({ userId: 'u', role: 'employee', name: 'Ana', email: 'a@b.c' }),
+vi.mock("@/lib/auth/session", () => ({
+  requireSession: async () => ({ userId: "u", role: "employee", name: "Ana", email: "a@b.c" }),
   getSessionTiming: async () => timing,
 }));
-vi.mock('@/components/layout/app-shell', () => ({ AppShell: () => null }));
-vi.mock('@/components/session/idle-session-guard', () => ({ IdleSessionGuard: () => null }));
+vi.mock("@/components/layout/app-shell", () => ({ AppShell: () => null }));
+vi.mock("@/components/session/idle-session-guard", () => ({ IdleSessionGuard: () => null }));
 
-const { default: AuthenticatedLayout } = await import('@/app/(app)/layout');
-const { IdleSessionGuard } = await import('@/components/session/idle-session-guard');
+const { default: AuthenticatedLayout } = await import("@/app/(app)/layout");
+const { IdleSessionGuard } = await import("@/components/session/idle-session-guard");
 
 type El = { type: unknown; props: { children?: unknown } & Record<string, unknown> };
 const find = (node: unknown, type: unknown): El | undefined => {
-  if (!node || typeof node !== 'object') return undefined;
+  if (!node || typeof node !== "object") return undefined;
   const el = node as El;
   if (el.type === type) return el;
   const kids = el.props?.children;
@@ -37,7 +37,7 @@ const find = (node: unknown, type: unknown): El | undefined => {
   return undefined;
 };
 
-describe('idle warning timing comes from the server', () => {
+describe("idle warning timing comes from the server", () => {
   it("the layout passes getSessionTiming's values to the guard, unchanged", async () => {
     const tree = await AuthenticatedLayout({ children: null });
     const guard = find(tree, IdleSessionGuard);
@@ -49,10 +49,10 @@ describe('idle warning timing comes from the server', () => {
     });
   });
 
-  it('the client guard has no timeout constants of its own', () => {
+  it("the client guard has no timeout constants of its own", () => {
     const src = readFileSync(
-      path.resolve(import.meta.dirname, '../../components/session/idle-session-guard.tsx'),
-      'utf8'
+      path.resolve(import.meta.dirname, "../../components/session/idle-session-guard.tsx"),
+      "utf8",
     );
     expect(src).not.toMatch(/\b(1800|30 \* 60|60 \* 30|28800|8 \* 60 \* 60)\b/);
     expect(src).not.toMatch(/SESSION_IDLE_TIMEOUT_MINUTES|session-policy/);

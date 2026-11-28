@@ -65,6 +65,7 @@ export function RequestList({
               {r.decidedByName && r.decidedAt
                 ? ` · ${r.status === "approved" ? "Approved" : "Rejected"} by ${r.decidedByName}`
                 : ""}
+              {r.status === "pending" && r.awaiting ? ` · Awaiting ${r.awaiting}` : ""}
             </p>
           </li>
         ))}
@@ -79,7 +80,7 @@ export function RequestList({
               <TableHead className="text-right">Days</TableHead>
               <TableHead>Reason</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Decided by</TableHead>
+              <TableHead>Approver</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -98,7 +99,11 @@ export function RequestList({
                 <TableCell>
                   <StatusBadge status={r.status} />
                 </TableCell>
-                <TableCell className="text-muted-foreground">{r.decidedByName ?? "—"}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {r.status === "pending" && r.awaiting
+                    ? `Awaiting ${r.awaiting}`
+                    : (r.decidedByName ?? "—")}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

@@ -1,6 +1,6 @@
-import { z } from 'zod';
-import { ERROR_STATUS, type ErrorCode } from '@/lib/api/errors';
-import { AUDIT_ACTIONS, LEAVE_TYPE_NAMES, REQUEST_STATUSES, ROLES } from '@/lib/data/types';
+import { z } from "zod";
+import { ERROR_STATUS, type ErrorCode } from "@/lib/api/errors";
+import { AUDIT_ACTIONS, LEAVE_TYPE_NAMES, REQUEST_STATUSES, ROLES } from "@/lib/data/types";
 
 /**
  * Response schemas of the HTTP API (TASK-057) — the runtime description of what the route
@@ -11,8 +11,8 @@ import { AUDIT_ACTIONS, LEAVE_TYPE_NAMES, REQUEST_STATUSES, ROLES } from '@/lib/
  * Validation only — nothing here changes what the routes do.
  */
 
-const isoDate = z.iso.date().describe('Date, YYYY-MM-DD');
-const isoTimestamp = z.iso.datetime({ offset: true }).describe('ISO 8601 timestamp');
+const isoDate = z.iso.date().describe("Date, YYYY-MM-DD");
+const isoTimestamp = z.iso.datetime({ offset: true }).describe("ISO 8601 timestamp");
 
 export const ErrorCodeSchema = z.enum(Object.keys(ERROR_STATUS) as [ErrorCode, ...ErrorCode[]]);
 
@@ -27,8 +27,8 @@ export const successEnvelope = <T extends z.ZodType>(data: T) =>
   z.object({ success: z.literal(true), data });
 
 export const HealthSchema = z.object({
-  status: z.literal('ok'),
-  env: z.enum(['development', 'staging', 'production']),
+  status: z.literal("ok"),
+  env: z.enum(["development", "staging", "production"]),
   version: z.string().describe('Short commit SHA, or "dev"'),
   timestamp: isoTimestamp,
 });
@@ -45,7 +45,7 @@ export const BalanceSummarySchema = z.object({
   pending: z.number(),
   available: z.number().nullable(),
   accrualPerMonth: z.number().nullable(),
-  asOf: isoTimestamp.nullable().describe('Date of the last accrual run, if any'),
+  asOf: isoTimestamp.nullable().describe("Date of the last accrual run, if any"),
 });
 
 export const LeaveRequestViewSchema = z.object({
@@ -59,6 +59,12 @@ export const LeaveRequestViewSchema = z.object({
   createdAt: isoTimestamp,
   decidedAt: isoTimestamp.nullable(),
   decidedByName: z.string().nullable(),
+  awaiting: z
+    .string()
+    .nullable()
+    .describe(
+      "Pending: the approver's name, or \"HR\" for an HR Admin's request; null once decided",
+    ),
 });
 
 export const TeamRequestViewSchema = LeaveRequestViewSchema.extend({
@@ -74,7 +80,7 @@ export const MyLeaveContextSchema = z.object({
 export const TeamQueueSchema = z.object({ requests: z.array(TeamRequestViewSchema) });
 
 export const SubmitWarningSchema = z.object({
-  code: z.literal('EXCEEDS_BALANCE'),
+  code: z.literal("EXCEEDS_BALANCE"),
   message: z.string(),
   requestedDays: z.number(),
   availableDays: z.number(),
@@ -86,7 +92,7 @@ export const SubmitLeaveRequestResultSchema = z.object({
 });
 
 export const DecideWarningSchema = z.object({
-  code: z.literal('NEGATIVE_BALANCE'),
+  code: z.literal("NEGATIVE_BALANCE"),
   message: z.string(),
   leaveType: z.enum(LEAVE_TYPE_NAMES),
   balanceAfter: z.number(),
@@ -124,22 +130,22 @@ export const EmployeeAuditHistorySchema = z.object({
 export const AccrualResultSchema = z.object({
   accrued: z.array(
     z.object({
-      period: isoDate.describe('Month accrued, YYYY-MM-01 (UTC)'),
+      period: isoDate.describe("Month accrued, YYYY-MM-01 (UTC)"),
       usersAccrued: z.number(),
       daysAccrued: z.number(),
-    })
+    }),
   ),
   upToDate: z.boolean(),
   catchUp: z.boolean(),
 });
 
-const epochSeconds = z.number().int().describe('Unix time, seconds');
+const epochSeconds = z.number().int().describe("Unix time, seconds");
 
 /** POST /api/session/heartbeat (TASK-025). Mirrors SessionTiming (lib/auth/session.ts). */
 export const SessionTimingSchema = z.object({
   idleExpiresAt: epochSeconds,
   absoluteExpiresAt: epochSeconds.describe(
-    'The 8-hour limit since sign-in; activity never moves it'
+    "The 8-hour limit since sign-in; activity never moves it",
   ),
   idleTimeoutSeconds: z.number().int(),
   warningSeconds: z.number().int(),

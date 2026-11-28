@@ -95,7 +95,12 @@ describe("AC1 — a valid submission creates a pending request and notifies the 
       expect.objectContaining({
         requestId: request.id,
         employee: { id: USER_IDS.ana, name: "Ana Reyes" },
-        manager: { id: USER_IDS.ben, name: "Ben Ortiz", email: "ben.ortiz@leavetrack.test" },
+        approver: {
+          kind: "manager",
+          id: USER_IDS.ben,
+          name: "Ben Ortiz",
+          email: "ben.ortiz@leavetrack.test",
+        },
         leaveType: "Sick",
         days: 2,
       }),
@@ -177,12 +182,11 @@ describe("security and robustness", () => {
     ).rejects.toMatchObject({ code: "UNAUTHENTICATED" });
   });
 
-  it("still creates the request for a user with no manager (HR admin)", async () => {
-    const { request } = await submit(CARLA, valid());
-    expect(request.status).toBe("pending");
-    expect(notifier.leaveRequestSubmitted).toHaveBeenCalledWith(
-      expect.objectContaining({ manager: null }),
-    );
+  it("TASK-026 AC3 (B2 closed): the only HR Admin has no approver → 409, nothing created, nobody notified", async () => {
+    const before = await counts();
+    await expect(submit(CARLA, valid())).rejects.toMatchObject({ code: "CONFLICT", status: 409 });
+    expect(await counts()).toEqual(before);
+    expect(notifier.leaveRequestSubmitted).not.toHaveBeenCalled();
   });
 
   it("keeps the request when the notifier fails", async () => {

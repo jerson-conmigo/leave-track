@@ -10,6 +10,9 @@ import { LeaveRequestSchema } from "@/lib/validation/leave-request";
 
 export type SubmitDeps = { store: SubmitStore; notifier: Notifier };
 
+export const NO_APPROVER_MESSAGE =
+  "There's no one to approve your request yet. Contact HR to have an approver assigned.";
+
 /**
  * Submit a leave request (US-01). Shared by POST /api/leave-requests and the
  * form's server action.
@@ -36,6 +39,9 @@ export async function submitLeaveRequest(
 
   const requester = await store.getRequester(session.userId);
   if (!requester) throw new AppError("UNAUTHENTICATED", "Your session is no longer valid.");
+  // TASK-026 AC3 (BR-10): never create a request nobody can decide.
+  const { approver } = requester;
+  if (!approver) throw new AppError("CONFLICT", NO_APPROVER_MESSAGE);
 
   const days = countDays(input.startDate, input.endDate);
   const warnings: SubmitWarning[] = [];
@@ -60,19 +66,21 @@ export async function submitLeaveRequest(
     endDate: input.endDate,
     reason: input.reason,
   });
+  // The approver vanished between the check and the insert (org-chart change): nothing written.
+  if (!request) throw new AppError("CONFLICT", NO_APPROVER_MESSAGE);
 
   try {
     await notifier.leaveRequestSubmitted({
       requestId: request.id,
       employee: { id: requester.id, name: requester.name },
-      manager: requester.manager,
+      approver,
       leaveType: leaveType.name,
       startDate: request.startDate,
       endDate: request.endDate,
       days,
     });
   } catch (error) {
-    logger.error({ err: error, requestId: request.id }, "manager notification failed");
+    logger.error({ err: error, requestId: request.id }, "approver notification failed");
   }
 
   logger.info(
@@ -86,5 +94,6 @@ export async function submitLeaveRequest(
     "leave request submitted",
   );
 
-  return { request: toRequestView(request, leaveType.name, null), warnings };
+  const awaiting = approver.kind === "manager" ? approver.name : "HR";
+  return { request: toRequestView(request, leaveType.name, null, awaiting), warnings };
 }

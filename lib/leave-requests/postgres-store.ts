@@ -49,14 +49,21 @@ export function createPostgresSubmitStore(sql: SqlClient): SubmitStore {
     },
 
     async getRequester(userId) {
+      // TASK-026: the approver comes from the SQL rule (can_decide / has_approver), never from
+      // application logic: the manager when they may decide, otherwise "HR" peers, otherwise none.
       const [row] = await sql.query<{
         id: string;
         name: string;
+        manager_decides: boolean;
         manager_id: string | null;
         manager_name: string | null;
         manager_email: string | null;
+        has_approver: boolean;
       }>(
-        `select u.id, u.name, m.id manager_id, m.name manager_name, m.email manager_email
+        `select u.id, u.name,
+                (m.id is not null and public.can_decide(m.id, u.id)) manager_decides,
+                m.id manager_id, m.name manager_name, m.email manager_email,
+                public.has_approver(u.id) has_approver
          from users u left join users m on m.id = u.manager_id
          where u.id = $1`,
         [userId],
@@ -65,10 +72,17 @@ export function createPostgresSubmitStore(sql: SqlClient): SubmitStore {
       return {
         id: row.id,
         name: row.name,
-        manager:
-          row.manager_id && row.manager_name && row.manager_email
-            ? { id: row.manager_id, name: row.manager_name, email: row.manager_email }
-            : null,
+        approver:
+          row.manager_decides && row.manager_id && row.manager_name && row.manager_email
+            ? {
+                kind: "manager",
+                id: row.manager_id,
+                name: row.manager_name,
+                email: row.manager_email,
+              }
+            : row.has_approver
+              ? { kind: "hr" }
+              : null,
       };
     },
 
@@ -90,13 +104,16 @@ export function createPostgresSubmitStore(sql: SqlClient): SubmitStore {
 
     insertRequestWithAudit(input) {
       return sql.transaction(async (tx) => {
+        // TASK-026 AC3: inserted only while the requester has an eligible approver — checked in
+        // this statement, so a concurrent org-chart change can't leave an orphan request.
         const [row] = await tx.query<RequestRow>(
           `insert into leave_requests (user_id, leave_type_id, start_date, end_date, reason, status)
-           values ($1, $2, $3, $4, $5, 'pending')
+           select $1, $2, $3, $4, $5, 'pending'
+            where public.has_approver($1)
            returning ${REQUEST_COLUMNS}`,
           [input.userId, input.leaveTypeId, input.startDate, input.endDate, input.reason],
         );
-        if (!row) throw new Error("insert into leave_requests returned no row");
+        if (!row) return null; // no approver: nothing written
         await tx.query(
           // occurred_at is taken from the row server-side (microsecond-exact) —
           // never round-tripped through a JS Date (ms precision). Review TASK-011 #1.
@@ -120,8 +137,9 @@ type DecidedRow = RequestRow & {
 
 /**
  * DecideStore over Postgres (TASK-014). One transaction:
- *  (a) UPDATE scoped by `u.manager_id = $2` AND guarded by `r.status = 'pending'` —
- *      BR-02 + no double decision, enforced in the same statement;
+ *  (a) UPDATE scoped by `public.can_decide($2, r.user_id)` (TASK-026: managers decide their
+ *      reports, HR Admins their managers and HR peers, never their own) AND guarded by
+ *      `r.status = 'pending'` — BR-02/BR-10 + no double decision, in the same statement;
  *  (b) on 0 rows, a diagnostic SELECT classifies the outcome (nothing is written);
  *  (c) approve on a tracked type: relative upsert-decrement of that request's own
  *      leave type (`balance - $days`, row-locked — no read-modify-write);
@@ -130,7 +148,7 @@ type DecidedRow = RequestRow & {
  */
 export function createPostgresDecideStore(sql: SqlClient): DecideStore {
   return {
-    decideWithAudit({ requestId, managerId, decision, reason, daysFor }) {
+    decideWithAudit({ requestId, actorId, decision, reason, daysFor }) {
       const status = decision === "approve" ? "approved" : "rejected";
       return sql.transaction(async (tx) => {
         const [row] = await tx.query<DecidedRow>(
@@ -138,30 +156,32 @@ export function createPostgresDecideStore(sql: SqlClient): DecideStore {
               set status = ($3::text)::public.request_status, decided_by = $2, decided_at = now(),
                   decision_reason = $4::text
              from users u, leave_types t, users m
-            where r.id = $1 and u.id = r.user_id and u.manager_id = $2
+            where r.id = $1 and u.id = r.user_id and public.can_decide($2, r.user_id)
               and t.id = r.leave_type_id and m.id = $2
               and r.status = 'pending' and not r.is_deleted
            returning r.id, r.user_id, r.leave_type_id, r.start_date::text, r.end_date::text,
                      r.reason, r.status::text, r.decided_by, r.decided_at, r.decision_reason,
                      r.is_deleted, r.created_at, t.name type_name, t.tracks_balance,
                      u.name employee_name, u.email employee_email, m.name manager_name`,
-          [requestId, managerId, status, reason ?? null],
+          [requestId, actorId, status, reason ?? null],
         );
 
         if (!row) {
           const [found] = await tx.query<{
             status: string;
             is_deleted: boolean;
-            manager_id: string | null;
+            user_id: string;
+            eligible: boolean;
           }>(
-            `select r.status::text, r.is_deleted, u.manager_id
-               from leave_requests r join users u on u.id = r.user_id
+            `select r.status::text, r.is_deleted, r.user_id, public.can_decide($2, r.user_id) eligible
+               from leave_requests r
               where r.id = $1`,
-            [requestId],
+            [requestId, actorId],
           );
           if (!found || found.is_deleted) return { ok: false, reason: "not_found" } as const;
-          // Not-your-report wins over already-decided: never reveal another team's state.
-          if (found.manager_id !== managerId) return { ok: false, reason: "not_report" } as const;
+          if (found.user_id === actorId) return { ok: false, reason: "own_request" } as const;
+          // Not-eligible wins over already-decided: never reveal another team's state.
+          if (!found.eligible) return { ok: false, reason: "not_report" } as const;
           return { ok: false, reason: "already_decided" } as const;
         }
 
@@ -182,7 +202,7 @@ export function createPostgresDecideStore(sql: SqlClient): DecideStore {
         await tx.query(
           `insert into audit_log (leave_request_id, actor_id, action, occurred_at)
            values ($1, $2, ($3::text)::public.audit_action, now())`,
-          [row.id, managerId, status],
+          [row.id, actorId, status],
         );
 
         return {
@@ -194,7 +214,7 @@ export function createPostgresDecideStore(sql: SqlClient): DecideStore {
             tracksBalance: row.tracks_balance,
           },
           employee: { id: row.user_id, name: row.employee_name, email: row.employee_email },
-          manager: { id: managerId, name: row.manager_name },
+          decidedBy: { id: actorId, name: row.manager_name },
           days,
           balanceAfter,
         } as const;

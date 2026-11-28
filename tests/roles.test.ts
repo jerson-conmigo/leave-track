@@ -17,10 +17,10 @@ describe("route access matrix", () => {
     }
   });
 
-  it("limits /approvals to managers", () => {
+  it("limits /approvals to managers and HR Admins (TASK-026; which requests: SQL can_decide)", () => {
     expect(canAccess("/approvals", "manager")).toBe(true);
+    expect(canAccess("/approvals", "hr_admin")).toBe(true);
     expect(canAccess("/approvals", "employee")).toBe(false);
-    expect(canAccess("/approvals", "hr_admin")).toBe(false);
   });
 
   it("limits /audit and /policies to HR admins, including nested paths", () => {

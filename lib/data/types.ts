@@ -96,6 +96,9 @@ export type LeaveRequestView = {
   createdAt: string;
   decidedAt: string | null;
   decidedByName: string | null;
+  /** TASK-026 (US-15 AC4): pending → the approver's name or "HR"; null once decided (or if
+   *  nobody can decide it). Read from the current org chart, so it follows manager changes. */
+  awaiting: string | null;
 };
 
 export type TeamRequestView = LeaveRequestView & {

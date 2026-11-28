@@ -6,7 +6,8 @@ import { ROLES, type Role } from "@/lib/data/types";
  * Routes not listed here are open to every authenticated role.
  */
 export const ROUTE_ACCESS: readonly { prefix: string; roles: readonly Role[] }[] = [
-  { prefix: "/approvals", roles: ["manager"] },
+  // TASK-026: HR Admins decide their managers' and HR peers' requests (scope: SQL can_decide).
+  { prefix: "/approvals", roles: ["manager", "hr_admin"] },
   { prefix: "/audit", roles: ["hr_admin"] },
   { prefix: "/policies", roles: ["hr_admin"] },
 ];

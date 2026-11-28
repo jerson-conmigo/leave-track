@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { SESSION_CHANNEL, type SessionMessage } from '@/lib/session/idle';
+import { useEffect } from "react";
+import { SESSION_CHANNEL, type SessionMessage } from "@/lib/session/idle";
 
 /**
  * Rendered by /login only when this browser has NO session (TASK-025). Cookies are shared by
@@ -10,9 +10,9 @@ import { SESSION_CHANNEL, type SessionMessage } from '@/lib/session/idle';
  */
 export function SignedOutBroadcast() {
   useEffect(() => {
-    if (typeof BroadcastChannel === 'undefined') return;
+    if (typeof BroadcastChannel === "undefined") return;
     const bc = new BroadcastChannel(SESSION_CHANNEL);
-    bc.postMessage({ type: 'signed-out' } satisfies SessionMessage);
+    bc.postMessage({ type: "signed-out" } satisfies SessionMessage);
     bc.close();
   }, []);
   return null;

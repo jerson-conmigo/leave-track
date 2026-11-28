@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { Clock } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useIdleTimer, type EventsType } from 'react-idle-timer';
-import { endSessionAction } from '@/app/(public)/login/actions';
+import { Clock } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useIdleTimer, type EventsType } from "react-idle-timer";
+import { endSessionAction } from "@/app/(public)/login/actions";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,9 +13,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { buttonVariants } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/alert-dialog";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   absoluteComesFirst,
   absoluteWarningAt,
@@ -28,7 +28,7 @@ import {
   shouldAnnounce,
   type SessionMessage,
   type WarningMode,
-} from '@/lib/session/idle';
+} from "@/lib/session/idle";
 
 /** Server-provided timing (lib/auth/session.ts SessionTiming); times are epoch seconds. */
 export type IdleSessionGuardProps = {
@@ -39,10 +39,10 @@ export type IdleSessionGuardProps = {
 };
 
 /** Activity that counts (D2): no mousemove, so a nudged mouse doesn't keep a session alive. */
-const ACTIVITY_EVENTS: EventsType[] = ['keydown', 'pointerdown', 'wheel', 'touchstart', 'scroll'];
-const HEARTBEAT_PATH = '/api/session/heartbeat';
+const ACTIVITY_EVENTS: EventsType[] = ["keydown", "pointerdown", "wheel", "touchstart", "scroll"];
+const HEARTBEAT_PATH = "/api/session/heartbeat";
 /** Buttons wrap at 200 % text on a 320 px screen instead of widening the dialog; ≥ 44 px tall. */
-const WRAP_BUTTON = 'h-auto min-h-11 whitespace-normal md:min-h-9';
+const WRAP_BUTTON = "h-auto min-h-11 whitespace-normal md:min-h-9";
 /** A forced heartbeat right after another (the click that is also "activity") is one signal. */
 const DEDUPE_MS = 2000;
 
@@ -66,7 +66,7 @@ export function IdleSessionGuard({
 }: IdleSessionGuardProps) {
   const [mode, setMode] = useState<WarningMode | null>(null);
   const [remaining, setRemaining] = useState(warningSeconds);
-  const [spoken, setSpoken] = useState('');
+  const [spoken, setSpoken] = useState("");
   const lastHeartbeat = useRef<number | null>(null);
   const channel = useRef<BroadcastChannel | null>(null);
   const ended = useRef(false);
@@ -79,18 +79,18 @@ export function IdleSessionGuard({
 
   /** Leave for /login. Ends the session on the server first (best effort — it may be gone). */
   const signOut = useCallback(
-    async (reason: 'idle' | 'expired' | null, { tell = true } = {}) => {
+    async (reason: "idle" | "expired" | null, { tell = true } = {}) => {
       if (ended.current) return;
       ended.current = true;
-      if (tell) broadcast({ type: 'signed-out', ...(reason ? { reason } : {}) });
+      if (tell) broadcast({ type: "signed-out", ...(reason ? { reason } : {}) });
       try {
         await endSessionAction();
       } catch {
         // The server may already have ended the session (proxy.ts refuses the action).
       }
-      window.location.assign(reason ? loginUrlFor(reason) : '/login');
+      window.location.assign(reason ? loginUrlFor(reason) : "/login");
     },
-    [broadcast]
+    [broadcast],
   );
 
   const sendHeartbeat = useCallback(
@@ -106,14 +106,14 @@ export function IdleSessionGuard({
       }
       lastHeartbeat.current = now;
       try {
-        const res = await fetch(HEARTBEAT_PATH, { method: 'POST', credentials: 'same-origin' });
-        if (res.status === 401) void signOut('expired');
+        const res = await fetch(HEARTBEAT_PATH, { method: "POST", credentials: "same-origin" });
+        if (res.status === 401) void signOut("expired");
       } catch {
         // Offline for a moment: the next activity tries again; the server stays authoritative.
         lastHeartbeat.current = null;
       }
     },
-    [heartbeatIntervalSeconds, signOut]
+    [heartbeatIntervalSeconds, signOut],
   );
 
   const timer = useIdleTimer({
@@ -123,23 +123,23 @@ export function IdleSessionGuard({
     throttle: 500,
     crossTab: true,
     syncTimers: 200,
-    name: 'leavetrack-idle',
+    name: "leavetrack-idle",
     onAction: () => {
       void sendHeartbeat();
     },
     onPrompt: () => {
       // If the 8-hour limit comes first, only the absolute warning applies.
       if (absoluteComesFirst(Date.now(), warningSeconds, absoluteMs)) return;
-      setMode(m => (m === 'absolute' ? m : 'idle'));
+      setMode((m) => (m === "absolute" ? m : "idle"));
     },
     onIdle: () => {
-      void signOut('idle');
+      void signOut("idle");
     },
   });
 
   // Marks <html> once the guard is mounted and its timers run (lets e2e tests wait for it).
   useEffect(() => {
-    document.documentElement.dataset.idleGuard = 'ready';
+    document.documentElement.dataset.idleGuard = "ready";
     return () => {
       delete document.documentElement.dataset.idleGuard;
     };
@@ -153,21 +153,21 @@ export function IdleSessionGuard({
 
   /** Keep the session: close the warning here and in every tab, and tell the server. */
   const stay = useCallback(() => {
-    setMode(m => (m === 'absolute' ? m : null));
+    setMode((m) => (m === "absolute" ? m : null));
     timerRef.current.activate();
-    broadcast({ type: 'active' });
+    broadcast({ type: "active" });
     void sendHeartbeat(true);
   }, [broadcast, sendHeartbeat]);
 
   // Cross-tab messages: another tab stayed signed in, or the browser has no session any more.
   useEffect(() => {
-    if (typeof BroadcastChannel === 'undefined') return;
+    if (typeof BroadcastChannel === "undefined") return;
     const bc = new BroadcastChannel(SESSION_CHANNEL);
     channel.current = bc;
     bc.onmessage = (event: MessageEvent<unknown>) => {
       if (!isSessionMessage(event.data)) return;
-      if (event.data.type === 'active') {
-        setMode(m => (m === 'absolute' ? m : null));
+      if (event.data.type === "active") {
+        setMode((m) => (m === "absolute" ? m : null));
       } else {
         void signOut(event.data.reason ?? null, { tell: false });
       }
@@ -182,8 +182,8 @@ export function IdleSessionGuard({
   useEffect(() => {
     const now = Date.now();
     const warnIn = absoluteWarningAt(absoluteMs, warningSeconds) - now;
-    const warn = setTimeout(() => setMode('absolute'), Math.max(0, warnIn));
-    const end = setTimeout(() => void signOut('expired'), Math.max(0, absoluteMs - now));
+    const warn = setTimeout(() => setMode("absolute"), Math.max(0, warnIn));
+    const end = setTimeout(() => void signOut("expired"), Math.max(0, absoluteMs - now));
     return () => {
       clearTimeout(warn);
       clearTimeout(end);
@@ -195,7 +195,7 @@ export function IdleSessionGuard({
     if (!mode) return;
     const tick = () => {
       const left =
-        mode === 'absolute'
+        mode === "absolute"
           ? (absoluteMs - Date.now()) / 1000
           : timerRef.current.getRemainingTime() / 1000;
       setRemaining(Math.ceil(left));
@@ -210,12 +210,12 @@ export function IdleSessionGuard({
   // as "I'm back". Keys pressed on the dialog's own buttons are left to the buttons, so Enter on
   // "Log out" logs out.
   useEffect(() => {
-    if (mode !== 'idle') return;
+    if (mode !== "idle") return;
     const onActivity = (event: Event) => {
       if (event.target instanceof Node && contentRef.current?.contains(event.target)) return;
       stay();
     };
-    const events = ['pointerdown', 'wheel', 'touchstart'];
+    const events = ["pointerdown", "wheel", "touchstart"];
     for (const e of events) document.addEventListener(e, onActivity, true);
     return () => {
       for (const e of events) document.removeEventListener(e, onActivity, true);
@@ -223,12 +223,12 @@ export function IdleSessionGuard({
   }, [mode, stay]);
 
   const open = mode !== null;
-  const absolute = mode === 'absolute';
+  const absolute = mode === "absolute";
 
   return (
     <AlertDialog
       open={open}
-      onOpenChange={next => {
+      onOpenChange={(next) => {
         if (next) return;
         if (absolute) setMode(null);
         else stay(); // Esc = the safe default: stay signed in
@@ -242,7 +242,7 @@ export function IdleSessionGuard({
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <Clock aria-hidden className="size-5 shrink-0 text-status-pending-foreground" />
-            {absolute ? 'Your session is ending' : 'Are you still there?'}
+            {absolute ? "Your session is ending" : "Are you still there?"}
           </AlertDialogTitle>
           <AlertDialogDescription id="idle-warning-description">
             {absolute
@@ -258,16 +258,16 @@ export function IdleSessionGuard({
         </p>
         <AlertDialogFooter>
           <AlertDialogAction
-            className={cn(buttonVariants({ variant: 'outline' }), WRAP_BUTTON)}
-            onClick={e => {
+            className={cn(buttonVariants({ variant: "outline" }), WRAP_BUTTON)}
+            onClick={(e) => {
               e.preventDefault();
-              void signOut(absolute ? 'expired' : null);
+              void signOut(absolute ? "expired" : null);
             }}
           >
-            {absolute ? 'Sign in again' : 'Log out'}
+            {absolute ? "Sign in again" : "Log out"}
           </AlertDialogAction>
           <AlertDialogCancel className={cn(buttonVariants(), WRAP_BUTTON)}>
-            {absolute ? 'Dismiss' : 'Stay signed in'}
+            {absolute ? "Dismiss" : "Stay signed in"}
           </AlertDialogCancel>
         </AlertDialogFooter>
       </AlertDialogContent>
