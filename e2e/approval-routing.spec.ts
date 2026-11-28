@@ -8,6 +8,7 @@ import {
   tabUntil,
   test,
   USERS,
+  future,
 } from "./helpers";
 
 /**
@@ -35,7 +36,7 @@ test("an employee's pending request says who it is waiting for (AC4)", async ({
 test("a manager's request is decided by their HR Admin (AC1)", async ({ context, page }) => {
   await signInAs(context, "manager", USERS.ben);
   const created = await page.request.post("/api/leave-requests", {
-    data: vacation("2027-04-12", "2027-04-13", "Team offsite recovery"),
+    data: vacation(future("2027-04-12"), future("2027-04-13"), "Team offsite recovery"),
   });
   expect(created.status()).toBe(201);
   expect((await created.json()).data.request.awaiting).toBe("Carla Diaz");
@@ -70,7 +71,7 @@ test("the only HR Admin can't submit: 409 with a clear message, nothing created 
   const before = (await (await page.request.get("/api/leave-requests?scope=mine")).json()).data
     .requests.length;
   const res = await page.request.post("/api/leave-requests", {
-    data: vacation("2027-04-19", "2027-04-20", "Rest"),
+    data: vacation(future("2027-04-19"), future("2027-04-20"), "Rest"),
   });
   expect(res.status()).toBe(409);
   expect(await res.json()).toEqual({
@@ -89,8 +90,8 @@ test("the only HR Admin can't submit: 409 with a clear message, nothing created 
   await page.goto("/requests/new");
   await page.locator('main button[role="combobox"]').tap();
   await page.getByRole("option", { name: /Vacation/ }).tap();
-  await page.locator('input[name="startDate"]').fill("2027-04-19");
-  await page.locator('input[name="endDate"]').fill("2027-04-20");
+  await page.locator('input[name="startDate"]').fill(future("2027-04-19"));
+  await page.locator('input[name="endDate"]').fill(future("2027-04-20"));
   await page.locator('textarea[name="reason"]').fill("Rest");
   await page.getByRole("button", { name: "Submit request" }).tap();
   await expect(page.getByText(/There's no one to approve your request yet/)).toBeVisible();
@@ -104,8 +105,8 @@ test("an HR Admin's /approvals passes the mobile checks (320/375, tap targets, a
   await signInAs(context, "manager", USERS.ben);
   await page.request.post("/api/leave-requests", {
     data: vacation(
-      "2027-05-03",
-      "2027-05-04",
+      future("2027-05-03"),
+      future("2027-05-04"),
       "A long reason that should wrap nicely on a small phone screen",
     ),
   });

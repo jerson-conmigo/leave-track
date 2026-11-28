@@ -13,6 +13,8 @@ import {
   TeamQueueSchema,
 } from "@/lib/api/schemas";
 import { LEAVE_TYPE_IDS, USER_IDS } from "@/lib/data/mock/fixtures";
+import { future } from "../support/dates";
+import { OVERLAP_MESSAGE } from "@/lib/validation/leave-request";
 
 /**
  * TASK-057 — contract tests: the REAL route handlers (in-memory store, mocked session only),
@@ -123,8 +125,8 @@ describe("contract: real handlers vs the documented response schemas", () => {
       await submit(
         json("http://localhost/api/leave-requests", {
           leaveTypeId: LEAVE_TYPE_IDS.Vacation,
-          startDate: "2027-05-03",
-          endDate: "2027-05-04",
+          startDate: future("2027-05-03"),
+          endDate: future("2027-05-04"),
           reason: "Family visit",
         }),
         undefined,
@@ -197,6 +199,30 @@ describe("contract: TASK-026 approvals queue for an HR Admin", () => {
       TeamQueueSchema,
     );
     expect(team.data.requests.length).toBeGreaterThan(0);
+  });
+});
+
+describe("contract: TASK-027 overlap", () => {
+  it("POST an overlapping request → 400 envelope with the overlap message", async () => {
+    getSession.mockResolvedValue(ANA);
+    const body = (start: string, end: string) =>
+      json("http://localhost/api/leave-requests", {
+        leaveTypeId: LEAVE_TYPE_IDS.Vacation,
+        startDate: start,
+        endDate: end,
+        reason: "Family visit",
+      });
+    await expectContract(
+      await submit(body(future("2027-09-06"), future("2027-09-08")), undefined),
+      201,
+      SubmitLeaveRequestResultSchema,
+    );
+    const res = await expectContract(
+      await submit(body(future("2027-09-08"), future("2027-09-09")), undefined),
+      400,
+      ErrorEnvelopeSchema,
+    );
+    expect(res.error.message).toBe(OVERLAP_MESSAGE);
   });
 });
 
@@ -279,8 +305,8 @@ describe("contract: documented error statuses come back in the envelope", () => 
         submit(
           json("http://localhost/api/leave-requests", {
             leaveTypeId: LEAVE_TYPE_IDS.Vacation,
-            startDate: "2027-06-07",
-            endDate: "2027-06-08",
+            startDate: future("2027-06-07"),
+            endDate: future("2027-06-08"),
             reason: "Conference",
           }),
           undefined,

@@ -7,6 +7,7 @@ import type { Notifier } from "@/lib/leave-requests/notifier";
 import { createPostgresSubmitStore } from "@/lib/leave-requests/postgres-store";
 import { submitLeaveRequest } from "@/lib/leave-requests/submit";
 import { closeAfterEachTest, createTestDb } from "../db/helpers";
+import { future } from "../support/dates";
 
 /**
  * TASK-011 / US-01 — the submit service against real Postgres (PGlite) with the
@@ -20,8 +21,8 @@ const { Vacation, Sick, Unpaid } = LEAVE_TYPE_IDS;
 
 const valid = (overrides: Record<string, unknown> = {}) => ({
   leaveTypeId: Sick,
-  startDate: "2027-03-01",
-  endDate: "2027-03-02",
+  startDate: future("2027-03-01"),
+  endDate: future("2027-03-02"),
   reason: "Recovering from surgery",
   ...overrides,
 });
@@ -70,7 +71,12 @@ describe("AC1 — a valid submission creates a pending request and notifies the 
       )
     ).rows;
     expect(rows).toEqual([
-      { user_id: USER_IDS.ana, status: "pending", leave_type_id: Sick, start_date: "2027-03-01" },
+      {
+        user_id: USER_IDS.ana,
+        status: "pending",
+        leave_type_id: Sick,
+        start_date: future("2027-03-01"),
+      },
     ]);
     expect((await counts()).requests).toBe(before.requests + 1);
     expect(request).toMatchObject({ status: "pending", leaveType: "Sick", days: 2 });
@@ -111,9 +117,10 @@ describe("AC1 — a valid submission creates a pending request and notifies the 
 describe("AC2 — end date before start date is rejected, no row created", () => {
   it("throws VALIDATION_ERROR and writes nothing", async () => {
     const before = await counts();
-    const err = await submit(ANA, valid({ startDate: "2027-03-10", endDate: "2027-03-01" })).catch(
-      (e: unknown) => e,
-    );
+    const err = await submit(
+      ANA,
+      valid({ startDate: future("2027-03-10"), endDate: future("2027-03-01") }),
+    ).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(AppError);
     expect(err).toMatchObject({ code: "VALIDATION_ERROR", status: 400 });
     expect((err as AppError).message).toMatch(/End date can't be before the start date/);
@@ -140,7 +147,11 @@ describe("AC3 — over-balance submission warns but is still created", () => {
     // Ana: Vacation 11.25 confirmed − 11 already pending = 0.25 available.
     const { request, warnings } = await submit(
       ANA,
-      valid({ leaveTypeId: Vacation, startDate: "2027-04-05", endDate: "2027-04-09" }),
+      valid({
+        leaveTypeId: Vacation,
+        startDate: future("2027-04-05"),
+        endDate: future("2027-04-09"),
+      }),
     );
     expect(request.status).toBe("pending");
     expect(warnings).toEqual([
@@ -159,7 +170,11 @@ describe("AC3 — over-balance submission warns but is still created", () => {
   it("never balance-checks Unpaid leave (US-08 AC2)", async () => {
     const { warnings } = await submit(
       ANA,
-      valid({ leaveTypeId: Unpaid, startDate: "2027-05-01", endDate: "2027-07-31" }),
+      valid({
+        leaveTypeId: Unpaid,
+        startDate: future("2027-05-01"),
+        endDate: future("2027-07-29"),
+      }),
     );
     expect(warnings).toEqual([]);
   });

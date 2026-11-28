@@ -331,3 +331,18 @@ stays green and proves nothing.
   (`display:flex` disables `line-clamp`). Swapping `h-*` for `min-h-*` can add height (padding
   - line height + border), so check the normal-size height too (here `py-2` → `py-1.5` kept
     36 px).
+
+### Time-shift probe: find tests that depend on today's date (from TASK-027)
+
+A rule that compares dates with "today" (here: no past start dates, in the service AND a DB
+trigger) silently turns every test with a fixed future date into a time bomb: green today, red
+the day that date passes. The normal suite can't show it. Probe it instead: temporarily move
+**every** clock forward together (the DB expression `now()`, the app's `todayUtc()`, and the test
+helper's notion of today), run the whole suite, restore and verify by hash. In TASK-027 the
+first run found 56 failing tests in 12 files; shifting only the app clock gave a false picture
+(the test helper still produced "future" dates relative to the real day). Fix the failures by
+writing request dates relative to today (`future("2027-03-01")` keeps a readable reference date
+and its spacing, anchored at today + 60 days), and keep historical fixture rows on an explicit,
+transaction-scoped escape hatch (`asHistorical`) rather than real dates. Re-run the probe until
+the shifted suite is fully green. Also: PL/pgSQL variables can collide with SQL operator keywords
+— a variable named `overlaps` made `overlaps > 0` a syntax error.

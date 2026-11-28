@@ -41,11 +41,20 @@ function toLeaveRequest(r: RequestRow): LeaveRequest {
 export function createPostgresSubmitStore(sql: SqlClient): SubmitStore {
   return {
     async getLeaveType(id) {
-      const [row] = await sql.query<{ id: string; name: LeaveTypeName; tracks_balance: boolean }>(
-        `select id, name, tracks_balance from leave_types where id = $1`,
-        [id],
-      );
-      return row ? { id: row.id, name: row.name, tracksBalance: row.tracks_balance } : null;
+      const [row] = await sql.query<{
+        id: string;
+        name: LeaveTypeName;
+        tracks_balance: boolean;
+        max_backdate_days: number;
+      }>(`select id, name, tracks_balance, max_backdate_days from leave_types where id = $1`, [id]);
+      return row
+        ? {
+            id: row.id,
+            name: row.name,
+            tracksBalance: row.tracks_balance,
+            maxBackdateDays: row.max_backdate_days,
+          }
+        : null;
     },
 
     async getRequester(userId) {
@@ -102,6 +111,18 @@ export function createPostgresSubmitStore(sql: SqlClient): SubmitStore {
       };
     },
 
+    async hasOverlap(userId, startDate, endDate) {
+      const [row] = await sql.query<{ overlap: boolean }>(
+        `select exists (
+           select 1 from leave_requests
+            where user_id = $1 and status in ('pending', 'approved') and not is_deleted
+              and daterange(start_date, end_date, '[]') && daterange($2::date, $3::date, '[]')
+         ) overlap`,
+        [userId, startDate, endDate],
+      );
+      return row?.overlap ?? false;
+    },
+
     insertRequestWithAudit(input) {
       return sql.transaction(async (tx) => {
         // TASK-026 AC3: inserted only while the requester has an eligible approver — checked in
@@ -130,6 +151,7 @@ export function createPostgresSubmitStore(sql: SqlClient): SubmitStore {
 type DecidedRow = RequestRow & {
   type_name: LeaveTypeName;
   tracks_balance: boolean;
+  max_backdate_days: number;
   employee_name: string;
   employee_email: string;
   manager_name: string;
@@ -161,7 +183,7 @@ export function createPostgresDecideStore(sql: SqlClient): DecideStore {
               and r.status = 'pending' and not r.is_deleted
            returning r.id, r.user_id, r.leave_type_id, r.start_date::text, r.end_date::text,
                      r.reason, r.status::text, r.decided_by, r.decided_at, r.decision_reason,
-                     r.is_deleted, r.created_at, t.name type_name, t.tracks_balance,
+                     r.is_deleted, r.created_at, t.name type_name, t.tracks_balance, t.max_backdate_days,
                      u.name employee_name, u.email employee_email, m.name manager_name`,
           [requestId, actorId, status, reason ?? null],
         );
@@ -212,6 +234,7 @@ export function createPostgresDecideStore(sql: SqlClient): DecideStore {
             id: row.leave_type_id,
             name: row.type_name,
             tracksBalance: row.tracks_balance,
+            maxBackdateDays: row.max_backdate_days,
           },
           employee: { id: row.user_id, name: row.employee_name, email: row.employee_email },
           decidedBy: { id: actorId, name: row.manager_name },

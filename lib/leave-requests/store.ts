@@ -34,6 +34,10 @@ export interface SubmitStore {
   getLeaveType(id: string): Promise<LeaveType | null>;
   getRequester(userId: string): Promise<Requester | null>;
   getBalanceContext(userId: string, leaveTypeId: string): Promise<BalanceContext>;
+  /** TASK-027: does `userId` have a pending/approved (not deleted) request overlapping
+   *  [startDate, endDate], any leave type? A friendly pre-check — the database's exclusion
+   *  constraint is the atomic guarantee. */
+  hasOverlap(userId: string, startDate: string, endDate: string): Promise<boolean>;
   /** Inserts the pending request AND its `submitted` audit row atomically (BR-04). */
   /**
    * Insert the request and its `submitted` audit row in one transaction — ONLY if the requester

@@ -12,6 +12,7 @@ import {
   tabUntil,
   test,
   USERS,
+  future,
 } from "./helpers";
 
 /**
@@ -45,8 +46,8 @@ test.describe("submit-request form on mobile", () => {
 
     await field.type(page).tap();
     await page.getByRole("option", { name: /Vacation/ }).tap();
-    await field.start(page).fill("2027-04-05");
-    await field.end(page).fill("2027-04-09"); // 5 days vs 0.25 available → alert
+    await field.start(page).fill(future("2027-04-05"));
+    await field.end(page).fill(future("2027-04-09")); // 5 days vs 0.25 available → alert
     await expect(page.getByText("This is more than your Vacation balance")).toBeVisible();
     await expectNoHorizontalOverflow(page);
 
@@ -67,8 +68,8 @@ test.describe("submit-request form on mobile", () => {
     await page.getByRole("option", { name: /Sick/ }).tap();
     await expect(field.type(page)).toContainText("Sick");
 
-    await field.start(page).fill("2027-03-01");
-    await field.end(page).fill("2027-03-02");
+    await field.start(page).fill(future("2027-03-01"));
+    await field.end(page).fill(future("2027-03-02"));
     await field.reason(page).tap();
     await field.reason(page).fill("Recovering from a cold");
     await field.submit(page).scrollIntoViewIfNeeded();
@@ -150,13 +151,16 @@ test.describe("submit-request form on mobile", () => {
 
     await page.keyboard.press("Tab");
     await expect(field.start(page)).toBeFocused();
-    await page.keyboard.type("03012027"); // mm dd yyyy segments (en-US)
+    // TASK-027: dates relative to today; typed as mm dd yyyy segments (en-US).
+    const [start, end] = [future("2027-03-01"), future("2027-03-02")];
+    const typed = (iso: string) => `${iso.slice(5, 7)}${iso.slice(8, 10)}${iso.slice(0, 4)}`;
+    await page.keyboard.type(typed(start));
     // Chromium makes each date segment (mm/dd/yyyy) its own Tab stop, so tab until the
     // next field instead of assuming one press (bounded, so a trap would still fail).
     await tabUntil(page, field.end(page), 5);
-    await page.keyboard.type("03022027");
-    await expect(field.start(page)).toHaveValue("2027-03-01");
-    await expect(field.end(page)).toHaveValue("2027-03-02");
+    await page.keyboard.type(typed(end));
+    await expect(field.start(page)).toHaveValue(start);
+    await expect(field.end(page)).toHaveValue(end);
 
     await tabUntil(page, field.reason(page), 5);
     await page.keyboard.type("Keyboard-only request");
@@ -204,9 +208,9 @@ test("Unpaid: no balance warning even for a long range, and it submits (US-08 AC
   await expect(unpaid).toContainText("not tracked");
   await unpaid.tap();
   await expect(page.getByRole("listbox")).toBeHidden();
-  await page.locator('input[name="startDate"]').fill("2027-05-01");
-  await page.locator('input[name="endDate"]').fill("2027-07-31");
-  await expect(page.getByText("92 days requested")).toBeVisible();
+  await page.locator('input[name="startDate"]').fill(future("2027-05-01"));
+  await page.locator('input[name="endDate"]').fill(future("2027-07-29"));
+  await expect(page.getByText("90 days requested")).toBeVisible();
   // The over-balance alert must NOT appear for an untracked type.
   await expect(page.getByText(/more than your .* balance/)).toHaveCount(0);
   await page.locator('textarea[name="reason"]').fill("Sabbatical");

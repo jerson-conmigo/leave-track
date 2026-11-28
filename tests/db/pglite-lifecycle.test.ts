@@ -138,6 +138,7 @@ describe("structure: every test file that creates databases is reviewed and clos
     "tests/db/users-auth-link.test.ts",
     "tests/leave-requests/approval-routing.test.ts",
     "tests/leave-requests/decide.test.ts",
+    "tests/leave-requests/request-integrity.test.ts",
     "tests/leave-requests/submit.test.ts",
     "tests/leave-types/independence.test.ts",
   ];

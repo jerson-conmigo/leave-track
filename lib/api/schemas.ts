@@ -37,6 +37,10 @@ export const LeaveTypeSchema = z.object({
   id: z.uuid(),
   name: z.enum(LEAVE_TYPE_NAMES),
   tracksBalance: z.boolean(),
+  maxBackdateDays: z
+    .number()
+    .int()
+    .describe("Days before today a request of this type may start (Sick 30, others 0)"),
 });
 
 export const BalanceSummarySchema = z.object({

@@ -6,7 +6,7 @@ import { createPostgresRepository } from "@/lib/data/postgres-repository";
 import type { LeaveRepository } from "@/lib/data/repositories";
 import { AUDIT_LOG_LIMIT } from "@/lib/data/types";
 import type { SqlClient } from "@/lib/db/sql";
-import { closeAfterEachTest, createTestDb } from "../db/helpers";
+import { closeAfterEachTest, createTestDb, asHistorical } from "../db/helpers";
 
 /**
  * TASK-015 / US-05 — HR audit report against real Postgres (PGlite) with the seed.
@@ -29,16 +29,21 @@ beforeEach(async () => {
 
 async function insertOldRequest() {
   // Created and approved 3+ years ago (BR-04 retention window).
-  const [r] = (
-    await db.query<{ id: string }>(
-      `insert into leave_requests (user_id, leave_type_id, start_date, end_date, reason, status,
-                                   decided_by, decided_at, created_at)
-       values ($1, $2, '2023-06-05', '2023-06-09', 'Old trip', 'approved', $3,
-               '2023-05-21T09:00:00Z', '2023-05-20T09:00:00Z')
-       returning id`,
-      [USER_IDS.ana, VACATION, USER_IDS.ben],
-    )
-  ).rows;
+  // TASK-027: a historical row — inserted through the seed's escape hatch (test fixture).
+  const [r] = await asHistorical(
+    db,
+    async (tx) =>
+      (
+        await tx.query<{ id: string }>(
+          `insert into leave_requests (user_id, leave_type_id, start_date, end_date, reason, status,
+                                     decided_by, decided_at, created_at)
+         values ($1, $2, '2023-06-05', '2023-06-09', 'Old trip', 'approved', $3,
+                 '2023-05-21T09:00:00Z', '2023-05-20T09:00:00Z')
+         returning id`,
+          [USER_IDS.ana, VACATION, USER_IDS.ben],
+        )
+      ).rows,
+  );
   await db.query(
     `insert into audit_log (leave_request_id, actor_id, action, occurred_at) values
        ($1, $2, 'submitted', '2023-05-20T09:00:00Z'), ($1, $3, 'approved', '2023-05-21T09:00:00Z')`,
@@ -179,13 +184,17 @@ describe("date filters — identical UTC semantics in Postgres and mock", () => 
 
   it("a timestamp at 23:30 UTC belongs to that UTC day, not the next (boundary)", async () => {
     await db.query(`set time zone 'Pacific/Auckland'`); // session TZ must not matter
-    const [fresh] = (
-      await db.query<{ id: string }>(
-        `insert into leave_requests (user_id, leave_type_id, start_date, end_date, reason, created_at)
-         values ($1, $2, '2027-01-11', '2027-01-11', 'Boundary', '2026-11-25T23:30:00Z') returning id`,
-        [USER_IDS.diego, VACATION],
-      )
-    ).rows;
+    // A fixture row with a fixed historical created_at (TASK-027: via the seed's escape hatch).
+    const [fresh] = await asHistorical(db, async (tx) => {
+      await tx.query(`set local time zone 'Pacific/Auckland'`); // still: session TZ must not matter
+      return (
+        await tx.query<{ id: string }>(
+          `insert into leave_requests (user_id, leave_type_id, start_date, end_date, reason, created_at)
+           values ($1, $2, '2027-01-11', '2027-01-11', 'Boundary', '2026-11-25T23:30:00Z') returning id`,
+          [USER_IDS.diego, VACATION],
+        )
+      ).rows;
+    });
     await db.query(
       `insert into audit_log (leave_request_id, actor_id, action, occurred_at)
        values ($1, $2, 'submitted', '2026-11-25T23:30:00Z')`,

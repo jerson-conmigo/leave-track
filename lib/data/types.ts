@@ -30,6 +30,8 @@ export type LeaveType = {
   id: string;
   name: LeaveTypeName;
   tracksBalance: boolean;
+  /** TASK-027: how many days before today a request of this type may start (Sick 30, others 0). */
+  maxBackdateDays: number;
 };
 
 export type LeavePolicy = {

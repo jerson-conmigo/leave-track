@@ -33,11 +33,21 @@ const toUser = (r: UserRow): User => ({
  */
 export function createPostgresRepository(sql: SqlClient): LeaveRepository {
   async function listLeaveTypes(): Promise<LeaveType[]> {
-    const rows = await sql.query<{ id: string; name: LeaveTypeName; tracks_balance: boolean }>(
-      `select id, name, tracks_balance from leave_types
+    const rows = await sql.query<{
+      id: string;
+      name: LeaveTypeName;
+      tracks_balance: boolean;
+      max_backdate_days: number;
+    }>(
+      `select id, name, tracks_balance, max_backdate_days from leave_types
        order by array_position(array['Vacation', 'Sick', 'Unpaid'], name), name`,
     );
-    return rows.map((r) => ({ id: r.id, name: r.name, tracksBalance: r.tracks_balance }));
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      tracksBalance: r.tracks_balance,
+      maxBackdateDays: r.max_backdate_days,
+    }));
   }
 
   return {

@@ -19,6 +19,7 @@ import {
 import type { DecideStore, SubmitStore } from "@/lib/leave-requests/store";
 import { submitLeaveRequest } from "@/lib/leave-requests/submit";
 import { closeAfterEachTest, createTestDb } from "../db/helpers";
+import { future } from "../support/dates";
 
 /**
  * TASK-026 (US-15, BR-10, ADR-LeaveTrack-E005) — approval routing, run against BOTH stores with
@@ -129,8 +130,8 @@ afterEach(() => {
 
 const input = (n = 1) => ({
   leaveTypeId: LEAVE_TYPE_IDS.Vacation,
-  startDate: `2027-0${n}-10`,
-  endDate: `2027-0${n}-11`,
+  startDate: future(`2027-0${n}-10`),
+  endDate: future(`2027-0${n}-11`),
   reason: "Family visit",
 });
 

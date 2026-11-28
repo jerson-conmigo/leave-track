@@ -78,6 +78,9 @@ document's "Revision v1.1" section and `docs/dev-tasks/epic-2-hardening-and-reso
    `tracksBalance`, never on a type's name. Enforced by DB triggers (untracked types can't
    hold balances or policies) and `tests/leave-types/balance-writers.test.ts` — a new
    writer of `leave_balances` must be reviewed and added to that registry.
+   The same goes for the past-start allowance (TASK-027): it is the
+   `leave_types.max_backdate_days` attribute (Sick 30, others 0), never the name "Sick".
+
 8. **Accrual is idempotent** — insert the month into `accrual_runs` first in the transaction;
    a unique violation means it already ran (US-07).
 9. **Pooled DB URL only** (`DATABASE_URL`, port 6543). `DIRECT_URL` is for migrations.
@@ -88,6 +91,14 @@ document's "Revision v1.1" section and `docs/dev-tasks/epic-2-hardening-and-reso
     `lib/validation/`. `tests/api/openapi.test.ts` fails on any undocumented route or method,
     and `tests/api/contract.test.ts` checks real responses against the schemas. The docs
     (`/api-docs`, `/api/openapi.json`) are development only: 404 when deployed.
+12. **Request integrity is enforced in the database** (TASK-027, BR-13, ARCH D10): no overlapping
+    pending/approved requests per person (`leave_requests_no_overlap`, an exclusion constraint),
+    at most 90 days (`leave_requests_max_length`, `MAX_REQUEST_DAYS`), no start before today (UTC)
+    minus the type's allowance (`leave_requests_backdate_window` trigger). The submit service
+    checks first for friendly 400s; the constraints are the backstop for races, mapped by
+    `toAppError`. Only `supabase/seed.sql` and test fixtures (`asHistorical`) may load historical
+    rows through `leavetrack.allow_backdated`; application code never sets it. Tests write request
+    dates with `future()` / `daysFromToday()` so they never go stale.
 
 ## Frontend standards
 

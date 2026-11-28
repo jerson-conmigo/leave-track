@@ -28,7 +28,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { mockSubmit } from "@/lib/data/mock/actions";
 import type { ActionResult, BalanceSummary, LeaveType } from "@/lib/data/types";
 import { countDays, formatDays } from "@/lib/format";
-import { LeaveRequestSchema, type LeaveRequestInput } from "@/lib/validation/leave-request";
+import {
+  LeaveRequestSchema,
+  MAX_REQUEST_DAYS,
+  type LeaveRequestInput,
+} from "@/lib/validation/leave-request";
 
 type RequestFormProps = {
   leaveTypes: LeaveType[];
@@ -58,6 +62,11 @@ export function RequestForm({ leaveTypes, balances, onSubmit = mockSubmit }: Req
 
   const balance = balances.find((b) => b.leaveType.id === leaveTypeId);
   const days = startDate && endDate && endDate >= startDate ? countDays(startDate, endDate) : 0;
+  // TASK-027: date-picker hints only (the form is noValidate; the server decides). Earliest start =
+  // today minus the selected type's allowance; latest end = start + 89 days (90 inclusive).
+  const selectedType = leaveTypes.find((t) => t.id === leaveTypeId);
+  const earliestStart = shiftLocalDate(localToday(), -(selectedType?.maxBackdateDays ?? 0));
+  const latestEnd = startDate ? shiftLocalDate(startDate, MAX_REQUEST_DAYS - 1) : undefined;
   // Untracked types (Unpaid) are never balance-checked (US-08 AC2).
   const overBy =
     balance?.available != null && days > balance.available ? days - balance.available : 0;
@@ -136,7 +145,7 @@ export function RequestForm({ leaveTypes, balances, onSubmit = mockSubmit }: Req
               <FormItem>
                 <FormLabel>Start date</FormLabel>
                 <FormControl>
-                  <Input type="date" disabled={isSubmitting} {...field} />
+                  <Input type="date" min={earliestStart} disabled={isSubmitting} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -152,6 +161,7 @@ export function RequestForm({ leaveTypes, balances, onSubmit = mockSubmit }: Req
                   <Input
                     type="date"
                     min={startDate || undefined}
+                    max={latestEnd}
                     disabled={isSubmitting}
                     {...field}
                   />
@@ -219,4 +229,15 @@ export function RequestForm({ leaveTypes, balances, onSubmit = mockSubmit }: Req
       </form>
     </Form>
   );
+}
+
+/** The browser's local date, YYYY-MM-DD (a picker hint; the server uses UTC). */
+function localToday(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** YYYY-MM-DD shifted by `days` calendar days. */
+function shiftLocalDate(date: string, days: number): string {
+  return new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 }

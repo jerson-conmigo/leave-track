@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LEAVE_TYPE_IDS, USER_IDS } from "@/lib/data/mock/fixtures";
 import { mockDb } from "@/lib/data/mock/store";
+import { future } from "../support/dates";
 
 /**
  * TASK-011 / TASK-012 — POST and GET /api/leave-requests: HTTP contract and envelope (ARCH).
@@ -33,8 +34,8 @@ const post = (body: string) =>
 
 const validBody = JSON.stringify({
   leaveTypeId: LEAVE_TYPE_IDS.Sick,
-  startDate: "2027-03-01",
-  endDate: "2027-03-02",
+  startDate: future("2027-03-01"),
+  endDate: future("2027-03-02"),
   reason: "Recovering from surgery",
 });
 
@@ -81,7 +82,11 @@ describe("POST /api/leave-requests", () => {
   it("400 VALIDATION_ERROR envelope when end date is before start date (AC2), nothing written", async () => {
     const before = mockDb.leaveRequests.length;
     const res = await post(
-      JSON.stringify({ ...JSON.parse(validBody), startDate: "2027-03-10", endDate: "2027-03-01" }),
+      JSON.stringify({
+        ...JSON.parse(validBody),
+        startDate: future("2027-03-10"),
+        endDate: future("2027-03-01"),
+      }),
     );
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({
@@ -95,8 +100,8 @@ describe("POST /api/leave-requests", () => {
     const res = await post(
       JSON.stringify({
         leaveTypeId: LEAVE_TYPE_IDS.Vacation,
-        startDate: "2027-04-05",
-        endDate: "2027-04-09",
+        startDate: future("2027-04-05"),
+        endDate: future("2027-04-09"),
         reason: "Trip",
       }),
     );

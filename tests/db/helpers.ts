@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { PGlite, type Transaction } from "@electric-sql/pglite";
+import { btree_gist } from "@electric-sql/pglite/contrib/btree_gist";
 import { afterEach } from "vitest";
 import type { SqlClient } from "@/lib/db/sql";
 
@@ -38,10 +39,27 @@ async function built(db: PGlite, setup: (db: PGlite) => Promise<void>): Promise<
  * them; `upTo` (exclusive) stops before the named file — for testing a migration
  * against pre-existing data. A failed migration closes the database before rethrowing.
  */
+/**
+ * TASK-027: insert HISTORICAL fixture rows (start dates in the past) the way supabase/seed.sql
+ * does — the leave_requests_backdate_guard trigger's escape hatch, scoped to ONE transaction.
+ * Test fixtures only; application code never sets it (pinned by request-integrity.test.ts).
+ */
+export async function asHistorical<T>(db: PGlite, fn: (tx: Transaction) => Promise<T>): Promise<T> {
+  return db.transaction(async (tx) => {
+    await tx.query(`select set_config('leavetrack.allow_backdated', 'on', true)`);
+    return fn(tx);
+  });
+}
+
+/** A PGlite with the extensions our migrations use (TASK-027: btree_gist for the overlap rule). */
+export function newPGlite(): PGlite {
+  return new PGlite({ extensions: { btree_gist } });
+}
+
 export async function migratedDb(opts: { upTo?: string } & SetupOptions = {}): Promise<PGlite> {
   const files = opts.migrations ? opts.migrations.map((_, i) => `injected-${i}`) : MIGRATION_FILES;
   const sql = opts.migrations ?? MIGRATIONS;
-  return built(opts.create?.() ?? new PGlite(), async (db) => {
+  return built(opts.create?.() ?? newPGlite(), async (db) => {
     for (const [i, file] of files.entries()) {
       if (opts.upTo && file >= opts.upTo) break;
       await db.exec(sql[i]!);

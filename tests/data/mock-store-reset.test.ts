@@ -3,6 +3,7 @@ import { auditLog, USER_IDS } from "@/lib/data/mock/fixtures";
 import { mockRepository } from "@/lib/data/mock/repository";
 import { mockDb, resetMockDb } from "@/lib/data/mock/store";
 import { memorySubmitStore } from "@/lib/leave-requests/memory-store";
+import { future } from "../support/dates";
 
 /** TASK-016 — e2e isolation relies on resetMockDb restoring state for EVERY holder. */
 describe("resetMockDb", () => {
@@ -13,8 +14,8 @@ describe("resetMockDb", () => {
     await memorySubmitStore.insertRequestWithAudit({
       userId: USER_IDS.ana,
       leaveTypeId: "10000000-0000-4000-8000-000000000002",
-      startDate: "2027-03-01",
-      endDate: "2027-03-02",
+      startDate: future("2027-03-01"),
+      endDate: future("2027-03-02"),
       reason: "Leak?",
     });
     mockDb.leaveBalances[0]!.balance = -99;

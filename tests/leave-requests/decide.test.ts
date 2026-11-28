@@ -14,6 +14,7 @@ import type { DecideStore } from "@/lib/leave-requests/store";
 import { submitLeaveRequest } from "@/lib/leave-requests/submit";
 import { logger } from "@/lib/logger";
 import { closeAfterEachTest, createTestDb } from "../db/helpers";
+import { future } from "../support/dates";
 
 /**
  * TASK-014 / US-03 — decisions against real Postgres (PGlite) with the production
@@ -400,7 +401,12 @@ describe("review TASK-011 #1 — submit audit timestamp is exact", () => {
   it("submitted audit occurred_at equals the request's created_at (microseconds)", async () => {
     const { request } = await submitLeaveRequest(
       { userId: USER_IDS.ana },
-      { leaveTypeId: Sick, startDate: "2027-03-01", endDate: "2027-03-02", reason: "Checkup" },
+      {
+        leaveTypeId: Sick,
+        startDate: future("2027-03-01"),
+        endDate: future("2027-03-02"),
+        reason: "Checkup",
+      },
       { store: createPostgresSubmitStore(sql), notifier },
     );
     const [r] = (

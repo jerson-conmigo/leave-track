@@ -17,6 +17,7 @@ import {
 import type { DecideStore, SubmitStore } from "@/lib/leave-requests/store";
 import { submitLeaveRequest } from "@/lib/leave-requests/submit";
 import { closeAfterEachTest, createTestDb } from "../db/helpers";
+import { future } from "../support/dates";
 
 /**
  * TASK-018 / US-08 — every balance writer (submit, approve, reject, accrual) touches
@@ -84,7 +85,12 @@ async function postgresHarness(): Promise<Harness> {
 
 async function memoryHarness(): Promise<Harness> {
   resetMockDb();
-  mockDb.leaveTypes.push({ id: STUDY, name: "Study leave" as LeaveTypeName, tracksBalance: false });
+  mockDb.leaveTypes.push({
+    id: STUDY,
+    name: "Study leave" as LeaveTypeName,
+    tracksBalance: false,
+    maxBackdateDays: 0,
+  });
   return {
     label: "memory",
     submit: memorySubmitStore,
@@ -119,7 +125,7 @@ describe.each(HARNESSES.map((f) => [f.name.replace("Harness", ""), f]))(
     it("AC1 — approving a Sick request decrements only Sick; Vacation and Unpaid unchanged", async () => {
       const h = await makeHarness();
       const before = await h.snapshot(USER_IDS.ana);
-      const { request } = await submit(h, Sick, "2027-03-01", "2027-03-02"); // 2 days
+      const { request } = await submit(h, Sick, future("2027-03-01"), future("2027-03-02")); // 2 days
       await decide(h, request.id, { decision: "approve" });
       const after = await h.snapshot(USER_IDS.ana);
       expect(after.Sick).toBe(before.Sick! - 2);
@@ -128,11 +134,11 @@ describe.each(HARNESSES.map((f) => [f.name.replace("Harness", ""), f]))(
       expect(after["Study leave"]).toBeUndefined();
     });
 
-    it("AC2 — Unpaid is never blocked by a balance check: 92 days, nothing accrued, still submitted and approved", async () => {
+    it("AC2 — Unpaid is never blocked by a balance check: 90 days (the maximum), nothing accrued, still submitted and approved", async () => {
       const h = await makeHarness();
       const before = await h.snapshot(USER_IDS.ana);
-      const res = await submit(h, Unpaid, "2027-05-01", "2027-07-31"); // 92 days
-      expect(res.request).toMatchObject({ status: "pending", leaveType: "Unpaid", days: 92 });
+      const res = await submit(h, Unpaid, future("2027-05-01"), future("2027-07-29")); // 90 days (TASK-027 maximum)
+      expect(res.request).toMatchObject({ status: "pending", leaveType: "Unpaid", days: 90 });
       expect(res.warnings).toEqual([]);
       const decided = await decide(h, res.request.id, { decision: "approve" });
       expect(decided.request.status).toBe("approved");
@@ -147,7 +153,7 @@ describe.each(HARNESSES.map((f) => [f.name.replace("Harness", ""), f]))(
         const start = await h.snapshot(USER_IDS.ana);
 
         // (a) submit, deliberately above any balance (12 days)
-        const sub = await submit(h, type.id, "2027-05-03", "2027-05-14");
+        const sub = await submit(h, type.id, future("2027-05-03"), future("2027-05-14"));
         expect(sub.request.status).toBe("pending"); // never blocked
         expect(await h.snapshot(USER_IDS.ana)).toEqual(start); // submit writes no balance
         expect(sub.warnings.map((w) => w.code)).toEqual(type.tracked ? ["EXCEEDS_BALANCE"] : []);
@@ -162,7 +168,7 @@ describe.each(HARNESSES.map((f) => [f.name.replace("Harness", ""), f]))(
         expect(dec.warnings.length > 0).toBe(type.tracked && start[type.name]! - 12 < 0);
 
         // (c) reject another request of the same type → nothing changes
-        const sub2 = await submit(h, type.id, "2027-06-07", "2027-06-08");
+        const sub2 = await submit(h, type.id, future("2027-06-07"), future("2027-06-08"));
         await decide(h, sub2.request.id, { decision: "reject", reason: "Team coverage that week" });
         expect(await h.snapshot(USER_IDS.ana)).toEqual(afterApprove);
       },
@@ -220,9 +226,9 @@ describe("memory store has no DB guard — its own filter must still skip untrac
 describe("parity — the full scripted sequence leaves both stores identical", () => {
   it("same balances for Ana after AC1 + AC2 + an accrual, on Postgres and memory", async () => {
     const run = async (h: Harness) => {
-      const a = await submit(h, Sick, "2027-03-01", "2027-03-02");
+      const a = await submit(h, Sick, future("2027-03-01"), future("2027-03-02"));
       await decide(h, a.request.id, { decision: "approve" });
-      const b = await submit(h, Unpaid, "2027-05-01", "2027-07-31");
+      const b = await submit(h, Unpaid, future("2027-05-01"), future("2027-07-29"));
       await decide(h, b.request.id, { decision: "approve" });
       await runMonthlyAccrual(
         { store: h.accrual },

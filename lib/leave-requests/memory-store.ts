@@ -1,7 +1,27 @@
+import { daysBefore, todayUtc } from "@/lib/data/dates";
 import { mockDb } from "@/lib/data/mock/store";
+import { countDays } from "@/lib/format";
+import { MAX_REQUEST_DAYS } from "@/lib/validation/leave-request";
 import type { LeaveRequest } from "@/lib/data/types";
 import { canDecide, hasApprover } from "@/lib/leave-requests/approver";
 import type { DecideStore, SubmitStore } from "@/lib/leave-requests/store";
+
+/** Pending/approved, not deleted, any type, overlapping [start, end] (inclusive) — as SQL `&&`. */
+function overlaps(userId: string, startDate: string, endDate: string): boolean {
+  return mockDb.leaveRequests.some(
+    (r) =>
+      r.userId === userId &&
+      (r.status === "pending" || r.status === "approved") &&
+      !r.isDeleted &&
+      r.startDate <= endDate &&
+      startDate <= r.endDate,
+  );
+}
+
+/** An error shaped like a Postgres constraint violation (code + constraint name). */
+function dbError(code: string, constraint: string): Error {
+  return Object.assign(new Error(`${constraint} violated`), { code, constraint });
+}
 
 /**
  * SubmitStore over the in-memory mock DB — used when DATABASE_URL is unset so
@@ -49,9 +69,25 @@ export const memorySubmitStore: SubmitStore = {
     };
   },
 
+  async hasOverlap(userId, startDate, endDate) {
+    return overlaps(userId, startDate, endDate);
+  },
+
   async insertRequestWithAudit(input) {
     // TASK-026 AC3: nothing is written when nobody may decide the request (mirrors SQL).
     if (!hasApprover(mockDb.users, input.userId)) return null;
+    // TASK-027: the database's backstops, mirrored (same SQLSTATE + constraint name, so
+    // lib/db/errors.ts toAppError maps them exactly like Postgres errors).
+    if (countDays(input.startDate, input.endDate) > MAX_REQUEST_DAYS) {
+      throw dbError("23514", "leave_requests_max_length");
+    }
+    const type = mockDb.leaveTypes.find((t) => t.id === input.leaveTypeId);
+    if (input.startDate < daysBefore(todayUtc(), type?.maxBackdateDays ?? 0)) {
+      throw dbError("23514", "leave_requests_backdate_window");
+    }
+    if (overlaps(input.userId, input.startDate, input.endDate)) {
+      throw dbError("23P01", "leave_requests_no_overlap");
+    }
     const now = new Date().toISOString();
     const request: LeaveRequest = {
       id: crypto.randomUUID(),

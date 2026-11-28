@@ -5,7 +5,8 @@ import { mockRepository } from "@/lib/data/mock/repository";
 import { createPostgresRepository } from "@/lib/data/postgres-repository";
 import type { LeaveRepository } from "@/lib/data/repositories";
 import type { SqlClient } from "@/lib/db/sql";
-import { closeAfterEachTest, createTestDb } from "../db/helpers";
+import { closeAfterEachTest, createTestDb, asHistorical } from "../db/helpers";
+import { future } from "../support/dates";
 
 /**
  * TASK-012 — Postgres reads against real Postgres (PGlite) with the seed.
@@ -87,9 +88,9 @@ describe("AC2 — pending amounts shown separately from the confirmed balance", 
   });
 
   it("picks up a newly submitted pending request and drops a soft-deleted one", async () => {
-    const [{ id }] = (await insertPending(USER_IDS.ana, Sick, "2027-03-01", "2027-03-02")).rows as [
-      { id: string },
-    ];
+    const [{ id }] = (
+      await insertPending(USER_IDS.ana, Sick, future("2027-03-01"), future("2027-03-02"))
+    ).rows as [{ id: string }];
     expect((await repo.getBalances(USER_IDS.ana))[1]).toMatchObject({ pending: 2, available: 3 });
     await db.query(`update leave_requests set is_deleted = true where id = $1`, [id]);
     expect((await repo.getBalances(USER_IDS.ana))[1]).toMatchObject({ pending: 0, available: 5 });
@@ -155,17 +156,25 @@ async function seedMiasTeam() {
       `insert into leave_balances (user_id, leave_type_id, balance) values ($1, $2, 10)`,
       [id, Vacation],
     );
-    await insertPending(id, Vacation, `2027-0${(i % 9) + 1}-01`, `2027-0${(i % 9) + 1}-02`);
+    await insertPending(
+      id,
+      Vacation,
+      future(`2027-0${(i % 9) + 1}-01`),
+      future(`2027-0${(i % 9) + 1}-02`),
+    );
   }
   // One report also has an already-approved request.
-  await db.query(
-    `insert into leave_requests (user_id, leave_type_id, start_date, end_date, reason, status, decided_by, decided_at)
-     values ($1, $2, '2026-06-01', '2026-06-01', 'old', 'approved', $3, now())`,
-    [MIA_REPORTS[0], Sick, MIA],
+  // TASK-027: a historical row — inserted through the seed's escape hatch (test fixture).
+  await asHistorical(db, (tx) =>
+    tx.query(
+      `insert into leave_requests (user_id, leave_type_id, start_date, end_date, reason, status, decided_by, decided_at)
+       values ($1, $2, '2026-06-01', '2026-06-01', 'old', 'approved', $3, now())`,
+      [MIA_REPORTS[0], Sick, MIA],
+    ),
   );
   // Decoys that must never appear in Mia's queue: Mia's OWN request, and one of Ben's employees.
-  await insertPending(MIA, Vacation, "2027-08-01", "2027-08-02");
-  await insertPending(USER_IDS.ana, Sick, "2027-08-03", "2027-08-03");
+  await insertPending(MIA, Vacation, future("2027-08-01"), future("2027-08-02"));
+  await insertPending(USER_IDS.ana, Sick, future("2027-08-03"), future("2027-08-03"));
 }
 
 describe("TASK-013 AC1 — a manager with 5 direct reports sees exactly those 5, no others", () => {

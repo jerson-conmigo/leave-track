@@ -21,3 +21,14 @@ export function utcMonthBounds(now: Date): [string, string] {
   const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
   return [start.toISOString(), end.toISOString()];
 }
+
+/** TASK-027: today's date in UTC (YYYY-MM-DD) — the "today" of the past-start rule, matching the
+ *  database trigger's `(now() at time zone 'utc')::date`. */
+export function todayUtc(now: Date = new Date()): string {
+  return now.toISOString().slice(0, 10);
+}
+
+/** YYYY-MM-DD `days` calendar days before `date` (UTC arithmetic). */
+export function daysBefore(date: string, days: number): string {
+  return new Date(Date.parse(`${date}T00:00:00Z`) - days * 86_400_000).toISOString().slice(0, 10);
+}

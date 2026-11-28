@@ -1,4 +1,5 @@
 import { AppError, type ErrorCode } from "@/lib/api/errors";
+import { MAX_LENGTH_MESSAGE, OVERLAP_MESSAGE } from "@/lib/validation/leave-request";
 
 /**
  * Translate known database constraint violations into the app's error envelope,
@@ -25,6 +26,22 @@ const BY_CONSTRAINT: Record<string, { sqlstate: string; code: ErrorCode; message
     sqlstate: "23514",
     code: "FORBIDDEN",
     message: "You can't decide your own leave request.",
+  },
+  // TASK-027 (US-16, BR-13): request integrity backstops — 400 like the app's own checks.
+  leave_requests_no_overlap: {
+    sqlstate: "23P01", // exclusion_violation
+    code: "VALIDATION_ERROR",
+    message: OVERLAP_MESSAGE,
+  },
+  leave_requests_max_length: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: MAX_LENGTH_MESSAGE,
+  },
+  leave_requests_backdate_window: {
+    sqlstate: "23514",
+    code: "VALIDATION_ERROR",
+    message: "This start date is too far in the past for this leave type.",
   },
   leave_requests_date_range: {
     sqlstate: "23514",

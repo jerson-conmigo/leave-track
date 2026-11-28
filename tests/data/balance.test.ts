@@ -7,9 +7,9 @@ const V = "10000000-0000-4000-8000-000000000001";
 const S = "10000000-0000-4000-8000-000000000002";
 const U = "10000000-0000-4000-8000-000000000003";
 const types: LeaveType[] = [
-  { id: V, name: "Vacation", tracksBalance: true },
-  { id: S, name: "Sick", tracksBalance: true },
-  { id: U, name: "Unpaid", tracksBalance: false },
+  { id: V, name: "Vacation", tracksBalance: true, maxBackdateDays: 0 },
+  { id: S, name: "Sick", tracksBalance: true, maxBackdateDays: 30 },
+  { id: U, name: "Unpaid", tracksBalance: false, maxBackdateDays: 0 },
 ];
 const ACCRUAL = "2026-11-01T02:00:00.000Z";
 

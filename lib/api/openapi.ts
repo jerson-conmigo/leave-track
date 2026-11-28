@@ -192,7 +192,10 @@ export function buildOpenApiDocument() {
             "body is ignored). `endDate` must be on or after `startDate`. A request beyond the " +
             "available balance is accepted with an `EXCEEDS_BALANCE` warning; leave types that " +
             "don't track a balance are never balance-checked." +
-            " Refused with 409 (nothing created) when nobody may approve the requester's leave (BR-10).",
+            " Refused with 409 (nothing created) when nobody may approve the requester's leave (BR-10)." +
+            " Refused with 400 (TASK-027, BR-13) when it overlaps one of your pending or approved " +
+            "requests, is longer than 90 days, or starts in the past (only Sick may start up to 30 " +
+            "days back — each leave type's `maxBackdateDays`; today is the UTC date).",
           security: COOKIE,
           requestBody: {
             required: true,
@@ -201,6 +204,7 @@ export function buildOpenApiDocument() {
           responses: {
             ...success(201, "Created.", ref("SubmitLeaveRequestResult")),
             ...errors([400, 401, 409, 500], {
+              400: "VALIDATION_ERROR — invalid input, an overlap with your own pending/approved request, more than 90 days, or a start date before the allowed window.",
               409: "CONFLICT — there's no eligible approver for this requester; nothing was created.",
             }),
           },

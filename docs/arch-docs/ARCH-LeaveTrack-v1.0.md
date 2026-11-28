@@ -146,7 +146,7 @@ mappings for every new named constraint. Server actions mirror the routes.
 | D7  | Resolution expiry runs daily; the deadline is also enforced on every read/response.         |
 | D8  | Response deadline configurable 1–14 days (default 3), fixed on each proposal.               |
 | D9  | **Open:** calendar vs business days (needs a holidays source). TASK-038 is Blocked on it.   |
-| D10 | Maximum request length 90 days; past start dates only for Sick, at most 30 days back.       |
+| D10 | Maximum request length 90 days; past start dates only for Sick, at most 30 days back (built: TASK-027). |
 | D11 | Employees may cancel approved leave before its start date; the manager is notified.         |
 | D12 | In-app notifications first; email through a provider REST API (Resend), no SDK.             |
 | D13 | "Admin" means HR Admin; no new role.                                                        |

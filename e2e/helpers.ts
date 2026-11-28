@@ -286,3 +286,20 @@ export async function enlargeText(page: Page) {
       }),
   );
 }
+
+/**
+ * TASK-027: request dates relative to today (UTC), as tests/support/dates.ts — `future("2027-03-01")`
+ * keeps a readable reference date's spacing but always lies in the future, so specs don't go stale
+ * under the past-start rule.
+ */
+const DAY_MS = 86_400_000;
+export function daysFromToday(days: number): string {
+  const today = Date.parse(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`);
+  return new Date(today + days * DAY_MS).toISOString().slice(0, 10);
+}
+export function future(reference: string): string {
+  const offset = Math.round(
+    (Date.parse(`${reference}T00:00:00Z`) - Date.parse("2027-01-01T00:00:00Z")) / DAY_MS,
+  );
+  return daysFromToday(60 + offset);
+}

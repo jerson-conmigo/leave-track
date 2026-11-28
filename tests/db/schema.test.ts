@@ -11,6 +11,7 @@ import {
 } from "@/lib/data/mock/fixtures";
 import { AUDIT_ACTIONS, LEAVE_TYPE_NAMES, REQUEST_STATUSES, ROLES } from "@/lib/data/types";
 import { MIGRATION_FILES, MIGRATIONS, migratedDb, SEED } from "./helpers";
+import { future } from "../support/dates";
 
 /**
  * TASK-010 — schema contract, run against real Postgres 17 (PGlite, in-process).
@@ -34,7 +35,7 @@ const ARCH_TABLES = [
 /** Columns per ARCH-LeaveTrack-v1.0 › Data Model (+ approved additions). */
 const EXPECTED_COLUMNS: Record<string, string[]> = {
   users: ["id", "name", "email", "role", "manager_id", "created_at", "auth_user_id"],
-  leave_types: ["id", "name", "tracks_balance"],
+  leave_types: ["id", "name", "tracks_balance", "max_backdate_days"], // max_backdate_days: TASK-027
   leave_policies: ["id", "user_id", "leave_type_id", "accrual_per_month"],
   leave_balances: ["id", "user_id", "leave_type_id", "balance", "updated_at"],
   leave_requests: [
@@ -108,8 +109,8 @@ const insertRequest = (overrides: Record<string, string | null>) => {
   const row: Record<string, string | null> = {
     user_id: ANA,
     leave_type_id: VACATION,
-    start_date: "2027-02-01",
-    end_date: "2027-02-02",
+    start_date: future("2027-02-01"),
+    end_date: future("2027-02-02"),
     reason: "test",
     status: "pending",
     decided_by: null,
@@ -295,7 +296,10 @@ describe("invariants enforced by the database", () => {
   });
 
   it("rejects an end date before the start date (US-01 AC2)", async () => {
-    const err = await insertRequest({ start_date: "2027-02-10", end_date: "2027-02-01" });
+    const err = await insertRequest({
+      start_date: future("2027-02-10"),
+      end_date: future("2027-02-01"),
+    });
     expect(err?.message).toMatch(/leave_requests_date_range/);
   });
 

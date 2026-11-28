@@ -182,6 +182,16 @@ Design: ADR-LeaveTrack-E003.
 - **Security:** `CRON_SECRET` is required; the Bearer check (constant-time) runs before any
   database access and fails closed if the secret is unset.
 
+### Request rules (TASK-027)
+
+- You can't request days that overlap one of your own pending or approved requests (any leave
+  type). Rejected and withdrawn requests don't count.
+- A request can be at most **90 days**.
+- Requests can't start in the past — except **Sick** leave, up to 30 days back. "Today" is the
+  UTC date; the date pickers hint the allowed window.
+- The database enforces all three (so two simultaneous submissions can't both get through); the
+  app shows a clear message. The seed loads historical rows through a seed-only setting.
+
 ### Approvals (TASK-026)
 
 - **Employees** are approved by their manager; **managers** by the HR Admin they report to; an
