@@ -90,7 +90,11 @@ export function NotificationList({ notifications, onMarkRead }: Props) {
                     className="inline-flex min-h-11 items-center rounded-sm underline underline-offset-4 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none md:min-h-0"
                     href={notificationHref(n)}
                   >
-                    {n.type === "request.decided" ? "Open my requests" : "Open approvals"}
+                    {n.type === "resolution.proposed"
+                      ? "Open my balance"
+                      : n.type === "request.decided"
+                        ? "Open my requests"
+                        : "Open approvals"}
                   </Link>
                 </div>
               </div>

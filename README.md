@@ -24,12 +24,12 @@ On the sign-in page, enter anything for email and password, then pick a person (
 local and test only; a deployed environment refuses it). Your session is a signed `lt-session`
 cookie; without `SESSION_SECRET` a random key is used, so restarting the dev server signs you out.
 
-| Person     | Role     | What you can see                                            |
-| ---------- | -------- | ----------------------------------------------------------- |
-| Ana Reyes  | Employee | Dashboard, new request, my requests, balance                |
-| Ben Ortiz  | Manager  | Everything above + approvals for Ana, Jordan, Priya         |
-| Maya Chen  | Manager  | Approvals for Sam, Lena, Diego only (scoping demo)          |
-| Carla Diaz | HR Admin | Everything an employee sees + audit report + leave policies |
+| Person     | Role     | What you can see                                                          |
+| ---------- | -------- | ------------------------------------------------------------------------- |
+| Ana Reyes  | Employee | Dashboard, new request, my requests, balance                              |
+| Ben Ortiz  | Manager  | Everything above + approvals for Ana, Jordan, Priya                       |
+| Maya Chen  | Manager  | Approvals for Sam, Lena, Diego only (scoping demo)                        |
+| Carla Diaz | HR Admin | Everything an employee sees + audit report + leave policies + resolutions |
 
 The session lasts 8 hours; sign out from the account menu (top right).
 
@@ -198,6 +198,16 @@ item, links and focus rings take your role's colour too; status colours never ch
   has no balance to restore. Leave that has started (today, UTC, or earlier) can't be cancelled.
 - The request shows as **Cancelled**, leaves your approver's queue, and your approver gets a
   notification. A cancelled request can't be reopened.
+
+### Negative-balance resolutions (TASK-032)
+
+- HR Admins only: **Resolutions** lists tracked balances below zero with no open proposal
+  (_Needs proposal_), plus _Awaiting employee_, _Declined – review_ and _History_.
+- **Propose** splits the deficit into days converted to Unpaid and days recovered from future
+  accruals (from next month, at most the monthly accrual rate). The two must add up to the
+  deficit, which is re-checked when you send. The employee is notified and has the configured
+  number of days (default 3) to respond. You can't propose for your own balance.
+- Accepting, declining, expiry and applying the plan arrive with TASK-033–036.
 
 ### Notifications (TASK-030)
 

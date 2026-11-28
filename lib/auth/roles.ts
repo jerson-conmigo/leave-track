@@ -10,6 +10,7 @@ export const ROUTE_ACCESS: readonly { prefix: string; roles: readonly Role[] }[]
   { prefix: "/approvals", roles: ["manager", "hr_admin"] },
   { prefix: "/audit", roles: ["hr_admin"] },
   { prefix: "/policies", roles: ["hr_admin"] },
+  { prefix: "/resolutions", roles: ["hr_admin"] }, // TASK-032
 ];
 
 /**

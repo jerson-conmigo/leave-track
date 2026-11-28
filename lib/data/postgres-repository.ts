@@ -1,4 +1,9 @@
 import { availableForRequest, buildBalanceSummaries } from "@/lib/data/balance";
+import {
+  monthlyDeduction,
+  RESOLUTION_GROUP_STATUSES,
+  type ResolutionView,
+} from "@/lib/resolutions/types";
 import type { Notification } from "@/lib/notifications/types";
 import { utcMonthBounds } from "@/lib/data/dates";
 import type { LeaveRepository } from "@/lib/data/repositories";
@@ -419,6 +424,88 @@ export function createPostgresRepository(sql: SqlClient): LeaveRepository {
         .sort(
           (a, b) => a.userName.localeCompare(b.userName) || a.leaveType.localeCompare(b.leaveType),
         );
+    },
+
+    // TASK-032 (AC1): the queue is filtered in SQL — tracked types, balance < 0, no open resolution.
+    async listResolutionQueue() {
+      const rows = await sql.query<{
+        user_id: string;
+        user_name: string;
+        leave_type_id: string;
+        type_name: LeaveTypeName;
+        balance: unknown;
+        accrual: unknown;
+      }>(
+        `select u.id user_id, u.name user_name, t.id leave_type_id, t.name type_name, b.balance,
+                coalesce(p.accrual_per_month, 0) accrual
+           from leave_balances b
+           join users u on u.id = b.user_id
+           join leave_types t on t.id = b.leave_type_id
+           left join leave_policies p on p.user_id = b.user_id and p.leave_type_id = b.leave_type_id
+          where t.tracks_balance and b.balance < 0
+            and not exists (select 1 from balance_resolutions r
+                             where r.user_id = b.user_id and r.leave_type_id = b.leave_type_id
+                               and r.status in ('proposed', 'declined'))
+          order by b.balance, u.name`,
+      );
+      return rows.map((r) => ({
+        userId: r.user_id,
+        userName: r.user_name,
+        leaveTypeId: r.leave_type_id,
+        leaveType: r.type_name,
+        balance: toNumber(r.balance),
+        deficit: -toNumber(r.balance),
+        accrualPerMonth: toNumber(r.accrual),
+      }));
+    },
+
+    async listResolutions(group) {
+      const rows = await sql.query<{
+        id: string;
+        user_id: string;
+        user_name: string;
+        type_name: LeaveTypeName;
+        status: ResolutionView["status"];
+        deficit: unknown;
+        unpaid: unknown;
+        recovery: unknown;
+        start: string | null;
+        months: number | null;
+        respond_by: unknown;
+        proposed_by_name: string;
+        proposed_at: unknown;
+      }>(
+        `select r.id, r.user_id, u.name user_name, t.name type_name, r.status,
+                r.deficit_at_proposal deficit, r.unpaid_days_proposed unpaid,
+                r.recovery_days_proposed recovery, r.recovery_start_period::text start,
+                r.recovery_months months, r.respond_by, p.name proposed_by_name, r.proposed_at
+           from balance_resolutions r
+           join users u on u.id = r.user_id
+           join leave_types t on t.id = r.leave_type_id
+           join users p on p.id = r.proposed_by
+          where r.status = any($1::text[])
+          order by r.proposed_at desc, r.id`,
+        [RESOLUTION_GROUP_STATUSES[group]],
+      );
+      return rows.map((r) => {
+        const recovery = toNumber(r.recovery);
+        return {
+          id: r.id,
+          userId: r.user_id,
+          userName: r.user_name,
+          leaveType: r.type_name,
+          status: r.status,
+          deficit: toNumber(r.deficit),
+          unpaidDays: toNumber(r.unpaid),
+          recoveryDays: recovery,
+          monthlyDeduction: recovery > 0 && r.months ? monthlyDeduction(recovery, r.months) : null,
+          recoveryStartPeriod: r.start,
+          recoveryMonths: r.months,
+          respondBy: toIso(r.respond_by),
+          proposedByName: r.proposed_by_name,
+          proposedAt: toIso(r.proposed_at),
+        };
+      });
     },
 
     // TASK-030: every statement is scoped to the recipient in SQL (AC3).

@@ -93,3 +93,33 @@ export async function writeRequestCancelled(
   );
   return rows.length;
 }
+
+/** TASK-032 — "HR proposed a resolution" → the employee. Runs on the caller's transaction. */
+export async function writeResolutionProposed(
+  tx: SqlClient,
+  resolutionId: string,
+): Promise<number> {
+  const rows = await tx.query<{ id: string }>(
+    `with n as (
+       insert into notifications (recipient_id, type, payload)
+       select r.user_id, 'resolution.proposed',
+              jsonb_build_object(
+                'resolutionId', r.id, 'leaveType', t.name,
+                'deficit', r.deficit_at_proposal, 'unpaidDays', r.unpaid_days_proposed,
+                'recoveryDays', r.recovery_days_proposed,
+                'monthlyDeduction', case when r.recovery_days_proposed > 0
+                  then round(r.recovery_days_proposed / r.recovery_months, 2) end,
+                'recoveryStartPeriod', r.recovery_start_period::text,
+                'recoveryMonths', r.recovery_months,
+                'respondBy', to_char(r.respond_by at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
+         from balance_resolutions r join leave_types t on t.id = r.leave_type_id
+        where r.id = $1
+       returning id, recipient_id, payload
+     )
+     insert into notification_outbox (notification_id, recipient_id, idempotency_key, payload)
+     select id, recipient_id, 'resolution.proposed:' || $1::text, payload from n
+     returning id`,
+    [resolutionId],
+  );
+  return rows.length;
+}

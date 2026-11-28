@@ -13,7 +13,9 @@ import {
   TeamQueueSchema,
   MarkReadResultSchema,
   CancelLeaveRequestResultSchema,
+  ProposeResolutionResultSchema,
 } from "@/lib/api/schemas";
+import { mockDb, resetMockDb } from "@/lib/data/mock/store";
 import { LEAVE_TYPE_IDS, USER_IDS } from "@/lib/data/mock/fixtures";
 import { future } from "../support/dates";
 import { OVERLAP_MESSAGE } from "@/lib/validation/leave-request";
@@ -34,6 +36,7 @@ const { GET: audit } = await import("@/app/api/audit/[userId]/route");
 const { GET: accrualCron, POST: accrualManual } = await import("@/app/api/jobs/accrual/route");
 const { POST: markRead } = await import("@/app/api/notifications/read/route");
 const { POST: cancelRoute } = await import("@/app/api/leave-requests/[id]/cancel/route");
+const { POST: proposeRoute } = await import("@/app/api/resolutions/route");
 
 const session = (userId: string, role: string, managerId: string | null = null) => ({
   userId,
@@ -242,6 +245,32 @@ describe("contract: TASK-028 POST /api/leave-requests/{id}/cancel", () => {
     );
     getSession.mockResolvedValue(null);
     await expectContract(await cancelReq(id), 401, ErrorEnvelopeSchema);
+  });
+});
+
+describe("contract: TASK-032 POST /api/resolutions", () => {
+  it("201 ProposeResolutionResult for HR; 400; 403 non-HR; 409 second; 401", async () => {
+    const sam = mockDb.leaveBalances.find(
+      (b) => b.userId === USER_IDS.sam && b.leaveTypeId === LEAVE_TYPE_IDS.Vacation,
+    )!;
+    sam.balance = -1.25;
+    const body = {
+      userId: USER_IDS.sam,
+      leaveTypeId: LEAVE_TYPE_IDS.Vacation,
+      unpaidDays: 1.25,
+      recoveryDays: 0,
+    };
+    const post = (b: unknown) =>
+      proposeRoute(json("http://localhost/api/resolutions", b), undefined);
+    getSession.mockResolvedValue(BEN);
+    await expectContract(await post(body), 403, ErrorEnvelopeSchema);
+    getSession.mockResolvedValue(CARLA);
+    await expectContract(await post({ ...body, unpaidDays: 1 }), 400, ErrorEnvelopeSchema);
+    await expectContract(await post(body), 201, ProposeResolutionResultSchema);
+    await expectContract(await post(body), 409, ErrorEnvelopeSchema);
+    getSession.mockResolvedValue(null);
+    await expectContract(await post(body), 401, ErrorEnvelopeSchema);
+    resetMockDb(); // the deficit and the resolution belong to this test only
   });
 });
 

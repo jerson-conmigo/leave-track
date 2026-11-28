@@ -11,6 +11,11 @@ import {
 } from "@/lib/data/types";
 import { toRequestView } from "@/lib/data/views";
 import { approverLabel, canDecide } from "@/lib/leave-requests/approver";
+import {
+  monthlyDeduction,
+  OPEN_RESOLUTION_STATUSES,
+  RESOLUTION_GROUP_STATUSES,
+} from "@/lib/resolutions/types";
 import { countDays } from "@/lib/format";
 
 // Same array instances as mockDb, so in-memory writes are visible to every read.
@@ -190,6 +195,59 @@ export const mockRepository: LeaveRepository = {
           })),
       })),
     };
+  },
+
+  // TASK-032: mirrors the SQL (tracked, balance < 0, no open resolution).
+  async listResolutionQueue() {
+    return mockDb.leaveBalances
+      .filter((b) => b.balance < 0 && typeOf(b.leaveTypeId).tracksBalance)
+      .filter(
+        (b) =>
+          !mockDb.balanceResolutions.some(
+            (r) =>
+              r.userId === b.userId &&
+              r.leaveTypeId === b.leaveTypeId &&
+              (OPEN_RESOLUTION_STATUSES as readonly string[]).includes(r.status),
+          ),
+      )
+      .map((b) => ({
+        userId: b.userId,
+        userName: userName(b.userId) ?? "Unknown",
+        leaveTypeId: b.leaveTypeId,
+        leaveType: typeOf(b.leaveTypeId).name,
+        balance: b.balance,
+        deficit: -b.balance,
+        accrualPerMonth:
+          mockDb.leavePolicies.find((p) => p.userId === b.userId && p.leaveTypeId === b.leaveTypeId)
+            ?.accrualPerMonth ?? 0,
+      }))
+      .sort((a, b) => a.balance - b.balance || a.userName.localeCompare(b.userName));
+  },
+
+  async listResolutions(group) {
+    const wanted = RESOLUTION_GROUP_STATUSES[group] as string[];
+    return mockDb.balanceResolutions
+      .filter((r) => wanted.includes(r.status))
+      .sort((a, b) => b.proposedAt.localeCompare(a.proposedAt) || a.id.localeCompare(b.id))
+      .map((r) => ({
+        id: r.id,
+        userId: r.userId,
+        userName: userName(r.userId) ?? "Unknown",
+        leaveType: typeOf(r.leaveTypeId).name,
+        status: r.status,
+        deficit: r.deficitAtProposal,
+        unpaidDays: r.unpaidDaysProposed,
+        recoveryDays: r.recoveryDaysProposed,
+        monthlyDeduction:
+          r.recoveryDaysProposed > 0 && r.recoveryMonths
+            ? monthlyDeduction(r.recoveryDaysProposed, r.recoveryMonths)
+            : null,
+        recoveryStartPeriod: r.recoveryStartPeriod,
+        recoveryMonths: r.recoveryMonths,
+        respondBy: r.respondBy,
+        proposedByName: userName(r.proposedBy) ?? "Unknown",
+        proposedAt: r.proposedAt,
+      }));
   },
 
   // TASK-030: only the recipient's own rows (mirrors WHERE recipient_id = $1).

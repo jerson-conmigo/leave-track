@@ -1,4 +1,5 @@
 import "server-only";
+import type { ResolutionGroup, ResolutionQueueRow, ResolutionView } from "@/lib/resolutions/types";
 import type { Notification } from "@/lib/notifications/types";
 import { getSql } from "@/lib/db/postgres";
 import { logger } from "@/lib/logger";
@@ -60,6 +61,10 @@ export interface LeaveRepository {
   listNotifications(recipientId: string, opts?: { limit?: number }): Promise<Notification[]>;
   /** TASK-030: how many of the user's own notifications are unread (the header bell). */
   countUnreadNotifications(recipientId: string): Promise<number>;
+  /** TASK-032 (HR only): tracked balances below 0 with no open resolution — "Needs proposal". */
+  listResolutionQueue(): Promise<ResolutionQueueRow[]>;
+  /** TASK-032 (HR only): resolutions by tab — awaiting (proposed), declined, history (closed). */
+  listResolutions(group: ResolutionGroup): Promise<ResolutionView[]>;
 }
 
 function selectRepository(): LeaveRepository {

@@ -202,7 +202,9 @@ describe.each<[string, () => Promise<Backend>]>([
   it("AC1: an HR Admin's request notifies EACH other HR Admin, never themselves", async () => {
     await b.addSecondHrAdmin();
     const { request } = await submit(carla);
-    expect((await inbox(HANA)).map((n) => n.payload.requestId)).toEqual([request.id]);
+    expect(
+      (await inbox(HANA)).map((n) => ("requestId" in n.payload ? n.payload.requestId : null)),
+    ).toEqual([request.id]);
     expect(await inbox(carla)).toEqual([]);
     expect(await inbox(ben)).toEqual([]);
   });

@@ -123,7 +123,11 @@ document's "Revision v1.1" section and `docs/dev-tasks/epic-2-hardening-and-reso
     unpaid + recovery days = the deficit; ONE open — proposed or declined — per user and type),
     `balance_recoveries` (one per resolution and month), append-only `balance_resolution_events`
     and `app_settings` (`resolution_response_days` 1–14, default 3). Status/action are text +
-    CHECK, not enums. Every new constraint is mapped in `toAppError` (test-pinned).
+    CHECK, not enums. Every new constraint is mapped in `toAppError` (test-pinned). Proposing (TASK-032,
+    `lib/resolutions/`): HR only and never their own balance; the store locks and RE-READS the
+    balance and checks unpaid + recovery = the current deficit and monthly recovery ≤ the accrual
+    rate (start ≥ next month, UTC) inside the transaction; `respond_by` comes from `app_settings`
+    in SQL, never from the client; resolution + event + notification are one transaction.
 
 ## Frontend standards
 

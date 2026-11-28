@@ -132,3 +132,34 @@ export function writeRequestCancelledMemory(
   }
   return recipients.length;
 }
+
+/** TASK-032 — "HR proposed a resolution" → the employee (mirrors the SQL writer). */
+export function writeResolutionProposedMemory(resolutionId: string, now: string): number {
+  const r = mockDb.balanceResolutions.find((x) => x.id === resolutionId)!;
+  const type = mockDb.leaveTypes.find((t) => t.id === r.leaveTypeId)!;
+  append(
+    {
+      id: crypto.randomUUID(),
+      recipientId: r.userId,
+      type: "resolution.proposed",
+      payload: {
+        resolutionId: r.id,
+        leaveType: type.name,
+        deficit: r.deficitAtProposal,
+        unpaidDays: r.unpaidDaysProposed,
+        recoveryDays: r.recoveryDaysProposed,
+        monthlyDeduction:
+          r.recoveryDaysProposed > 0 && r.recoveryMonths
+            ? Math.round((r.recoveryDaysProposed / r.recoveryMonths) * 100) / 100
+            : null,
+        recoveryStartPeriod: r.recoveryStartPeriod,
+        recoveryMonths: r.recoveryMonths,
+        respondBy: r.respondBy,
+      },
+      readAt: null,
+      createdAt: now,
+    },
+    `resolution.proposed:${r.id}`,
+  );
+  return 1;
+}

@@ -9,6 +9,7 @@ import {
 } from "@/lib/data/mock/fixtures";
 import type { LeaveBalance, LedgerEntry } from "@/lib/data/types";
 import type { Notification, OutboxEntry } from "@/lib/notifications/types";
+import type { MockResolution, MockResolutionEvent } from "@/lib/resolutions/types";
 
 /** TASK-029: one opening ledger row per fixture balance (as the migration and seed backfill). */
 function openingLedger(balances: readonly LeaveBalance[]): LedgerEntry[] {
@@ -40,6 +41,13 @@ function createMockDb() {
     // TASK-030: in-app notifications and their outbox rows (start empty).
     notifications: [] as Notification[],
     notificationOutbox: [] as OutboxEntry[],
+    // TASK-032: negative-balance resolutions (mirrors balance_resolutions / _events / app_settings).
+    balanceResolutions: [] as MockResolution[],
+    balanceResolutionEvents: [] as MockResolutionEvent[],
+    appSettings: [{ key: "resolution_response_days", value: 3 }] as {
+      key: string;
+      value: number;
+    }[],
     // users.auth_user_id links (TASK-024). Empty: the mock sign-in never uses them.
     authLinks: [] as { authUserId: string; userId: string }[],
   };

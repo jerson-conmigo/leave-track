@@ -1,4 +1,4 @@
-import { formatDateRange, formatDays } from "@/lib/format";
+import { formatDate, formatDateRange, formatDays } from "@/lib/format";
 import type { Notification } from "@/lib/notifications/types";
 
 /**
@@ -6,6 +6,16 @@ import type { Notification } from "@/lib/notifications/types";
  * escaped React text (payloads hold names and dates only).
  */
 export function notificationText(n: Notification): string {
+  if (n.type === "resolution.proposed") {
+    const r = n.payload;
+    const parts = [
+      r.unpaidDays > 0 ? `${formatDays(r.unpaidDays)} converted to Unpaid` : null,
+      r.recoveryDays > 0 && r.monthlyDeduction !== null
+        ? `${formatDays(r.recoveryDays)} recovered at ${formatDays(r.monthlyDeduction)} a month`
+        : null,
+    ].filter(Boolean);
+    return `HR proposed how to resolve your ${r.leaveType} deficit of ${formatDays(r.deficit)}: ${parts.join(" and ")}. Please respond by ${formatDate(r.respondBy)}.`;
+  }
   const p = n.payload;
   const when = formatDateRange(p.startDate, p.endDate);
   if (n.type === "request.submitted") {
@@ -26,6 +36,7 @@ export function notificationText(n: Notification): string {
 
 /** Where acting on it happens: approvers go to Approvals, requesters to My requests. */
 export function notificationHref(n: Notification): string {
+  if (n.type === "resolution.proposed") return "/balance"; // the response page comes with TASK-033
   return n.type === "request.decided" ? "/requests" : "/approvals";
 }
 

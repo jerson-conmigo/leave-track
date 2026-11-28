@@ -167,3 +167,30 @@ export const CancelLeaveRequestResultSchema = z.object({
   request: LeaveRequestViewSchema,
   restoredDays: z.number().nullable(),
 });
+
+/** POST /api/resolutions (TASK-032). Mirrors ResolutionView. */
+export const ResolutionViewSchema = z.object({
+  id: z.uuid(),
+  userId: z.uuid(),
+  userName: z.string(),
+  leaveType: z.enum(LEAVE_TYPE_NAMES),
+  status: z.enum([
+    "proposed",
+    "accepted",
+    "declined",
+    "expired",
+    "withdrawn",
+    "superseded",
+    "finalized",
+  ]),
+  deficit: z.number().describe("Days below zero when proposed"),
+  unpaidDays: z.number(),
+  recoveryDays: z.number(),
+  monthlyDeduction: z.number().nullable().describe("recoveryDays ÷ recoveryMonths, 2 decimals"),
+  recoveryStartPeriod: z.string().nullable().describe("First month of recovery (YYYY-MM-01)"),
+  recoveryMonths: z.number().int().nullable(),
+  respondBy: z.string().describe("The employee's deadline (ISO 8601), fixed at proposal"),
+  proposedByName: z.string(),
+  proposedAt: z.string(),
+});
+export const ProposeResolutionResultSchema = z.object({ resolution: ResolutionViewSchema });

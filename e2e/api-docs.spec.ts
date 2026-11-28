@@ -17,6 +17,7 @@ const OPERATIONS = [
   "POST /api/session/heartbeat", // TASK-025
   "POST /api/notifications/read", // TASK-030
   "POST /api/leave-requests/{id}/cancel", // TASK-028
+  "POST /api/resolutions", // TASK-032
 ];
 
 test("Swagger UI renders every operation under the unchanged CSP, with no errors", async ({

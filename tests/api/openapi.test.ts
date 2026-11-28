@@ -18,7 +18,9 @@ import {
   TeamRequestViewSchema,
   SessionTimingSchema,
   CancelLeaveRequestResultSchema,
+  ResolutionViewSchema,
 } from "@/lib/api/schemas";
+import type { ResolutionView } from "@/lib/resolutions/types";
 import type { SessionTiming } from "@/lib/auth/session";
 import type {
   CancelLeaveRequestResult,
@@ -128,6 +130,7 @@ describe("coverage: exactly the real routes", () => {
         "POST /api/session/heartbeat",
         "POST /api/notifications/read", // TASK-030
         "POST /api/leave-requests/{id}/cancel", // TASK-028
+        "POST /api/resolutions", // TASK-032
       ].sort(),
     );
   });
@@ -153,6 +156,7 @@ describe("security per operation, as the routes enforce it", () => {
     "post /api/session/heartbeat": [{ cookieAuth: [] }],
     "post /api/notifications/read": [{ cookieAuth: [] }], // TASK-030
     "post /api/leave-requests/{id}/cancel": [{ cookieAuth: [] }], // TASK-028
+    "post /api/resolutions": [{ cookieAuth: [] }], // TASK-032
   };
 
   it("each operation declares exactly its scheme (no global default to inherit)", () => {
@@ -294,6 +298,7 @@ describe("response schemas mirror the TypeScript types (compile-time drift guard
     expectTypeOf<Inferred<typeof CancelLeaveRequestResultSchema>>().toEqualTypeOf<
       Simplify<CancelLeaveRequestResult>
     >();
+    expectTypeOf<Inferred<typeof ResolutionViewSchema>>().toEqualTypeOf<Simplify<ResolutionView>>();
   });
 });
 

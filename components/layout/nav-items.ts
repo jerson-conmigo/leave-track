@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   ListChecks,
   type LucideIcon,
+  Scale,
   ScrollText,
   SlidersHorizontal,
   Wallet,
@@ -21,6 +22,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: "/approvals", label: "Approvals", icon: ClipboardCheck, group: "manage" },
   { href: "/audit", label: "Audit report", icon: ScrollText, group: "manage" },
   { href: "/policies", label: "Leave policies", icon: SlidersHorizontal, group: "manage" },
+  { href: "/resolutions", label: "Resolutions", icon: Scale, group: "manage" },
 ];
 
 /** Nav visibility derives from the same ROUTE_ACCESS matrix the proxy enforces. */

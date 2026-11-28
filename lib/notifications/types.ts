@@ -9,6 +9,7 @@ export const NOTIFICATION_TYPES = [
   "request.submitted",
   "request.decided",
   "request.cancelled",
+  "resolution.proposed",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -50,7 +51,21 @@ export type RequestCancelledPayload = {
 export type Notification =
   | NotificationBase<"request.submitted", RequestSubmittedPayload>
   | NotificationBase<"request.decided", RequestDecidedPayload>
-  | NotificationBase<"request.cancelled", RequestCancelledPayload>;
+  | NotificationBase<"request.cancelled", RequestCancelledPayload>
+  | NotificationBase<"resolution.proposed", ResolutionProposedPayload>;
+
+/** TASK-032 — to the employee: HR proposes how a negative balance is resolved. */
+export type ResolutionProposedPayload = {
+  resolutionId: string;
+  leaveType: LeaveTypeName;
+  deficit: number;
+  unpaidDays: number;
+  recoveryDays: number;
+  monthlyDeduction: number | null;
+  recoveryStartPeriod: string | null;
+  recoveryMonths: number | null;
+  respondBy: string;
+};
 
 type NotificationBase<T extends NotificationType, P> = {
   id: string;

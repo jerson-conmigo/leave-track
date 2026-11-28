@@ -16,10 +16,13 @@ import {
   SessionTimingSchema,
   MarkReadResultSchema,
   CancelLeaveRequestResultSchema,
+  ProposeResolutionResultSchema,
+  ResolutionViewSchema,
 } from "@/lib/api/schemas";
 import { MarkReadSchema } from "@/lib/notifications/read";
 import { AuditParamsSchema, AuditQuerySchema, ListQuerySchema } from "@/lib/validation/api";
 import { DecisionSchema, LeaveRequestSchema } from "@/lib/validation/leave-request";
+import { ProposeResolutionSchema } from "@/lib/resolutions/validation";
 import pkg from "../../package.json";
 
 /**
@@ -52,6 +55,8 @@ const COMPONENTS = {
   SessionTiming: SessionTimingSchema,
   MarkReadResult: MarkReadResultSchema,
   CancelLeaveRequestResult: CancelLeaveRequestResultSchema,
+  ResolutionView: ResolutionViewSchema,
+  ProposeResolutionResult: ProposeResolutionResultSchema,
 } as const;
 
 type ComponentName = keyof typeof COMPONENTS;
@@ -276,6 +281,32 @@ export function buildOpenApiDocument() {
             ...errors([400, 401, 403, 404, 409, 500], {
               403: "FORBIDDEN — only the requester can cancel a request.",
               409: "CONFLICT — the leave has started, the request was rejected, or it's already cancelled.",
+            }),
+          },
+        },
+      },
+      "/api/resolutions": {
+        post: {
+          tags: ["Resolutions"],
+          operationId: "proposeResolution",
+          summary: "Propose how a negative balance is resolved",
+          description:
+            "HR Admins only, never for their own balance. Unpaid + recovery days must equal the " +
+            "employee's CURRENT deficit (re-read in the transaction) on a leave type that tracks " +
+            "a balance; recovery starts next month at the earliest and the monthly deduction " +
+            "(recovery ÷ months) may not exceed the accrual rate. The resolution, its history " +
+            "event and the employee's notification are written in one transaction; the response " +
+            "deadline is fixed at proposal from the HR setting (default 3 days).",
+          security: COOKIE,
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: input(ProposeResolutionSchema) } },
+          },
+          responses: {
+            ...success(201, "Proposed.", ref("ProposeResolutionResult")),
+            ...errors([400, 401, 403, 404, 409, 500], {
+              403: "FORBIDDEN — not an HR Admin, or your own balance.",
+              409: "CONFLICT — an open resolution already exists, or the balance is no longer below zero.",
             }),
           },
         },
